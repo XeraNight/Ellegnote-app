@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>NSSupportsLiveActivities</key>
+	<true/>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>$(DEVELOPMENT_LANGUAGE)</string>
+	<key>CFBundleExecutable</key>
+	<string>$(EXECUTABLE_NAME)</string>
+	<key>CFBundleIdentifier</key>
+	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>$(PRODUCT_NAME)</string>
+	<key>CFBundlePackageType</key>
+	<string>$(PRODUCT_BUNDLE_PACKAGE_TYPE)</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.0</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLName</key>
+			<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>metaglasses</string>
+			</array>
+		</dict>
+	</array>
+	<key>CFBundleVersion</key>
+	<string>1</string>
+	<key>LSRequiresIPhoneOS</key>
+	<true/>
+	<key>MWDAT</key>
+	<dict>
+		<key>AppLinkURLScheme</key>
+		<string>metaglasses://</string>
+		<key>ClientToken</key>
+		<string>AR|1532094421982914|bf202e6e612da36357a4623f2d5fa108</string>
+		<key>DAMEnabled</key>
+		<true/>
+		<key>MetaAppID</key>
+		<string>1532094421982914</string>
+		<key>TeamID</key>
+		<string>$(DEVELOPMENT_TEAM)</string>
+	</dict>
+	<key>NSBluetoothAlwaysUsageDescription</key>
+	<string>Potrebné na vyhľadanie a pripojenie k okuliarom Ellegnote cez Bluetooth.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Potrebné na zobrazenie a streamovanie obrazu z okuliarov.</string>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>Potrebné na prenos dát a komunikáciu s okuliarmi cez Wi-Fi.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>Potrebné na turn-by-turn navigovanie do okuliarov na pozadí aj pri zamknutej obrazovke iPhonu.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Potrebné na vyhľadanie trasy a hands-free navigovanie relative k tvojej aktuálnej polohe.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Potrebné na streamovanie zvuku a ovládanie hlasom pomocou mikrofónu okuliarov.</string>
+		<key>NSSpeechRecognitionUsageDescription</key>
+		<string>Potrebné na rozpoznávanie aktivačného slova "Cayde" pre ovládanie okuliarov hlasom.</string>
+		<key>SUPABASE_ANON_KEY</key>
+		<string>$(SUPABASE_ANON_KEY)</string>
+		<key>SUPABASE_URL</key>
+		<string>$(SUPABASE_URL)</string>
+		<key>UIApplicationSceneManifest</key>
+	<dict>
+		<key>UIApplicationSupportsMultipleScenes</key>
+		<false/>
+	</dict>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>audio</string>
+		<string>bluetooth-peripheral</string>
+		<string>external-accessory</string>
+		<string>location</string>
+	</array>
+	<key>UILaunchScreen</key>
+	<dict/>
+	<key>UISupportedExternalAccessoryProtocols</key>
+	<array>
+		<string>com.meta.ar.wearable</string>
+	</array>
+	<key>UIRequiresFullScreen</key>
+	<true/>
+	<key>UISupportedInterfaceOrientations</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+		<string>UIInterfaceOrientationLandscapeLeft</string>
+		<string>UIInterfaceOrientationLandscapeRight</string>
+	</array>
+	<key>UISupportedInterfaceOrientations~ipad</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+		<string>UIInterfaceOrientationPortraitUpsideDown</string>
+		<string>UIInterfaceOrientationLandscapeLeft</string>
+		<string>UIInterfaceOrientationLandscapeRight</string>
+	</array>
+</dict>
+</plist>

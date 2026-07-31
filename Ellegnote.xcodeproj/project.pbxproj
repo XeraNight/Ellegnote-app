@@ -1,0 +1,876 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		376E76175D01963F05894D54 /* Supabase in Frameworks */ = {isa = PBXBuildFile; productRef = 89EB6A59E6230AE6B59BBCFD /* Supabase */; };
+		3B1C9429300D1EDA00DBA704 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 3B1C9428300D1EDA00DBA704 /* WidgetKit.framework */; };
+		3B1C942B300D1EDA00DBA704 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 3B1C942A300D1EDA00DBA704 /* SwiftUI.framework */; };
+		3B1C9438300D1EDC00DBA704 /* EllegnoteWigdetExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 3B1C9426300D1EDA00DBA704 /* EllegnoteWigdetExtension.appex */; platformFilter = ios; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		3B87636730095A6E00FE6FE1 /* (null) in Frameworks */ = {isa = PBXBuildFile; };
+		3B87636830095A6E00FE6FE1 /* Supabase in Frameworks */ = {isa = PBXBuildFile; productRef = 89EB6A59E6230AE6B59BBCFD /* Supabase */; };
+		3B87638C30097EFD00FE6FE1 /* MediaStorageManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B87638B30097EFD00FE6FE1 /* MediaStorageManager.swift */; };
+		3B87638E30097F0800FE6FE1 /* DatabaseRecoveryManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B87638D30097F0800FE6FE1 /* DatabaseRecoveryManager.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		3B1C9436300D1EDC00DBA704 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 3BD442232FF3134A00C5BCB4 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 3B1C9425300D1EDA00DBA704;
+			remoteInfo = EllegnoteWigdetExtension;
+		};
+		3BD4423B2FF3134E00C5BCB4 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 3BD442232FF3134A00C5BCB4 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 3BD4422A2FF3134A00C5BCB4;
+			remoteInfo = Ellegnote;
+		};
+		3BD442452FF3134E00C5BCB4 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 3BD442232FF3134A00C5BCB4 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 3BD4422A2FF3134A00C5BCB4;
+			remoteInfo = Ellegnote;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		3B1C943D300D1EDC00DBA704 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				3B1C9438300D1EDC00DBA704 /* EllegnoteWigdetExtension.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		3B1C9426300D1EDA00DBA704 /* EllegnoteWigdetExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = EllegnoteWigdetExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		3B1C9428300D1EDA00DBA704 /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
+		3B1C942A300D1EDA00DBA704 /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
+		3B87638B30097EFD00FE6FE1 /* MediaStorageManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaStorageManager.swift; sourceTree = "<group>"; };
+		3B87638D30097F0800FE6FE1 /* DatabaseRecoveryManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DatabaseRecoveryManager.swift; sourceTree = "<group>"; };
+		3BD4422B2FF3134A00C5BCB4 /* Ellegnote.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Ellegnote.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		3BD4423A2FF3134E00C5BCB4 /* EllegnoteTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = EllegnoteTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		3BD442442FF3134E00C5BCB4 /* EllegnoteUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = EllegnoteUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		3B1C943C300D1EDC00DBA704 /* Exceptions for "EllegnoteWigdet" folder in "EllegnoteWigdetExtension" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 3B1C9425300D1EDA00DBA704 /* EllegnoteWigdetExtension */;
+		};
+		3B9648082FF3225E00FCE5D3 /* Exceptions for "Ellegnote" folder in "Ellegnote" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 3BD4422A2FF3134A00C5BCB4 /* Ellegnote */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
+/* Begin PBXFileSystemSynchronizedRootGroup section */
+		3B1C942C300D1EDA00DBA704 /* EllegnoteWigdet */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				3B1C943C300D1EDC00DBA704 /* Exceptions for "EllegnoteWigdet" folder in "EllegnoteWigdetExtension" target */,
+			);
+			path = EllegnoteWigdet;
+			sourceTree = "<group>";
+		};
+		3BD4422D2FF3134A00C5BCB4 /* Ellegnote */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				3B9648082FF3225E00FCE5D3 /* Exceptions for "Ellegnote" folder in "Ellegnote" target */,
+			);
+			path = Ellegnote;
+			sourceTree = "<group>";
+		};
+		3BD4423D2FF3134E00C5BCB4 /* EllegnoteTests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = EllegnoteTests;
+			sourceTree = "<group>";
+		};
+		3BD442472FF3134E00C5BCB4 /* EllegnoteUITests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = EllegnoteUITests;
+			sourceTree = "<group>";
+		};
+/* End PBXFileSystemSynchronizedRootGroup section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		3B1C9423300D1EDA00DBA704 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				3B1C942B300D1EDA00DBA704 /* SwiftUI.framework in Frameworks */,
+				3B1C9429300D1EDA00DBA704 /* WidgetKit.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		3BD442282FF3134A00C5BCB4 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				376E76175D01963F05894D54 /* Supabase in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		3BD442372FF3134E00C5BCB4 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				3B87636830095A6E00FE6FE1 /* Supabase in Frameworks */,
+				3B87636730095A6E00FE6FE1 /* (null) in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		3BD442412FF3134E00C5BCB4 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		3B1C9427300D1EDA00DBA704 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				3B1C9428300D1EDA00DBA704 /* WidgetKit.framework */,
+				3B1C942A300D1EDA00DBA704 /* SwiftUI.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		3BD442222FF3134A00C5BCB4 = {
+			isa = PBXGroup;
+			children = (
+				3BD4422D2FF3134A00C5BCB4 /* Ellegnote */,
+				3BD4423D2FF3134E00C5BCB4 /* EllegnoteTests */,
+				3BD442472FF3134E00C5BCB4 /* EllegnoteUITests */,
+				3B1C942C300D1EDA00DBA704 /* EllegnoteWigdet */,
+				3B1C9427300D1EDA00DBA704 /* Frameworks */,
+				3BD4422C2FF3134A00C5BCB4 /* Products */,
+				3B87638B30097EFD00FE6FE1 /* MediaStorageManager.swift */,
+				3B87638D30097F0800FE6FE1 /* DatabaseRecoveryManager.swift */,
+			);
+			sourceTree = "<group>";
+		};
+		3BD4422C2FF3134A00C5BCB4 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				3BD4422B2FF3134A00C5BCB4 /* Ellegnote.app */,
+				3BD4423A2FF3134E00C5BCB4 /* EllegnoteTests.xctest */,
+				3BD442442FF3134E00C5BCB4 /* EllegnoteUITests.xctest */,
+				3B1C9426300D1EDA00DBA704 /* EllegnoteWigdetExtension.appex */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		3B1C9425300D1EDA00DBA704 /* EllegnoteWigdetExtension */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 3B1C9439300D1EDC00DBA704 /* Build configuration list for PBXNativeTarget "EllegnoteWigdetExtension" */;
+			buildPhases = (
+				3B1C9422300D1EDA00DBA704 /* Sources */,
+				3B1C9423300D1EDA00DBA704 /* Frameworks */,
+				3B1C9424300D1EDA00DBA704 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				3B1C942C300D1EDA00DBA704 /* EllegnoteWigdet */,
+			);
+			name = EllegnoteWigdetExtension;
+			packageProductDependencies = (
+			);
+			productName = EllegnoteWigdetExtension;
+			productReference = 3B1C9426300D1EDA00DBA704 /* EllegnoteWigdetExtension.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
+		3BD4422A2FF3134A00C5BCB4 /* Ellegnote */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 3BD4424E2FF3134E00C5BCB4 /* Build configuration list for PBXNativeTarget "Ellegnote" */;
+			buildPhases = (
+				3BD442272FF3134A00C5BCB4 /* Sources */,
+				3BD442282FF3134A00C5BCB4 /* Frameworks */,
+				3BD442292FF3134A00C5BCB4 /* Resources */,
+				3B1C943D300D1EDC00DBA704 /* Embed Foundation Extensions */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				3B1C9437300D1EDC00DBA704 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				3BD4422D2FF3134A00C5BCB4 /* Ellegnote */,
+			);
+			name = Ellegnote;
+			packageProductDependencies = (
+				89EB6A59E6230AE6B59BBCFD /* Supabase */,
+			);
+			productName = Ellegnote;
+			productReference = 3BD4422B2FF3134A00C5BCB4 /* Ellegnote.app */;
+			productType = "com.apple.product-type.application";
+		};
+		3BD442392FF3134E00C5BCB4 /* EllegnoteTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 3BD442512FF3134E00C5BCB4 /* Build configuration list for PBXNativeTarget "EllegnoteTests" */;
+			buildPhases = (
+				3BD442362FF3134E00C5BCB4 /* Sources */,
+				3BD442372FF3134E00C5BCB4 /* Frameworks */,
+				3BD442382FF3134E00C5BCB4 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				3BD4423C2FF3134E00C5BCB4 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				3BD4423D2FF3134E00C5BCB4 /* EllegnoteTests */,
+			);
+			name = EllegnoteTests;
+			packageProductDependencies = (
+				89EB6A59E6230AE6B59BBCFD /* Supabase */,
+			);
+			productName = EllegnoteTests;
+			productReference = 3BD4423A2FF3134E00C5BCB4 /* EllegnoteTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		3BD442432FF3134E00C5BCB4 /* EllegnoteUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 3BD442542FF3134E00C5BCB4 /* Build configuration list for PBXNativeTarget "EllegnoteUITests" */;
+			buildPhases = (
+				3BD442402FF3134E00C5BCB4 /* Sources */,
+				3BD442412FF3134E00C5BCB4 /* Frameworks */,
+				3BD442422FF3134E00C5BCB4 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				3BD442462FF3134E00C5BCB4 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				3BD442472FF3134E00C5BCB4 /* EllegnoteUITests */,
+			);
+			name = EllegnoteUITests;
+			packageProductDependencies = (
+			);
+			productName = EllegnoteUITests;
+			productReference = 3BD442442FF3134E00C5BCB4 /* EllegnoteUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		3BD442232FF3134A00C5BCB4 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 2640;
+				LastUpgradeCheck = 2640;
+				TargetAttributes = {
+					3B1C9425300D1EDA00DBA704 = {
+						CreatedOnToolsVersion = 26.4;
+					};
+					3BD4422A2FF3134A00C5BCB4 = {
+						CreatedOnToolsVersion = 26.4;
+					};
+					3BD442392FF3134E00C5BCB4 = {
+						CreatedOnToolsVersion = 26.4;
+						TestTargetID = 3BD4422A2FF3134A00C5BCB4;
+					};
+					3BD442432FF3134E00C5BCB4 = {
+						CreatedOnToolsVersion = 26.4;
+						TestTargetID = 3BD4422A2FF3134A00C5BCB4;
+					};
+				};
+			};
+			buildConfigurationList = 3BD442262FF3134A00C5BCB4 /* Build configuration list for PBXProject "Ellegnote" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = 3BD442222FF3134A00C5BCB4;
+			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				12F58D13E51F519401A98DC6 /* XCRemoteSwiftPackageReference "supabase-swift" */,
+			);
+			preferredProjectObjectVersion = 77;
+			productRefGroup = 3BD4422C2FF3134A00C5BCB4 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				3B1C9425300D1EDA00DBA704 /* EllegnoteWigdetExtension */,
+				3BD4422A2FF3134A00C5BCB4 /* Ellegnote */,
+				3BD442392FF3134E00C5BCB4 /* EllegnoteTests */,
+				3BD442432FF3134E00C5BCB4 /* EllegnoteUITests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		3B1C9424300D1EDA00DBA704 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		3BD442292FF3134A00C5BCB4 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		3BD442382FF3134E00C5BCB4 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		3BD442422FF3134E00C5BCB4 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		3B1C9422300D1EDA00DBA704 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		3BD442272FF3134A00C5BCB4 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				3B87638E30097F0800FE6FE1 /* DatabaseRecoveryManager.swift in Sources */,
+				3B87638C30097EFD00FE6FE1 /* MediaStorageManager.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		3BD442362FF3134E00C5BCB4 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		3BD442402FF3134E00C5BCB4 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		3B1C9437300D1EDC00DBA704 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 3B1C9425300D1EDA00DBA704 /* EllegnoteWigdetExtension */;
+			targetProxy = 3B1C9436300D1EDC00DBA704 /* PBXContainerItemProxy */;
+		};
+		3BD4423C2FF3134E00C5BCB4 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 3BD4422A2FF3134A00C5BCB4 /* Ellegnote */;
+			targetProxy = 3BD4423B2FF3134E00C5BCB4 /* PBXContainerItemProxy */;
+		};
+		3BD442462FF3134E00C5BCB4 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 3BD4422A2FF3134A00C5BCB4 /* Ellegnote */;
+			targetProxy = 3BD442452FF3134E00C5BCB4 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		3B1C943A300D1EDC00DBA704 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 2MD5BS4DLM;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = EllegnoteWigdet/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = EllegnoteWigdet;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.jakub.ellegnote.EllegnoteWigdet;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2,7";
+				XROS_DEPLOYMENT_TARGET = 26.4;
+			};
+			name = Debug;
+		};
+		3B1C943B300D1EDC00DBA704 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 2MD5BS4DLM;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = EllegnoteWigdet/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = EllegnoteWigdet;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.jakub.ellegnote.EllegnoteWigdet;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2,7";
+				VALIDATE_PRODUCT = YES;
+				XROS_DEPLOYMENT_TARGET = 26.4;
+			};
+			name = Release;
+		};
+		3BD4424C2FF3134E00C5BCB4 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = 2MD5BS4DLM;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		3BD4424D2FF3134E00C5BCB4 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = 2MD5BS4DLM;
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				SWIFT_COMPILATION_MODE = wholemodule;
+			};
+			name = Release;
+		};
+		3BD4424F2FF3134E00C5BCB4 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = Ellegnote/Ellegnote.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 2MD5BS4DLM;
+				ENABLE_APP_SANDBOX = YES;
+				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_PREVIEWS = YES;
+				ENABLE_USER_SELECTED_FILES = readonly;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Ellegnote/Info.plist;
+				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
+				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
+				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
+				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphonesimulator*]" = YES;
+				"INFOPLIST_KEY_UILaunchScreen_Generation[sdk=iphoneos*]" = YES;
+				"INFOPLIST_KEY_UILaunchScreen_Generation[sdk=iphonesimulator*]" = YES;
+				"INFOPLIST_KEY_UIStatusBarStyle[sdk=iphoneos*]" = UIStatusBarStyleDefault;
+				"INFOPLIST_KEY_UIStatusBarStyle[sdk=iphonesimulator*]" = UIStatusBarStyleDefault;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 26.4;
+				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
+				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
+				MACOSX_DEPLOYMENT_TARGET = 26.4;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.jakub.ellegnote;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				REGISTER_APP_GROUPS = YES;
+				SDKROOT = iphoneos;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
+				SUPPORTS_MACCATALYST = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2,7";
+				XROS_DEPLOYMENT_TARGET = 26.4;
+			};
+			name = Debug;
+		};
+		3BD442502FF3134E00C5BCB4 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = Ellegnote/Ellegnote.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 2MD5BS4DLM;
+				ENABLE_APP_SANDBOX = YES;
+				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_PREVIEWS = YES;
+				ENABLE_USER_SELECTED_FILES = readonly;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Ellegnote/Info.plist;
+				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
+				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
+				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
+				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphonesimulator*]" = YES;
+				"INFOPLIST_KEY_UILaunchScreen_Generation[sdk=iphoneos*]" = YES;
+				"INFOPLIST_KEY_UILaunchScreen_Generation[sdk=iphonesimulator*]" = YES;
+				"INFOPLIST_KEY_UIStatusBarStyle[sdk=iphoneos*]" = UIStatusBarStyleDefault;
+				"INFOPLIST_KEY_UIStatusBarStyle[sdk=iphonesimulator*]" = UIStatusBarStyleDefault;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 26.4;
+				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
+				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
+				MACOSX_DEPLOYMENT_TARGET = 26.4;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.jakub.ellegnote;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				REGISTER_APP_GROUPS = YES;
+				SDKROOT = iphoneos;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
+				SUPPORTS_MACCATALYST = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2,7";
+				XROS_DEPLOYMENT_TARGET = 26.4;
+			};
+			name = Release;
+		};
+		3BD442522FF3134E00C5BCB4 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 2MD5BS4DLM;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.4;
+				MACOSX_DEPLOYMENT_TARGET = 26.4;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.jakub.ellegnoteTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2,7";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Ellegnote.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Ellegnote";
+				XROS_DEPLOYMENT_TARGET = 26.4;
+			};
+			name = Debug;
+		};
+		3BD442532FF3134E00C5BCB4 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 2MD5BS4DLM;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.4;
+				MACOSX_DEPLOYMENT_TARGET = 26.4;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.jakub.ellegnoteTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2,7";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Ellegnote.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Ellegnote";
+				XROS_DEPLOYMENT_TARGET = 26.4;
+			};
+			name = Release;
+		};
+		3BD442552FF3134E00C5BCB4 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 2MD5BS4DLM;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.4;
+				MACOSX_DEPLOYMENT_TARGET = 26.4;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.jakub.ellegnoteUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2,7";
+				TEST_TARGET_NAME = Ellegnote;
+				XROS_DEPLOYMENT_TARGET = 26.4;
+			};
+			name = Debug;
+		};
+		3BD442562FF3134E00C5BCB4 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 2MD5BS4DLM;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.4;
+				MACOSX_DEPLOYMENT_TARGET = 26.4;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.jakub.ellegnoteUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2,7";
+				TEST_TARGET_NAME = Ellegnote;
+				XROS_DEPLOYMENT_TARGET = 26.4;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		3B1C9439300D1EDC00DBA704 /* Build configuration list for PBXNativeTarget "EllegnoteWigdetExtension" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				3B1C943A300D1EDC00DBA704 /* Debug */,
+				3B1C943B300D1EDC00DBA704 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		3BD442262FF3134A00C5BCB4 /* Build configuration list for PBXProject "Ellegnote" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				3BD4424C2FF3134E00C5BCB4 /* Debug */,
+				3BD4424D2FF3134E00C5BCB4 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		3BD4424E2FF3134E00C5BCB4 /* Build configuration list for PBXNativeTarget "Ellegnote" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				3BD4424F2FF3134E00C5BCB4 /* Debug */,
+				3BD442502FF3134E00C5BCB4 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		3BD442512FF3134E00C5BCB4 /* Build configuration list for PBXNativeTarget "EllegnoteTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				3BD442522FF3134E00C5BCB4 /* Debug */,
+				3BD442532FF3134E00C5BCB4 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		3BD442542FF3134E00C5BCB4 /* Build configuration list for PBXNativeTarget "EllegnoteUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				3BD442552FF3134E00C5BCB4 /* Debug */,
+				3BD442562FF3134E00C5BCB4 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		12F58D13E51F519401A98DC6 /* XCRemoteSwiftPackageReference "supabase-swift" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/supabase/supabase-swift";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.21.1;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		89EB6A59E6230AE6B59BBCFD /* Supabase */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 12F58D13E51F519401A98DC6 /* XCRemoteSwiftPackageReference "supabase-swift" */;
+			productName = Supabase;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = 3BD442232FF3134A00C5BCB4 /* Project object */;
+}
