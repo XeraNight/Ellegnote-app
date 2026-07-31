@@ -179,6 +179,9 @@ struct ProfileView: View {
         }
     }
 
+    @StateObject private var authManager = AuthManager.shared
+    @State private var showAuthSheet = false
+
     var body: some View {
 
         NavigationStack {
@@ -187,6 +190,62 @@ struct ProfileView: View {
                 
                 ScrollView {
                     VStack(spacing: 24) {
+                        // MARK: - Supabase Multi-User Auth Card
+                        VStack(spacing: 12) {
+                            HStack {
+                                Image(systemName: "person.badge.key.fill")
+                                    .foregroundColor(.themeAccent)
+                                Text("TANEČNÝ ÚČET A REALTIME SYNC")
+                                    .font(.system(size: 11, weight: .black))
+                                    .foregroundColor(.themeDark.opacity(0.6))
+                                Spacer()
+                            }
+                            
+                            HStack {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    if authManager.isAuthenticated {
+                                        Text(authManager.userEmail.isEmpty ? "Prihlásený používateľ" : authManager.userEmail)
+                                            .font(.system(size: 15, weight: .bold, design: .serif))
+                                            .foregroundColor(.themeDark)
+                                        Text("Synchrónne úpravy aktívne")
+                                            .font(.system(size: 11, weight: .bold))
+                                            .foregroundColor(.latinGreen)
+                                    } else {
+                                        Text("Používaš lokálny režim")
+                                            .font(.system(size: 15, weight: .bold, design: .serif))
+                                            .foregroundColor(.themeDark)
+                                        Text("Prihlás sa pre synchronizáciu s partnerom")
+                                            .font(.system(size: 11, weight: .medium))
+                                            .foregroundColor(.themeDark.opacity(0.6))
+                                    }
+                                }
+                                
+                                Spacer()
+                                
+                                Button(action: {
+                                    if authManager.isAuthenticated {
+                                        Task { await authManager.signOut() }
+                                    } else {
+                                        showAuthSheet = true
+                                    }
+                                }) {
+                                    Text(authManager.isAuthenticated ? "Odhlásiť" : "Prihlásiť ➔")
+                                        .font(.system(size: 12, weight: .bold))
+                                        .foregroundColor(authManager.isAuthenticated ? .latinRed : .white)
+                                        .padding(.horizontal, 14)
+                                        .padding(.vertical, 8)
+                                        .background(authManager.isAuthenticated ? Color.latinRed.opacity(0.12) : Color.themeAccent)
+                                        .cornerRadius(12)
+                                }
+                            }
+                        }
+                        .padding(16)
+                        .background(Color.themeCard)
+                        .neubrutalistCard(cornerRadius: 18, shadowOffset: 3)
+                        .sheet(isPresented: $showAuthSheet) {
+                            AuthSheetView()
+                        }
+                        
                         ProfileHeaderView(
                             name: profileName,
                             club: profileClub,
