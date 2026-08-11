@@ -60,3 +60,5 @@ fastlane/test_output
 # ── Antigravity IDE scratch ─────────────────────────────────
 .antigravityignore
 .agents/
+.vercel
+.env*
