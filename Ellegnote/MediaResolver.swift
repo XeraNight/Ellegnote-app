@@ -2,6 +2,14 @@ import Foundation
 import UIKit
 
 struct MediaResolver {
+    private static let downloadLock = NSLock()
+    private static var activeDownloads = Set<URL>()
+    private static let imageCache: NSCache<NSString, UIImage> = {
+        let cache = NSCache<NSString, UIImage>()
+        cache.countLimit = 120
+        cache.totalCostLimit = 60 * 1024 * 1024
+        return cache
+    }()
     
     /// Vráti cestu k lokálnemu adresáru dokumentov aplikácie
     static func getDocumentsDirectory() -> URL {
@@ -26,9 +34,16 @@ struct MediaResolver {
     
     /// Pokúsi sa získať obrázok z lokálneho disku. Ak chýba, asynchrónne ho stiahne pre budúce zobrazenia.
     static func resolveImage(path: String) -> UIImage? {
+        let cacheKey = path as NSString
+        if let cached = imageCache.object(forKey: cacheKey) {
+            return cached
+        }
+        
         let localURL = MediaStorageManager.url(for: path)
         if let uiImage = UIImage(contentsOfFile: localURL.path) {
-            return uiImage
+            let prepared = uiImage.preparingForEllegnotePreview()
+            imageCache.setObject(prepared, forKey: cacheKey, cost: prepared.ellegnoteMemoryCost)
+            return prepared
         }
         
         // Ak neexistuje lokálne, spustíme sťahovanie z online úložiska
@@ -52,7 +67,11 @@ struct MediaResolver {
     
     /// Stiahne súbor z online úložiska na pozadí a uloží ho do lokálnej pamäte zariadenia
     private static func downloadFileToCache(from url: URL, destination: URL) {
+        guard markDownloadStarted(for: destination) else { return }
+        
         URLSession.shared.downloadTask(with: url) { tempLocalURL, response, error in
+            defer { markDownloadFinished(for: destination) }
+            
             guard let tempURL = tempLocalURL, error == nil else {
                 print("Failed to download media file: \(String(describing: error))")
                 return
@@ -72,5 +91,50 @@ struct MediaResolver {
                 print("Failed to save downloaded file to local cache: \(error)")
             }
         }.resume()
+    }
+    
+    private static func markDownloadStarted(for destination: URL) -> Bool {
+        downloadLock.lock()
+        defer { downloadLock.unlock() }
+        
+        guard !activeDownloads.contains(destination) else { return false }
+        activeDownloads.insert(destination)
+        return true
+    }
+    
+    private static func markDownloadFinished(for destination: URL) {
+        downloadLock.lock()
+        activeDownloads.remove(destination)
+        downloadLock.unlock()
+    }
+}
+
+private extension UIImage {
+    var ellegnoteMemoryCost: Int {
+        guard let cgImage else { return 1 }
+        return cgImage.bytesPerRow * cgImage.height
+    }
+    
+    func preparingForEllegnotePreview(maxPixel: CGFloat = 1400) -> UIImage {
+        let longestSide = max(size.width, size.height)
+        guard longestSide > maxPixel else {
+            return preparingForDisplay() ?? self
+        }
+        
+        let scaleRatio = maxPixel / longestSide
+        let targetSize = CGSize(
+            width: max(1, floor(size.width * scaleRatio)),
+            height: max(1, floor(size.height * scaleRatio))
+        )
+        
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 1
+        format.opaque = false
+        
+        let renderer = UIGraphicsImageRenderer(size: targetSize, format: format)
+        let resized = renderer.image { _ in
+            draw(in: CGRect(origin: .zero, size: targetSize))
+        }
+        return resized.preparingForDisplay() ?? resized
     }
 }

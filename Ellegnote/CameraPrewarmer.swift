@@ -2,71 +2,40 @@ import Foundation
 import AVFoundation
 import UIKit
 
-// MARK: - Zero-Lag Camera Pre-Warming Engine
+// MARK: - Lightweight Camera Permission Preparation
 final class CameraPrewarmer: NSObject, @unchecked Sendable {
     static let shared = CameraPrewarmer()
     
-    private(set) var captureSession: AVCaptureSession?
-    private(set) var movieOutput: AVCaptureMovieFileOutput?
-    private(set) var activeInput: AVCaptureDeviceInput?
     private(set) var isPrewarmed = false
-    
-    private let prewarmQueue = DispatchQueue(label: "com.ellegnote.cameraprewarm", qos: .userInitiated)
+    private let prewarmQueue = DispatchQueue(label: "com.ellegnote.cameraprewarm", qos: .utility)
     
     private override init() {
         super.init()
     }
     
-    /// Pre-warms camera HW session on background queue during 2-second launch splash
+    /// Requests camera/microphone permissions without starting a shared capture session.
     func prewarm() {
         guard !isPrewarmed else { return }
         
         prewarmQueue.async { [weak self] in
             guard let self = self else { return }
             
-            let session = AVCaptureSession()
-            session.sessionPreset = .high
-            
-            // 1. Rear Camera Video Input
-            if let videoDevice = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .back),
-               let videoInput = try? AVCaptureDeviceInput(device: videoDevice),
-               session.canAddInput(videoInput) {
-                session.addInput(videoInput)
-                self.activeInput = videoInput
+            let group = DispatchGroup()
+            if AVCaptureDevice.authorizationStatus(for: .video) == .notDetermined {
+                group.enter()
+                AVCaptureDevice.requestAccess(for: .video) { _ in group.leave() }
             }
-            
-            // 2. Microphone Audio Input
-            if let audioDevice = AVCaptureDevice.default(for: .audio),
-               let audioInput = try? AVCaptureDeviceInput(device: audioDevice),
-               session.canAddInput(audioInput) {
-                session.addInput(audioInput)
+            if AVCaptureDevice.authorizationStatus(for: .audio) == .notDetermined {
+                group.enter()
+                AVCaptureDevice.requestAccess(for: .audio) { _ in group.leave() }
             }
-            
-            // 3. Movie File Output
-            let output = AVCaptureMovieFileOutput()
-            if session.canAddOutput(output) {
-                session.addOutput(output)
-                self.movieOutput = output
-            }
-            
-            // 4. Start session running in background
-            session.startRunning()
-            
-            self.captureSession = session
+            group.wait()
             self.isPrewarmed = true
         }
     }
     
-    /// Ensures camera session is active and running when camera view is presented
+    /// Kept for older call sites. Actual sessions are owned by each camera screen.
     func ensureSessionRunning() {
-        guard let session = captureSession else {
-            prewarm()
-            return
-        }
-        if !session.isRunning {
-            prewarmQueue.async {
-                session.startRunning()
-            }
-        }
+        prewarm()
     }
 }

@@ -2,6 +2,7 @@ import Foundation
 import SwiftUI
 import SwiftData
 import UIKit
+import PhotosUI
 
 struct ProfileView: View {
     @Environment(\.modelContext) private var modelContext
@@ -12,6 +13,7 @@ struct ProfileView: View {
     
     @AppStorage("profileName") private var profileName = "Jakub"
     @AppStorage("profileClub") private var profileClub = "ELEGANCE KOŠICE"
+    @AppStorage("profileImagePath") private var profileImagePath = ""
     @AppStorage("defaultDictationLanguage") private var defaultLanguage = "sk-SK"
     @AppStorage("defaultPlaybackRate") private var defaultPlaybackRate = 1.0
     
@@ -20,41 +22,57 @@ struct ProfileView: View {
     @State private var pendingMaintenanceAction: MaintenanceAction?
     @State private var editedName = ""
     @State private var editedClub = ""
+    @State private var selectedProfilePhotoItem: PhotosPickerItem?
+    @State private var isSavingProfilePhoto = false
     // FIX: storage loaded async to avoid file I/O on main thread
     @State private var storageUsageBytes: Int64 = 0
     @State private var storageLoading = true
-    
+
+    // Cached stats — only recalculated when @Query data changes (not every render)
+    @State private var cachedStats: (videos: Int, notes: Int, customFigures: Int, standard: Int, latin: Int) = (0, 0, 0, 0, 0)
+
+    private func computeStats() -> (videos: Int, notes: Int, customFigures: Int, standard: Int, latin: Int) {
+        var videos = 0, notes = 0, custom = 0, standard = 0, latin = 0
+        for node in nodes {
+            if node.videoPath != nil { videos += 1 }
+            if !node.notes.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { notes += 1 }
+        }
+        for figure in figures {
+            if figure.videoPath != nil { videos += 1 }
+            if !figure.techniqueNotes.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { notes += 1 }
+            if figure.isCustom { custom += 1 }
+        }
+        for dance in dances {
+            if dance.videoPath != nil { videos += 1 }
+            if !dance.info.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { notes += 1 }
+        }
+        for routine in routines {
+            switch routine.danceCategory.lowercased() {
+            case "standard": standard += 1
+            case "latin":    latin += 1
+            default: break
+            }
+        }
+        return (videos, notes, custom, standard, latin)
+    }
+
     private var recentRoutines: [Routine] {
         routines.sorted { $0.updatedAt > $1.updatedAt }
     }
-    
-    // FIX: merged into a single computed pass instead of 3 separate filters
-    private var mediaCounts: (videos: Int, notes: Int) {
-        let nodeVideos   = nodes.filter { $0.videoPath != nil }.count
-        let nodeNotes    = nodes.filter { !$0.notes.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }.count
-        let figureVideos = figures.filter { $0.videoPath != nil }.count
-        let figureNotes  = figures.filter { !$0.techniqueNotes.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }.count
-        let danceVideos  = dances.filter { $0.videoPath != nil }.count
-        let danceNotes   = dances.filter { !$0.info.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }.count
-        return (nodeVideos + figureVideos + danceVideos, nodeNotes + figureNotes + danceNotes)
-    }
-    
-    private var videoCount: Int { mediaCounts.videos }
-    private var notesCount: Int { mediaCounts.notes }
-    
-    private var customFiguresCount: Int {
-        figures.filter(\.isCustom).count
-    }
-    
+
+    private var profileStats: (videos: Int, notes: Int, customFigures: Int, standard: Int, latin: Int) { cachedStats }
+
+    private var videoCount:         Int    { cachedStats.videos }
+    private var notesCount:         Int    { cachedStats.notes }
+    private var customFiguresCount: Int    { cachedStats.customFigures }
+    private var standardCount:      Int    { cachedStats.standard }
+    private var latinCount:         Int    { cachedStats.latin }
+
     private var mostUsedDanceName: String {
-        let grouped = Dictionary(grouping: routines, by: { $0.danceName })
-        return grouped.max { $0.value.count < $1.value.count }?.key ?? "Zatiaľ nič"
+        Dictionary(grouping: routines, by: \.danceName)
+            .max { $0.value.count < $1.value.count }?.key ?? "Zatiaľ nič"
     }
-    
-    // ENHANCEMENT: split Standard vs Latin count for richer stats
-    private var standardCount: Int { routines.filter { $0.danceCategory.lowercased() == "standard" }.count }
-    private var latinCount: Int    { routines.filter { $0.danceCategory.lowercased() == "latin" }.count }
-    
+
     private var storageUsageText: String {
         storageLoading ? "…" : ByteCountFormatter.string(fromByteCount: storageUsageBytes, countStyle: .file)
     }
@@ -182,6 +200,62 @@ struct ProfileView: View {
     @StateObject private var authManager = AuthManager.shared
     @State private var showAuthSheet = false
 
+    @ViewBuilder private var authCardSection: some View {
+        VStack(spacing: 12) {
+            HStack {
+                Image(systemName: "person.badge.key.fill")
+                    .foregroundColor(.themeAccent)
+                Text("TANEČNÝ ÚČET A REALTIME SYNC")
+                    .font(.system(size: 11, weight: .black))
+                    .foregroundColor(.themeDark.opacity(0.6))
+                Spacer()
+            }
+            
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    let emailText = authManager.userEmail.isEmpty ? "Prihlásený používateľ" : authManager.userEmail
+                    if authManager.isAuthenticated {
+                        Text(emailText)
+                            .font(.system(size: 15, weight: .bold, design: .serif))
+                            .foregroundColor(.themeDark)
+                        Text("Synchrónne úpravy aktívne")
+                            .font(.system(size: 11, weight: .bold))
+                            .foregroundColor(.green)
+                    } else {
+                        Text("Používaš lokálny režim")
+                            .font(.system(size: 15, weight: .bold, design: .serif))
+                            .foregroundColor(.themeDark)
+                        Text("Prihlás sa pre synchronizáciu s partnerom")
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundColor(.themeDark.opacity(0.6))
+                    }
+                }
+                
+                Spacer()
+                
+                Button(action: {
+                    if authManager.isAuthenticated {
+                        Task { await authManager.signOut() }
+                    } else {
+                        showAuthSheet = true
+                    }
+                }) {
+                    let btnText = authManager.isAuthenticated ? "Odhlásiť" : "Prihlásiť ➔"
+                    Text(btnText)
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundColor(authManager.isAuthenticated ? .latinRed : .white)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 8)
+                        .background(authManager.isAuthenticated ? Color.latinRed.opacity(0.12) : Color.themeAccent)
+                        .cornerRadius(12)
+                }
+            }
+        }
+        .padding(16)
+        .background(Color.themeCard)
+        .neubrutalistCard(cornerRadius: 18, shadowOffset: 3)
+    }
+
     var body: some View {
 
         NavigationStack {
@@ -190,65 +264,15 @@ struct ProfileView: View {
                 
                 ScrollView {
                     VStack(spacing: 24) {
-                        // MARK: - Supabase Multi-User Auth Card
-                        VStack(spacing: 12) {
-                            HStack {
-                                Image(systemName: "person.badge.key.fill")
-                                    .foregroundColor(.themeAccent)
-                                Text("TANEČNÝ ÚČET A REALTIME SYNC")
-                                    .font(.system(size: 11, weight: .black))
-                                    .foregroundColor(.themeDark.opacity(0.6))
-                                Spacer()
+                        authCardSection
+                            .sheet(isPresented: $showAuthSheet) {
+                                AuthSheetView()
                             }
-                            
-                            HStack {
-                                VStack(alignment: .leading, spacing: 4) {
-                                    if authManager.isAuthenticated {
-                                        Text(authManager.userEmail.isEmpty ? "Prihlásený používateľ" : authManager.userEmail)
-                                            .font(.system(size: 15, weight: .bold, design: .serif))
-                                            .foregroundColor(.themeDark)
-                                        Text("Synchrónne úpravy aktívne")
-                                            .font(.system(size: 11, weight: .bold))
-                                            .foregroundColor(.latinGreen)
-                                    } else {
-                                        Text("Používaš lokálny režim")
-                                            .font(.system(size: 15, weight: .bold, design: .serif))
-                                            .foregroundColor(.themeDark)
-                                        Text("Prihlás sa pre synchronizáciu s partnerom")
-                                            .font(.system(size: 11, weight: .medium))
-                                            .foregroundColor(.themeDark.opacity(0.6))
-                                    }
-                                }
-                                
-                                Spacer()
-                                
-                                Button(action: {
-                                    if authManager.isAuthenticated {
-                                        Task { await authManager.signOut() }
-                                    } else {
-                                        showAuthSheet = true
-                                    }
-                                }) {
-                                    Text(authManager.isAuthenticated ? "Odhlásiť" : "Prihlásiť ➔")
-                                        .font(.system(size: 12, weight: .bold))
-                                        .foregroundColor(authManager.isAuthenticated ? .latinRed : .white)
-                                        .padding(.horizontal, 14)
-                                        .padding(.vertical, 8)
-                                        .background(authManager.isAuthenticated ? Color.latinRed.opacity(0.12) : Color.themeAccent)
-                                        .cornerRadius(12)
-                                }
-                            }
-                        }
-                        .padding(16)
-                        .background(Color.themeCard)
-                        .neubrutalistCard(cornerRadius: 18, shadowOffset: 3)
-                        .sheet(isPresented: $showAuthSheet) {
-                            AuthSheetView()
-                        }
                         
                         ProfileHeaderView(
                             name: profileName,
                             club: profileClub,
+                            imagePath: profileImagePath.isEmpty ? nil : profileImagePath,
                             routineCount: routines.count,
                             customFiguresCount: customFiguresCount
                         ) {
@@ -270,30 +294,50 @@ struct ProfileView: View {
                     }
                     .padding(.horizontal, 24)
                     .padding(.top, 16)
+                    .padding(.bottom, 90)  // clear space above liquid glass dock
                 }
             }
             .navigationTitle("Môj Profil")
             .navigationBarTitleDisplayMode(.inline)
-            // FIX: load file sizes off the main thread
-            .task {
-                let paths = nodes.compactMap(\.videoPath)
-                    + figures.compactMap(\.videoPath)
-                    + figures.compactMap(\.imagePath)
-                    + dances.compactMap(\.videoPath)
-                    + dances.compactMap(\.imagePath)
-                
-                let bytes = await Task.detached(priority: .background) {
-                    self.calculateStorageUsage(for: paths)
-                }.value
-                storageUsageBytes = bytes
-                storageLoading = false
-            }
+            // Compute stats once on appear, then only when data changes
+            .onAppear { cachedStats = computeStats() }
+            .onChange(of: nodes.count)    { cachedStats = computeStats() }
+            .onChange(of: figures.count)  { cachedStats = computeStats() }
+            .onChange(of: dances.count)   { cachedStats = computeStats() }
+            .onChange(of: routines.count) { cachedStats = computeStats() }
+            // Load file sizes off the main thread
+            .task { refreshStorageUsage() }
             .sheet(isPresented: $showEditProfile) {
                 NavigationStack {
                     ZStack {
                         Color.themeBg.ignoresSafeArea()
                         
                         VStack(spacing: 18) {
+                            VStack(spacing: 12) {
+                                ProfileAvatarView(
+                                    name: editedName.isEmpty ? profileName : editedName,
+                                    imagePath: profileImagePath.isEmpty ? nil : profileImagePath,
+                                    size: 104
+                                )
+                                
+                                PhotosPicker(selection: $selectedProfilePhotoItem, matching: .images) {
+                                    Label(isSavingProfilePhoto ? "Ukladám..." : "Zmeniť fotku", systemImage: "photo")
+                                        .font(.system(size: 13, weight: .bold))
+                                        .foregroundColor(.themeDark)
+                                }
+                                .disabled(isSavingProfilePhoto)
+                                
+                                if !profileImagePath.isEmpty {
+                                    Button(role: .destructive) {
+                                        removeProfilePhoto()
+                                    } label: {
+                                        Label("Odstrániť fotku", systemImage: "trash")
+                                            .font(.system(size: 12, weight: .bold))
+                                    }
+                                    .foregroundColor(.latinRed)
+                                }
+                            }
+                            
                             VStack(alignment: .leading, spacing: 8) {
                                 Text("Meno")
                                     .font(.system(size: 13, weight: .bold))
@@ -335,6 +379,10 @@ struct ProfileView: View {
                                 .foregroundColor(.themeAccent)
                         }
                     }
+                    .onChange(of: selectedProfilePhotoItem) { _, newItem in
+                        guard let newItem else { return }
+                        saveProfilePhoto(from: newItem)
+                    }
                 }
             }
             .confirmationDialog("Naozaj obnoviť knižnicu?", isPresented: $showResetConfirmation, titleVisibility: .visible) {
@@ -371,6 +419,37 @@ struct ProfileView: View {
         showEditProfile = false
     }
     
+    private func saveProfilePhoto(from item: PhotosPickerItem) {
+        isSavingProfilePhoto = true
+        Task {
+            defer {
+                selectedProfilePhotoItem = nil
+                isSavingProfilePhoto = false
+            }
+            
+            guard let data = try? await item.loadTransferable(type: Data.self) else { return }
+            let oldPath = profileImagePath.isEmpty ? nil : profileImagePath
+            
+            do {
+                let filename = try await Task.detached(priority: .userInitiated) {
+                    try MediaStorageManager.store(data: data, prefix: "profile", fileExtension: "jpg")
+                }.value
+                
+                profileImagePath = filename
+                MediaStorageManager.removeFile(named: oldPath)
+                refreshStorageUsage()
+            } catch {
+                print("Failed to save profile photo: \(error)")
+            }
+        }
+    }
+    
+    private func removeProfilePhoto() {
+        MediaStorageManager.removeFile(named: profileImagePath.isEmpty ? nil : profileImagePath)
+        profileImagePath = ""
+        refreshStorageUsage()
+    }
+    
     private func resetFiguresDatabase() {
         let descriptor = FetchDescriptor<FigureLibraryItem>(predicate: #Predicate { !$0.isCustom })
         if let standardFigures = try? modelContext.fetch(descriptor) {
@@ -393,16 +472,31 @@ struct ProfileView: View {
         case .clearNotes:  clearAllNotes()
         }
         pendingMaintenanceAction = nil
-        let paths = nodes.compactMap(\.videoPath)
+        refreshStorageUsage()
+    }
+    
+    private func refreshStorageUsage() {
+        let paths = mediaStoragePaths
+        storageLoading = true
+        Task.detached(priority: .background) {
+            let bytes = self.calculateStorageUsage(for: paths)
+            await MainActor.run {
+                self.storageUsageBytes = bytes
+                self.storageLoading = false
+            }
+        }
+    }
+    
+    private var mediaStoragePaths: [String] {
+        var paths = nodes.compactMap(\.videoPath)
             + figures.compactMap(\.videoPath)
             + figures.compactMap(\.imagePath)
             + dances.compactMap(\.videoPath)
             + dances.compactMap(\.imagePath)
-        
-        Task.detached(priority: .background) {
-            let bytes = self.calculateStorageUsage(for: paths)
-            await MainActor.run { self.storageUsageBytes = bytes }
+        if !profileImagePath.isEmpty {
+            paths.append(profileImagePath)
         }
+        return paths
     }
     
     private func clearAllVideos() {
@@ -442,6 +536,7 @@ struct ProfileView: View {
     }
     
     private func removeMediaFile(at path: String?) {
+        guard let path else { return }
         MediaStorageManager.removeFile(named: path)
     }
     
@@ -765,25 +860,14 @@ private struct ProfileMediaRow: View {
 private struct ProfileHeaderView: View {
     let name: String
     let club: String
+    let imagePath: String?
     let routineCount: Int
     let customFiguresCount: Int
     let onEdit: () -> Void
     
-    private var initials: String {
-        let letters = name.split(separator: " ").prefix(2).compactMap(\.first)
-        return letters.isEmpty ? "?" : String(letters).uppercased()
-    }
-    
     var body: some View {
         VStack(spacing: 14) {
-            ZStack {
-                Circle()
-                    .fill(Color.themeAccent.opacity(0.15))
-                    .frame(width: 82, height: 82)
-                Text(initials)
-                    .font(.system(size: 32, weight: .black, design: .serif))
-                    .foregroundColor(.themeAccent)
-            }
+            ProfileAvatarView(name: name, imagePath: imagePath, size: 82)
             VStack(spacing: 4) {
                 Text(name)
                     .font(.system(size: 22, weight: .bold, design: .serif))
@@ -804,6 +888,38 @@ private struct ProfileHeaderView: View {
             .buttonStyle(NeubrutalistButtonStyle(fillColor: .themeCard, textColor: .themeDark, cornerRadius: 18))
         }
         .padding(.vertical, 18)
+    }
+}
+
+private struct ProfileAvatarView: View {
+    let name: String
+    let imagePath: String?
+    let size: CGFloat
+    
+    private var initials: String {
+        let letters = name.split(separator: " ").prefix(2).compactMap(\.first)
+        return letters.isEmpty ? "?" : String(letters).uppercased()
+    }
+    
+    var body: some View {
+        ZStack {
+            Circle()
+                .fill(Color.themeAccent.opacity(0.15))
+            
+            if let imagePath, let uiImage = MediaResolver.resolveImage(path: imagePath) {
+                Image(uiImage: uiImage)
+                    .resizable()
+                    .scaledToFill()
+                    .clipShape(Circle())
+            } else {
+                Text(initials)
+                    .font(.system(size: size * 0.39, weight: .black, design: .serif))
+                    .foregroundColor(.themeAccent)
+            }
+        }
+        .frame(width: size, height: size)
+        .overlay(Circle().stroke(Color.themeDark, lineWidth: 2))
+        .shadow(color: Color.themeDark.opacity(0.16), radius: 0, x: 3, y: 3)
     }
 }
 

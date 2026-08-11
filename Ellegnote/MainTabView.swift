@@ -1,114 +1,86 @@
 import SwiftUI
 
-// MARK: - Main Tab View with Launch Splash & Liquid Glass Dock
+// MARK: - Main Tab View
+// Uses SwiftUI-native horizontal paging ScrollView instead of TabView(.page).
+// Reason: TabView(.page) uses UIPageViewController under the hood and
+// .scrollDisabled() does not reliably propagate to its UIKit gesture
+// recognizers. SwiftUI ScrollView FULLY respects .scrollDisabled().
 struct MainTabView: View {
-    @State private var selectedTab = 0
+
+    // Page index: 0 = Home, 1 = Library, 2 = Profile (sequential for ScrollView)
+    @State private var pageIndex: Int? = 0
     @State private var showCaptureSheet = false
-    @State private var isShowingSplash = true
-    
+    @StateObject private var navDepth = NavDepth.shared
+
     var body: some View {
         ZStack {
-            Color.themeBg.ignoresSafeArea()
-            
-            if isShowingSplash {
-                // MARK: 2-Second Apple Hello Launch Splash
-                AppSplashView {
-                    withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
-                        isShowingSplash = false
-                    }
+            // ── Native SwiftUI paging scroll ───────────────────────────────
+            // .scrollTargetBehavior(.paging) gives Photos-style snap-to-page.
+            // .scrollDisabled(navDepth.isLocked) fully blocks horizontal swipe
+            // when inside RoutineCanvasView — the OS ignores the gesture entirely.
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 0) {
+                    ContentView()
+                        .id(0)
+                        .containerRelativeFrame(.horizontal)
+                        .ignoresSafeArea(edges: .all)
+
+                    GlobalLibraryView()
+                        .id(1)
+                        .containerRelativeFrame(.horizontal)
+                        .ignoresSafeArea(edges: .all)
+
+                    ProfileView()
+                        .id(2)
+                        .containerRelativeFrame(.horizontal)
+                        .ignoresSafeArea(edges: .all)
                 }
-                .transition(.opacity)
-                .zIndex(10)
-            } else {
-                // MARK: Phase 1 — Home / Routines & Canvas Focus
-                ZStack {
-                    // Screen switching container
-                    Group {
-                        switch selectedTab {
-                        case 0:
-                            ContentView()
-                        case 1:
-                            GlobalLibraryView()
-                        case 3:
-                            ProfileView()
-                        default:
-                            ContentView()
-                        }
-                    }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .padding(.bottom, 85)
-                    
-                    // MARK: - Floating Pure Transparent Liquid Glass Dock
-                    VStack {
-                        Spacer()
-                        
-                        HStack(spacing: 6) {
-                            // 1. Domov (Zostavy)
-                            LiquidDockIconButton(
-                                iconName: "house.fill",
-                                label: "Domov",
-                                isActive: selectedTab == 0
-                            ) {
-                                withAnimation(.spring(response: 0.3, dampingFraction: 0.68)) {
-                                    selectedTab = 0
-                                }
-                            }
-                            
-                            // 2. Knižnica
-                            LiquidDockIconButton(
-                                iconName: "books.vertical.fill",
-                                label: "Knižnica",
-                                isActive: selectedTab == 1
-                            ) {
-                                withAnimation(.spring(response: 0.3, dampingFraction: 0.68)) {
-                                    selectedTab = 1
-                                }
-                            }
-                            
-                            // 3. Instantka
-                            LiquidDockIconButton(
-                                iconName: "video.badge.plus",
-                                label: "Instantka",
-                                isActive: false
-                            ) {
-                                showCaptureSheet = true
-                            }
-                            
-                            // 4. Profil
-                            LiquidDockIconButton(
-                                iconName: "person.crop.circle.fill",
-                                label: "Profil",
-                                isActive: selectedTab == 3
-                            ) {
-                                withAnimation(.spring(response: 0.3, dampingFraction: 0.68)) {
-                                    selectedTab = 3
-                                }
-                            }
-                        }
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 10)
-                        .modifier(PureTransparentGlassDockModifier(cornerRadius: 32))
-                        .padding(.horizontal, 20)
-                        .padding(.bottom, 12)
-                    }
-                    .allowsHitTesting(true)
-                    .ignoresSafeArea(.keyboard, edges: .bottom)
+                .scrollTargetLayout()
+            }
+            .scrollTargetBehavior(.paging)
+            .scrollPosition(id: $pageIndex)
+            .scrollDisabled(navDepth.isLocked)   // ← fully locks when on canvas
+            .ignoresSafeArea(edges: .all)
+
+            // ── Custom Liquid Glass dock overlay ───────────────────────────
+            if navDepth.isDocked {
+                VStack {
+                    Spacer()
+                    NativeLiquidGlassDock(
+                        pageIndex: Binding(
+                            get: { pageIndex ?? 0 },
+                            set: { pageIndex = $0 }
+                        ),
+                        showCaptureSheet: $showCaptureSheet
+                    )
+                    .padding(.bottom, 10)
+                    .padding(.horizontal, 20)
                 }
-                .transition(.opacity)
+                .ignoresSafeArea(edges: .bottom)
+                .allowsHitTesting(true)
+                .transition(.move(edge: .bottom).combined(with: .opacity))
             }
         }
+        .animation(.spring(response: 0.3, dampingFraction: 0.8), value: navDepth.isDocked)
         .sheet(isPresented: $showCaptureSheet) {
             CaptureModeView(isPresented: $showCaptureSheet)
         }
         .onAppear {
-            // ── Globálny vzhľad Navigation Baru ─────────────────────────────
+            // Transparent Navigation Bar
             let navAppearance = UINavigationBarAppearance()
-            navAppearance.configureWithOpaqueBackground()
-            navAppearance.backgroundColor = UIColor(Color.themeBg)
-            navAppearance.shadowColor = UIColor(Color.themeBorder)
+            navAppearance.configureWithTransparentBackground()
+            navAppearance.backgroundColor = .clear
+            navAppearance.shadowColor = .clear
+            let baseFont = UIFont.systemFont(ofSize: 17, weight: .bold)
+            let titleFont: UIFont
+            if let serifDesc = baseFont.fontDescriptor.withDesign(.serif) {
+                titleFont = UIFont(descriptor: serifDesc, size: 17)
+            } else {
+                titleFont = baseFont
+            }
             navAppearance.titleTextAttributes = [
                 .foregroundColor: UIColor(Color.themeDark),
-                .font: UIFont.systemFont(ofSize: 17, weight: .semibold)
+                .font: titleFont
             ]
             navAppearance.largeTitleTextAttributes = [
                 .foregroundColor: UIColor(Color.themeDark)
@@ -117,96 +89,84 @@ struct MainTabView: View {
             UINavigationBar.appearance().scrollEdgeAppearance = navAppearance
             UINavigationBar.appearance().compactAppearance = navAppearance
             UINavigationBar.appearance().tintColor = UIColor(Color.themeAccent)
-            
-            // ── Oprava pozadia pre TextEditor ─────────────────────────────
             UITextView.appearance().backgroundColor = .clear
         }
     }
 }
 
-// MARK: - Pure Transparent Liquid Glass Container Modifier (Crystal Clear Glass Refraction)
+// MARK: - Native iOS 26 Liquid Glass Dock
+private struct NativeLiquidGlassDock: View {
+    @Binding var pageIndex: Int
+    @Binding var showCaptureSheet: Bool
+
+    private let pages: [(page: Int, icon: String)] = [
+        (0, "house.fill"),
+        (1, "books.vertical.fill"),
+        (2, "person.crop.circle.fill")
+    ]
+
+    var body: some View {
+        GlassEffectContainer {
+            HStack(spacing: 0) {
+                ForEach(pages, id: \.page) { item in
+                    DockItem(
+                        icon: item.icon,
+                        isActive: pageIndex == item.page
+                    ) {
+                        withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
+                            pageIndex = item.page
+                        }
+                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                    }
+                }
+
+                // Camera — modal action (not a tab page)
+                DockItem(icon: "video.badge.plus", isActive: false) {
+                    showCaptureSheet = true
+                    UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                }
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 8)
+        }
+        .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 40, style: .continuous))
+    }
+}
+
+// MARK: - Single dock icon — conditionally wrapped in native iOS 26 glass
+private struct DockItem: View {
+    let icon: String
+    let isActive: Bool
+    let onTap: () -> Void
+
+    var body: some View {
+        if isActive {
+            Button(action: onTap) { iconLabel }
+                .glassEffect(.regular.interactive(), in: .capsule)
+        } else {
+            Button(action: onTap) { iconLabel }
+        }
+    }
+
+    private var iconLabel: some View {
+        Image(systemName: icon)
+            .font(.system(size: 22, weight: isActive ? .semibold : .regular))
+            .foregroundStyle(isActive ? Color.primary : Color.secondary)
+            .padding(.horizontal, 22)
+            .padding(.vertical, 14)
+    }
+}
+
+// MARK: - (Legacy shim — kept for any external references)
 struct PureTransparentGlassDockModifier: ViewModifier {
-    var cornerRadius: CGFloat = 32
-    
+    var cornerRadius: CGFloat = 36
     func body(content: Content) -> some View {
         content
-            .background(
-                ZStack {
-                    // Glass Layer 1: Pure Thin Glass Blur
-                    RoundedRectangle(cornerRadius: cornerRadius)
-                        .fill(.ultraThinMaterial)
-                    
-                    // Glass Layer 2: Crystal Clear Reflection Tint
-                    RoundedRectangle(cornerRadius: cornerRadius)
-                        .fill(Color.white.opacity(0.12))
-                    
-                    // Glass Layer 3: Glossy Specular Light Rim
-                    RoundedRectangle(cornerRadius: cornerRadius)
-                        .stroke(
-                            LinearGradient(
-                                colors: [
-                                    Color.white.opacity(0.95),
-                                    Color.white.opacity(0.45),
-                                    Color.white.opacity(0.15)
-                                ],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            ),
-                            lineWidth: 1.8
-                        )
-                }
-            )
-            .shadow(color: Color.black.opacity(0.08), radius: 12, x: 0, y: 6)
-            .shadow(color: Color.themeDark.opacity(0.4), radius: 0, x: 3, y: 3)
-    }
-}
-
-// MARK: - Liquid Dock Icon Button
-struct LiquidDockIconButton: View {
-    let iconName: String
-    let label: String
-    let isActive: Bool
-    let action: () -> Void
-    
-    var body: some View {
-        Button(action: action) {
-            VStack(spacing: 4) {
-                ZStack {
-                    if isActive {
-                        Circle()
-                            .fill(Color.themeAccent.opacity(0.16))
-                            .frame(width: 42, height: 42)
-                            .transition(.scale.combined(with: .opacity))
-                    }
-                    
-                    Image(systemName: iconName)
-                        .font(.system(size: 20, weight: isActive ? .bold : .medium))
-                        .foregroundColor(isActive ? .themeAccent : .themeDark.opacity(0.65))
-                        .scaleEffect(isActive ? 1.12 : 1.0)
-                }
-                .frame(width: 44, height: 40)
-                
-                Text(label)
-                    .font(.system(size: 10, weight: isActive ? .black : .bold))
-                    .foregroundColor(isActive ? .themeAccent : .themeDark.opacity(0.7))
+            .background {
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .fill(.ultraThinMaterial)
+                    .environment(\.colorScheme, .dark)
             }
-            .frame(maxWidth: .infinity)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(LiquidDockButtonStyle())
-    }
-}
-
-// MARK: - Spring Physics Button Style for Liquid Dock
-struct LiquidDockButtonStyle: ButtonStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .scaleEffect(configuration.isPressed ? 0.91 : 1.0)
-            .animation(.spring(response: 0.25, dampingFraction: 0.62), value: configuration.isPressed)
-            .onChange(of: configuration.isPressed) { _, newValue in
-                if newValue {
-                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                }
-            }
+            .shadow(color: .black.opacity(0.30), radius: 20, x: 0, y: 8)
     }
 }

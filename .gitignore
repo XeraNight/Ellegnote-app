@@ -1,0 +1,55 @@
+# ============================================================
+# Ellegnote iOS — .gitignore
+# ============================================================
+
+# ── Supabase secrets (NEVER commit) ─────────────────────────
+Ellegnote/SupabaseConfig.swift
+Ellegnote/Secrets.xcconfig
+
+# ── Xcode build artifacts ───────────────────────────────────
+build/
+DerivedData/
+*.xccheckout
+*.xcscmblueprint
+
+# ── Xcode user-specific settings ────────────────────────────
+*.xcuserstate
+xcuserdata/
+*.xcuserdata/
+**/*.xcworkspace/xcuserdata/
+**/*.xcodeproj/xcuserdata/
+**/*.xcodeproj/project.xcworkspace/xcuserdata/
+
+# ── macOS clutter ───────────────────────────────────────────
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon?
+._*
+.Spotlight-V100
+.Trashes
+
+# ── Swift Package Manager cache ─────────────────────────────
+.build/
+.swiftpm/
+Packages/
+Package.resolved
+
+# ── CocoaPods (if ever used) ────────────────────────────────
+Pods/
+*.xcworkspace
+!default.xcworkspace
+
+# ── Fastlane (if ever used) ─────────────────────────────────
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots/**/*.png
+fastlane/test_output
+
+# ── Crash logs / test results ───────────────────────────────
+*.crash
+*.xcresult
+
+# ── Antigravity IDE scratch ─────────────────────────────────
+.antigravityignore
+.agents/

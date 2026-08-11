@@ -47,7 +47,7 @@ struct CaptureModeView: View {
                            let videoURL = resolveVideoURL(path: videoPath) {
                             
                             VStack(spacing: 10) {
-                                VideoPlayer(player: AVPlayer(url: videoURL))
+                                CapturedVideoPreview(videoURL: videoURL)
                                     .frame(height: 200)
                                     .cornerRadius(16)
                                     .overlay(
@@ -56,7 +56,7 @@ struct CaptureModeView: View {
                                     )
                                 
                                 HStack(spacing: 12) {
-                                    Button(action: { showCamera = true }) {
+                                    Button(action: { presentCamera() }) {
                                         Label("Natočiť znova", systemImage: "arrow.triangle.2.circlepath")
                                             .font(.system(size: 13, weight: .bold))
                                     }
@@ -75,7 +75,7 @@ struct CaptureModeView: View {
                             .padding(.horizontal, 20)
                             
                         } else {
-                            Button(action: { showCamera = true }) {
+                            Button(action: { presentCamera() }) {
                                 VStack(spacing: 12) {
                                     ZStack {
                                         Circle()
@@ -205,6 +205,10 @@ struct CaptureModeView: View {
         return capturedVideoPath != nil || !dictatedNote.isEmpty
     }
     
+    private func presentCamera() {
+        showCamera = true
+    }
+    
     private func toggleVoiceRecording() {
         if speechManager.isRecording {
             // Capture transcript BEFORE stopTranscribing cancels the recognition task
@@ -238,5 +242,26 @@ struct CaptureModeView: View {
     
     private func resolveVideoURL(path: String) -> URL? {
         return MediaResolver.resolveVideoURL(path: path)
+    }
+}
+
+private struct CapturedVideoPreview: View {
+    let videoURL: URL
+    @State private var player: AVPlayer?
+    
+    var body: some View {
+        VideoPlayer(player: player)
+            .onAppear {
+                if player == nil {
+                    player = AVPlayer(url: videoURL)
+                }
+            }
+            .onDisappear {
+                player?.pause()
+            }
+            .onChange(of: videoURL) { _, newURL in
+                player?.pause()
+                player = AVPlayer(url: newURL)
+            }
     }
 }

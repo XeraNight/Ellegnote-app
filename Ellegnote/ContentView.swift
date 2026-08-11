@@ -110,19 +110,26 @@ struct ContentView: View {
                 // Premium Warm Cream Background
                 Color.themeBg.ignoresSafeArea()
                 
-                // Subtle warm gradient blobs for organic depth
+                // Subtle warm tint — no heavy blur for perf
                 VStack {
                     HStack {
-                        Circle()
-                            .fill(Color.themeAccent.opacity(0.04))
-                            .frame(width: 300, height: 300)
-                            .blur(radius: 60)
-                            .offset(x: -80, y: -80)
+                        RoundedRectangle(cornerRadius: 200)
+                            .fill(
+                                RadialGradient(
+                                    colors: [Color.themeAccent.opacity(0.07), Color.clear],
+                                    center: .center,
+                                    startRadius: 0,
+                                    endRadius: 180
+                                )
+                            )
+                            .frame(width: 320, height: 320)
+                            .offset(x: -60, y: -80)
                         Spacer()
                     }
                     Spacer()
                 }
                 .ignoresSafeArea()
+                .allowsHitTesting(false)
                 
                 ScrollView {
                     VStack(spacing: 20) {
@@ -323,7 +330,7 @@ struct ContentView: View {
                                 .padding(.horizontal, 24)
                             }
                         }
-                        .padding(.bottom, 24)
+                        .padding(.bottom, 100)  // clear space above liquid glass dock
                     }
                 }
             }
@@ -555,13 +562,15 @@ struct DanceDetailView: View {
     @State private var showEditDance = false
     
     var routinesForDance: [Routine] {
-        allRoutines
-            .filter { $0.danceName.lowercased() == dance.name.lowercased() }
+        let normalizedDanceName = dance.name.lowercased()
+        return allRoutines
+            .filter { $0.danceName.lowercased() == normalizedDanceName }
             .sorted(by: { $0.updatedAt > $1.updatedAt })
     }
     
     var figuresForDance: [FigureLibraryItem] {
-        allFigures.filter { $0.danceName.lowercased() == dance.name.lowercased() }
+        let normalizedDanceName = dance.name.lowercased()
+        return allFigures.filter { $0.danceName.lowercased() == normalizedDanceName }
     }
     
     var body: some View {
@@ -1048,7 +1057,7 @@ struct EditDanceSheet: View {
                                 .foregroundColor(.themeDark.opacity(0.8))
                             
                             if let imagePath = dance.imagePath,
-                               let uiImage = UIImage(contentsOfFile: getDocumentsDirectory().appendingPathComponent(imagePath).path) {
+                               let uiImage = MediaResolver.resolveImage(path: imagePath) {
                                 
                                 VStack(spacing: 12) {
                                     Image(uiImage: uiImage)
@@ -1098,9 +1107,8 @@ struct EditDanceSheet: View {
                                 .font(.system(size: 14, weight: .bold, design: .serif))
                                 .foregroundColor(.themeDark.opacity(0.8))
                             
-                            if let videoPath = dance.videoPath {
-                                let videoURL = getDocumentsDirectory().appendingPathComponent(videoPath)
-                                
+                            if let videoPath = dance.videoPath,
+                               let videoURL = MediaResolver.resolveVideoURL(path: videoPath) {
                                 VStack(spacing: 12) {
                                     LoopingVideoPlayer(videoURL: videoURL, rate: playbackRate)
                                         .frame(height: 200)

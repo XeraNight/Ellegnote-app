@@ -22,9 +22,12 @@ struct GlobalLibraryView: View {
     let danceNames = ["Waltz", "Tango", "Viennese Waltz", "Slowfoxtrot", "Quickstep", "Samba", "Cha-Cha-Cha", "Rumba", "Paso Doble", "Jive"]
     
     var filteredFigures: [FigureLibraryItem] {
-        allFigures.filter { fig in
-            let matchesSearch = searchText.isEmpty || fig.name.localizedCaseInsensitiveContains(searchText)
-            let matchesDance = selectedDanceFilter == "Všetky" || fig.danceName.lowercased() == selectedDanceFilter.lowercased()
+        let normalizedSearch = searchText.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        let normalizedDance = selectedDanceFilter.lowercased()
+        
+        return allFigures.filter { fig in
+            let matchesSearch = normalizedSearch.isEmpty || fig.name.lowercased().contains(normalizedSearch)
+            let matchesDance = selectedDanceFilter == "Všetky" || fig.danceName.lowercased() == normalizedDance
             return matchesSearch && matchesDance
         }
     }
@@ -146,7 +149,7 @@ struct GlobalLibraryView: View {
                                 }
                             }
                             .padding(.horizontal, 20)
-                            .padding(.bottom, 20)
+                            .padding(.bottom, 100)  // clear space above liquid glass dock
                         }
                     }
                 }

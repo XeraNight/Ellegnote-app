@@ -254,17 +254,15 @@ struct FigureDetailCard: View {
                 setupPlayer(for: newValue)
             }
             .onChange(of: notesText) { _, newText in
-                node.notes = newText
-                try? node.modelContext?.save()
-                
-                // Realtime broadcast instant update as user types
-                realtimeManager?.broadcastNodeUpdated(node: node, senderName: userName)
-                
-                // Debounced background database sync (0.6s)
                 autoSaveTask?.cancel()
                 autoSaveTask = Task {
                     try? await Task.sleep(nanoseconds: 600_000_000)
                     guard !Task.isCancelled else { return }
+                    
+                    node.notes = newText
+                    try? node.modelContext?.save()
+                    realtimeManager?.broadcastNodeUpdated(node: node, senderName: userName)
+                    
                     if let routine = node.routine {
                         routine.updatedAt = Date()
                         routine.lastModifiedBy = userName
@@ -578,6 +576,7 @@ final class CameraWrapperViewController: UIViewController, AVCaptureFileOutputRe
     private var movieOutput: AVCaptureMovieFileOutput?
     private var previewLayer: AVCaptureVideoPreviewLayer?
     private var activeInput: AVCaptureDeviceInput?
+    private let sessionQueue = DispatchQueue(label: "com.ellegnote.videoRecorder.session", qos: .userInitiated)
     
     private var isRecording = false
     private var recordBtn: UIButton!
@@ -591,13 +590,32 @@ final class CameraWrapperViewController: UIViewController, AVCaptureFileOutputRe
     override func viewDidLoad() {
         super.viewDidLoad()
         view.backgroundColor = .black
-        
-        setupCaptureSession()
         buildOverlay()
-        
-        // Start capture session on a background queue (as required by iOS 16+)
-        DispatchQueue.global(qos: .background).async { [weak self] in
-            self?.captureSession?.startRunning()
+        checkPermissionsAndSetup()
+    }
+
+    // MARK: - Permission gate
+    // Production apps ALWAYS check permissions before touching AVCaptureSession.
+    // Without this, the session silently fails when the user hasn't explicitly
+    // granted camera access yet (first launch after install).
+    private func checkPermissionsAndSetup() {
+        switch AVCaptureDevice.authorizationStatus(for: .video) {
+        case .authorized:
+            setupCaptureSession()
+        case .notDetermined:
+            AVCaptureDevice.requestAccess(for: .video) { [weak self] granted in
+                DispatchQueue.main.async {
+                    if granted {
+                        self?.setupCaptureSession()
+                    } else {
+                        self?.showCameraSetupError("Prístup ku kamere bol odmietnutý.\nPovoľ ho v Nastavenia → Ellegnote.")
+                    }
+                }
+            }
+        case .denied, .restricted:
+            showCameraSetupError("Prístup ku kamere je zakázaný.\nPovoľ ho v Nastavenia → Ellegnote.")
+        @unknown default:
+            setupCaptureSession()
         }
     }
     
@@ -608,68 +626,99 @@ final class CameraWrapperViewController: UIViewController, AVCaptureFileOutputRe
     
     override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
-        captureSession?.stopRunning()
+        stopTimer()
+        sessionQueue.async { [weak self] in
+            self?.captureSession?.stopRunning()
+        }
     }
     
     // MARK: - Setup AVCaptureSession
     private func setupCaptureSession() {
-        // Reuse pre-warmed camera session if available for 0ms latency
-        if CameraPrewarmer.shared.isPrewarmed,
-           let prewarmedSession = CameraPrewarmer.shared.captureSession,
-           let prewarmedOutput = CameraPrewarmer.shared.movieOutput {
-            
-            self.captureSession = prewarmedSession
-            self.movieOutput = prewarmedOutput
-            self.activeInput = CameraPrewarmer.shared.activeInput
-            
-            let preview = AVCaptureVideoPreviewLayer(session: prewarmedSession)
-            preview.frame = view.bounds
-            preview.videoGravity = .resizeAspectFill
-            view.layer.addSublayer(preview)
-            self.previewLayer = preview
-            
-            CameraPrewarmer.shared.ensureSessionRunning()
-            return
-        }
-        
-        let session = AVCaptureSession()
-        session.sessionPreset = .high
-        
-        // 1. Video Input (Rear Camera by default)
-        guard let videoDevice = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .back),
-              let videoInput = try? AVCaptureDeviceInput(device: videoDevice) else {
-            print("Error: Rear camera not available")
-            return
-        }
-        
-        if session.canAddInput(videoInput) {
+        sessionQueue.async { [weak self] in
+            guard let self else { return }
+
+            // Step 1: Configure AVAudioSession BEFORE adding audio input.
+            // Default category .soloAmbient is incompatible with capture → err=-19224.
+            do {
+                let as_ = AVAudioSession.sharedInstance()
+                try as_.setCategory(.playAndRecord, mode: .videoRecording,
+                                    options: [.defaultToSpeaker, .allowBluetooth, .mixWithOthers])
+                try as_.setActive(true, options: .notifyOthersOnDeactivation)
+            } catch {
+                print("[Camera] AVAudioSession: \(error.localizedDescription)")
+                // Non-fatal — video records without audio
+            }
+
+            // Step 2: Build capture session
+            let session = AVCaptureSession()
+            session.beginConfiguration()
+            session.sessionPreset = .hd1280x720
+
+            // Video input
+            guard let videoDevice = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .back),
+                  let videoInput = try? AVCaptureDeviceInput(device: videoDevice),
+                  session.canAddInput(videoInput) else {
+                session.commitConfiguration()
+                DispatchQueue.main.async { self.showCameraSetupError("Kamera nie je dostupná.") }
+                return
+            }
             session.addInput(videoInput)
-            activeInput = videoInput
-        }
-        
-        // 2. Audio Input (Microphone)
-        if let audioDevice = AVCaptureDevice.default(for: .audio),
-           let audioInput = try? AVCaptureDeviceInput(device: audioDevice) {
-            if session.canAddInput(audioInput) {
+
+            // Audio input — optional, failure is non-fatal
+            if let audioDevice = AVCaptureDevice.default(for: .audio),
+               let audioInput = try? AVCaptureDeviceInput(device: audioDevice),
+               session.canAddInput(audioInput) {
                 session.addInput(audioInput)
             }
-        }
-        
-        // 3. Movie File Output
-        let output = AVCaptureMovieFileOutput()
-        if session.canAddOutput(output) {
+
+            // Movie output
+            let output = AVCaptureMovieFileOutput()
+            guard session.canAddOutput(output) else {
+                session.commitConfiguration()
+                DispatchQueue.main.async { self.showCameraSetupError("Výstup nie je dostupný.") }
+                return
+            }
             session.addOutput(output)
-            self.movieOutput = output
+            session.commitConfiguration()
+
+            // Step 3: Attach to UI on main thread, then start
+            DispatchQueue.main.async {
+                self.captureSession = session
+                self.movieOutput   = output
+                self.activeInput   = videoInput
+
+                // Preview layer — use current bounds (layout is complete at this point)
+                let preview = AVCaptureVideoPreviewLayer(session: session)
+                preview.frame = self.view.bounds
+                preview.videoGravity = .resizeAspectFill
+                self.view.layer.insertSublayer(preview, at: 0)
+                self.previewLayer = preview
+
+                // Enable record button
+                self.recordBtn.isEnabled = true
+                self.recordBtn.alpha = 1.0
+
+                // Start running on background queue
+                self.sessionQueue.async { session.startRunning() }
+            }
         }
-        
-        // 4. Preview Layer (fills entire view, including safe areas)
-        let preview = AVCaptureVideoPreviewLayer(session: session)
-        preview.frame = view.bounds
-        preview.videoGravity = .resizeAspectFill
-        view.layer.addSublayer(preview)
-        self.previewLayer = preview
-        
-        self.captureSession = session
+    }
+    
+    private func showCameraSetupError(_ message: String) {
+        let label = UILabel()
+        label.text = message
+        label.textColor = .white
+        label.font = .systemFont(ofSize: 16, weight: .semibold)
+        label.textAlignment = .center
+        label.numberOfLines = 0
+        label.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(label)
+        NSLayoutConstraint.activate([
+            label.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            label.centerYAnchor.constraint(equalTo: view.centerYAnchor),
+            label.leadingAnchor.constraint(greaterThanOrEqualTo: view.leadingAnchor, constant: 24),
+            label.trailingAnchor.constraint(lessThanOrEqualTo: view.trailingAnchor, constant: -24)
+        ])
     }
     
     // MARK: - Floating Overlays
@@ -719,6 +768,8 @@ final class CameraWrapperViewController: UIViewController, AVCaptureFileOutputRe
             recordBtn.widthAnchor.constraint(equalToConstant: 76),
             recordBtn.heightAnchor.constraint(equalToConstant: 76)
         ])
+        recordBtn.isEnabled = false
+        recordBtn.alpha = 0.45
         drawRecordButton(recording: false)
         
         // Flip camera — right side
@@ -802,45 +853,66 @@ final class CameraWrapperViewController: UIViewController, AVCaptureFileOutputRe
         guard let movieOutput = movieOutput else { return }
         
         if isRecording {
-            movieOutput.stopRecording()
             isRecording = false
             stopTimer()
             drawRecordButton(recording: false)
+            sessionQueue.async {
+                movieOutput.stopRecording()
+            }
         } else {
             let outputDirectory = NSTemporaryDirectory()
             let outputURL = URL(fileURLWithPath: outputDirectory).appendingPathComponent("\(UUID().uuidString).mp4")
-            movieOutput.startRecording(to: outputURL, recordingDelegate: self)
             isRecording = true
             startTimer()
             drawRecordButton(recording: true)
             UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+            sessionQueue.async {
+                movieOutput.startRecording(to: outputURL, recordingDelegate: self)
+            }
         }
     }
     
     @objc private func flipCamera() {
         guard let session = captureSession, !isRecording else { return }
         
-        session.beginConfiguration()
-        guard let currentInput = activeInput else { return }
-        session.removeInput(currentInput)
-        
-        let newPosition: AVCaptureDevice.Position = (currentInput.device.position == .back) ? .front : .back
-        guard let newDevice = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: newPosition),
-              let newInput = try? AVCaptureDeviceInput(device: newDevice) else {
-            session.addInput(currentInput)
+        recordBtn.isEnabled = false
+        sessionQueue.async { [weak self] in
+            guard let self, let currentInput = self.activeInput else {
+                DispatchQueue.main.async {
+                    self?.recordBtn.isEnabled = true
+                }
+                return
+            }
+            
+            session.beginConfiguration()
+            session.removeInput(currentInput)
+            
+            let newPosition: AVCaptureDevice.Position = (currentInput.device.position == .back) ? .front : .back
+            guard let newDevice = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: newPosition),
+                  let newInput = try? AVCaptureDeviceInput(device: newDevice) else {
+                session.addInput(currentInput)
+                session.commitConfiguration()
+                DispatchQueue.main.async {
+                    self.recordBtn.isEnabled = true
+                }
+                return
+            }
+            
+            if session.canAddInput(newInput) {
+                session.addInput(newInput)
+                DispatchQueue.main.async {
+                    self.activeInput = newInput
+                    self.recordBtn.isEnabled = true
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                }
+            } else {
+                session.addInput(currentInput)
+                DispatchQueue.main.async {
+                    self.recordBtn.isEnabled = true
+                }
+            }
             session.commitConfiguration()
-            return
         }
-        
-        if session.canAddInput(newInput) {
-            session.addInput(newInput)
-            activeInput = newInput
-        } else {
-            session.addInput(currentInput)
-        }
-        session.commitConfiguration()
-        
-        UIImpactFeedbackGenerator(style: .light).impactOccurred()
     }
     
     @objc private func dismissCamera() {
@@ -882,16 +954,37 @@ final class CameraWrapperViewController: UIViewController, AVCaptureFileOutputRe
                     from connections: [AVCaptureConnection],
                     error: Error?) {
         stopTimer()
-        
+
+        // An error here can be non-fatal (e.g. max duration reached) — check if
+        // there's usable data in the file before deciding to discard.
+        let recordingSucceeded: Bool
+        if let error = error as NSError? {
+            let isPartialData = error.userInfo[AVErrorRecordingSuccessfullyFinishedKey] as? Bool ?? false
+            recordingSucceeded = isPartialData
+            if !isPartialData {
+                print("[Camera] Recording error (no data): \(error.localizedDescription)")
+            }
+        } else {
+            recordingSucceeded = true
+        }
+
+        guard recordingSucceeded else {
+            DispatchQueue.main.async { self.dismiss(animated: true) }
+            return
+        }
+
         Task.detached(priority: .userInitiated) {
-            let filename = try? MediaStorageManager.copyIntoDocuments(from: outputFileURL, fileExtension: "mp4")
-            try? FileManager.default.removeItem(at: outputFileURL)
-            
-            await MainActor.run { [weak self] in
-                if let filename {
+            do {
+                let filename = try MediaStorageManager.moveIntoDocuments(
+                    from: outputFileURL, fileExtension: "mp4"
+                )
+                await MainActor.run { [weak self] in
                     self?.onRecordComplete?(filename)
+                    self?.dismiss(animated: true)
                 }
-                self?.dismiss(animated: true)
+            } catch {
+                print("[Camera] Failed to save recording: \(error)")
+                await MainActor.run { [weak self] in self?.dismiss(animated: true) }
             }
         }
     }

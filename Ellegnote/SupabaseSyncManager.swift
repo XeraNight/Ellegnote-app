@@ -41,10 +41,33 @@ actor SyncActor {
     static let shared = SyncActor()
 }
 
+private actor RoutineSyncDebouncer {
+    private var tasks: [UUID: Task<Void, Never>] = [:]
+    
+    func schedule(routineId: UUID, delay: Duration = .milliseconds(700), operation: @escaping @Sendable () async -> Void) {
+        tasks[routineId]?.cancel()
+        tasks[routineId] = Task(priority: .background) { [weak self] in
+            do {
+                try await Task.sleep(for: delay)
+                guard !Task.isCancelled else { return }
+                await operation()
+                await self?.clear(routineId)
+            } catch {
+                await self?.clear(routineId)
+            }
+        }
+    }
+    
+    private func clear(_ routineId: UUID) {
+        tasks[routineId] = nil
+    }
+}
+
 final class SupabaseSyncManager: Sendable {
     static let shared = SupabaseSyncManager()
     
     private let client: SupabaseClient?
+    private let routineSyncDebouncer = RoutineSyncDebouncer()
     
     private init() {
         if let url = SupabaseConfig.url, let anonKey = SupabaseConfig.anonKey {
@@ -226,7 +249,48 @@ final class SupabaseSyncManager: Sendable {
             )
         }
         
-        Task.detached(priority: .background) {
+        Task(priority: .background) {
+            await self.routineSyncDebouncer.schedule(routineId: routineId) {
+                await self.syncRoutine(
+                    routineId,
+                    name: name,
+                    danceName: danceName,
+                    category: category,
+                    createdAt: createdAt,
+                    updatedAt: updatedAt,
+                    lastModifiedBy: lastModifiedBy,
+                    nodes: nodesRows
+                )
+            }
+        }
+    }
+    
+    func syncRoutineImmediatelyOnBackground(_ routine: Routine) {
+        guard isEnabled else { return }
+        
+        let routineId = routine.id
+        let name = routine.name
+        let danceName = routine.danceName
+        let category = routine.danceCategory
+        let createdAt = routine.createdAt
+        let updatedAt = routine.updatedAt
+        let lastModifiedBy = routine.lastModifiedBy
+        let nodesRows = routine.canvasNodes.map { node in
+            DBCanvasNodeRow(
+                id: node.id,
+                routine_id: routineId,
+                x: node.x,
+                y: node.y,
+                figure_name: node.figureName,
+                rhythm: node.rhythm,
+                notes: node.notes,
+                video_path: node.videoPath,
+                order_index: node.orderIndex,
+                transition_notes: node.transitionNotes
+            )
+        }
+        
+        Task(priority: .background) {
             await self.syncRoutine(
                 routineId,
                 name: name,

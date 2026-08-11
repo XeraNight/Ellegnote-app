@@ -35,7 +35,7 @@ struct AuthSheetView: View {
                         
                         Text("Prepojenie partnera a trénera v reálnom čase")
                             .font(.system(size: 11, weight: .medium))
-                            .foregroundColor(.themeDark.opacity(0.6))
+                            .foregroundColor(.themeDark)
                     }
                     .padding(.top, 20)
                     
@@ -45,8 +45,9 @@ struct AuthSheetView: View {
                             VStack(alignment: .leading, spacing: 6) {
                                 Text("MENO / PREZÝVKA TANEČNÍKA")
                                     .font(.system(size: 10, weight: .black))
-                                    .foregroundColor(.themeDark.opacity(0.6))
+                                    .foregroundColor(.themeDark)
                                 TextField("Napr. Jakub, Niki, Tréner...", text: $nickname)
+                                    .foregroundColor(.themeDark)
                                     .padding(12)
                                     .background(Color.themeCard)
                                     .cornerRadius(12)
@@ -57,10 +58,11 @@ struct AuthSheetView: View {
                         VStack(alignment: .leading, spacing: 6) {
                             Text("E-MAIL")
                                 .font(.system(size: 10, weight: .black))
-                                .foregroundColor(.themeDark.opacity(0.6))
+                                .foregroundColor(.themeDark)
                             TextField("tvoj@email.com", text: $email)
                                 .keyboardType(.emailAddress)
                                 .textInputAutocapitalization(.never)
+                                .foregroundColor(.themeDark)
                                 .padding(12)
                                 .background(Color.themeCard)
                                 .cornerRadius(12)
@@ -70,8 +72,9 @@ struct AuthSheetView: View {
                         VStack(alignment: .leading, spacing: 6) {
                             Text("HESLO")
                                 .font(.system(size: 10, weight: .black))
-                                .foregroundColor(.themeDark.opacity(0.6))
+                                .foregroundColor(.themeDark)
                             SecureField("••••••••", text: $password)
+                                .foregroundColor(.themeDark)
                                 .padding(12)
                                 .background(Color.themeCard)
                                 .cornerRadius(12)
@@ -107,6 +110,25 @@ struct AuthSheetView: View {
                     .disabled(authManager.isLoading || email.isEmpty || password.isEmpty)
                     .padding(.horizontal, 24)
                     
+                    // Face ID Biometric Login Option (when signing in)
+                    if !isSignUp {
+                        Button(action: handleFaceIDAuth) {
+                            HStack(spacing: 8) {
+                                Image(systemName: "faceid")
+                                    .font(.system(size: 20))
+                                Text("Prihlásiť sa cez Face ID")
+                                    .font(.system(size: 14, weight: .bold))
+                            }
+                            .foregroundColor(.themeDark)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 12)
+                            .background(Color.themeCard)
+                            .cornerRadius(16)
+                            .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.themeDark, lineWidth: 1.5))
+                        }
+                        .padding(.horizontal, 24)
+                    }
+                    
                     // Mode Toggle (Sign In <-> Sign Up)
                     Button(action: { isSignUp.toggle() }) {
                         Text(isSignUp ? "Už máš účet? Prihlás sa" : "Nemáš účet? Zaregistruj sa")
@@ -135,6 +157,13 @@ struct AuthSheetView: View {
                 let success = await authManager.signIn(email: email, pass: password)
                 if success { dismiss() }
             }
+        }
+    }
+    
+    private func handleFaceIDAuth() {
+        Task {
+            let success = await authManager.authenticateWithBiometrics()
+            if success { dismiss() }
         }
     }
 }

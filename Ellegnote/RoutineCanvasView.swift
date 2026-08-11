@@ -56,6 +56,7 @@ struct RoutineCanvasView: View {
             
             GeometryReader { geo in
                 ZStack {
+
                     ZStack {
                         CanvasGestureView(
                             onPanChanged: { delta in
@@ -236,7 +237,7 @@ struct RoutineCanvasView: View {
                     }
                     .buttonStyle(.neubrutalistSecondary(cornerRadius: 24))
                 }
-                .padding(.bottom, 24)
+                .padding(.bottom, 28)  // above home indicator; dock is hidden on canvas
             }
             
             // Toast notification overlay
@@ -252,7 +253,7 @@ struct RoutineCanvasView: View {
                     .padding(.horizontal, 16)
                     .padding(.vertical, 10)
                     .neubrutalistCard(cornerRadius: 12, shadowOffset: 2)
-                    .padding(.top, 70) // Floating under status bar
+                    .padding(.top, 56) // Floating under transparent status bar
                     
                     Spacer()
                 }
@@ -262,6 +263,7 @@ struct RoutineCanvasView: View {
         }
         .navigationTitle(routine.name)
         .navigationBarTitleDisplayMode(.inline)
+        .toolbarBackground(.hidden, for: .navigationBar)
         // ── Swipe-back fix ───────────────────────────────────────────────
         .navigationBarBackButtonHidden(true)
         .toolbar {
@@ -337,6 +339,7 @@ struct RoutineCanvasView: View {
             QRExportSheet(routine: routine, qrImage: qrCodeImage)
         }
         .onAppear {
+            NavDepth.shared.push()   // hide floating dock while canvas is shown
             realtimeManager.connect(to: routine.id)
             startLiveActivity()
             
@@ -467,6 +470,7 @@ struct RoutineCanvasView: View {
             }
         }
         .onDisappear {
+            NavDepth.shared.pop()    // restore floating dock on nav pop
             realtimeManager.disconnect()
             stopLiveActivity()
         }
@@ -1071,17 +1075,15 @@ struct TransitionEditSheet: View {
                 notesText = toNode.transitionNotes
             }
             .onChange(of: notesText) { _, newText in
-                toNode.transitionNotes = newText
-                try? modelContext.save()
-                
-                // Realtime broadcast instant update as user types
-                realtimeManager?.broadcastTransitionUpdated(node: toNode, senderName: userName)
-                
-                // Debounced background database sync (0.6s)
                 autoSaveTask?.cancel()
                 autoSaveTask = Task {
                     try? await Task.sleep(nanoseconds: 600_000_000)
                     guard !Task.isCancelled else { return }
+                    
+                    toNode.transitionNotes = newText
+                    try? modelContext.save()
+                    realtimeManager?.broadcastTransitionUpdated(node: toNode, senderName: userName)
+                    
                     if let routine = toNode.routine {
                         routine.updatedAt = Date()
                         routine.lastModifiedBy = userName
@@ -1412,4 +1414,3 @@ struct PartnerCursorView: View {
         .shadow(color: .black.opacity(0.15), radius: 3, x: 0, y: 2)
     }
 }
-

@@ -35,6 +35,16 @@ enum MediaStorageManager {
         return filename
     }
     
+    static func moveIntoDocuments(from sourceURL: URL, fileExtension: String) throws -> String {
+        let filename = "\(UUID().uuidString).\(fileExtension)"
+        let destinationURL = url(for: filename)
+        if FileManager.default.fileExists(atPath: destinationURL.path) {
+            try FileManager.default.removeItem(at: destinationURL)
+        }
+        try FileManager.default.moveItem(at: sourceURL, to: destinationURL)
+        return filename
+    }
+    
     static func totalSize(for filenames: [String]) -> Int64 {
         filenames.reduce(0) { total, filename in
             let fileURL = url(for: filename)
