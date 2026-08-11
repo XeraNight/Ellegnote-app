@@ -6,6 +6,13 @@
 Ellegnote/SupabaseConfig.swift
 Ellegnote/Secrets.xcconfig
 
+# ── Web app secrets & build output (NEVER commit) ────────────
+web/.env.local
+web/.env*.local
+web/node_modules/
+web/.next/
+web/out/
+
 # ── Xcode build artifacts ───────────────────────────────────
 build/
 DerivedData/
