@@ -89,6 +89,11 @@ final class AuthManager: ObservableObject {
         }
     }
 
+    // MARK: - Has Saved Credentials
+    var hasSavedCredentials: Bool {
+        KeychainHelper.shared.readCredentials() != nil
+    }
+
     // MARK: - Sign In
     func signIn(email: String, pass: String) async -> Bool {
         guard let client else { return false }
@@ -98,6 +103,8 @@ final class AuthManager: ObservableObject {
         do {
             let session = try await client.auth.signIn(email: email, password: pass)
             applySession(session)
+            KeychainHelper.shared.saveCredentials(email: email, pass: pass)
+            isBiometricsEnabled = true
             return true
         } catch {
             authErrorMessage = "Prihlásenie zlyhalo: \(error.localizedDescription)"
@@ -110,7 +117,7 @@ final class AuthManager: ObservableObject {
         let context = LAContext()
         var error: NSError?
         guard context.canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: &error) else {
-            authErrorMessage = "Face ID / Biometria nie je dostupná."
+            authErrorMessage = "Face ID / Biometria nie je dostupná na tomto zariadení."
             return false
         }
         isLoading = true
@@ -124,10 +131,20 @@ final class AuthManager: ObservableObject {
             if success {
                 await checkCurrentSession()
                 if isAuthenticated { return true }
-                authErrorMessage = "Relácia vypršala. Prihlás sa prosím heslom."
+                
+                // If local session expired or missing, retrieve saved credentials from Keychain
+                if let creds = KeychainHelper.shared.readCredentials() {
+                    let session = try await client?.auth.signIn(email: creds.email, password: creds.pass)
+                    if let session {
+                        applySession(session)
+                        return true
+                    }
+                }
+                
+                authErrorMessage = "Žiadne uložené údaje. Prihlás sa prosím prvýkrát heslom."
             }
         } catch {
-            authErrorMessage = "Biometrické overenie zlyhalo."
+            authErrorMessage = "Biometrické overenie bolo zrušené alebo zlyhalo."
         }
         return false
     }
@@ -149,6 +166,8 @@ final class AuthManager: ObservableObject {
             userEmail = email
             userName = name
             isAuthenticated = true
+            KeychainHelper.shared.saveCredentials(email: email, pass: pass)
+            isBiometricsEnabled = true
             return true
         } catch {
             authErrorMessage = "Registrácia zlyhala: \(error.localizedDescription)"

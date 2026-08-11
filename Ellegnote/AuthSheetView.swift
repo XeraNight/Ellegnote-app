@@ -145,6 +145,11 @@ struct AuthSheetView: View {
                         .foregroundColor(.themeDark)
                 }
             }
+            .onAppear {
+                if !isSignUp && authManager.hasSavedCredentials {
+                    handleFaceIDAuth()
+                }
+            }
         }
     }
     
