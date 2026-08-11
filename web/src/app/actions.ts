@@ -38,10 +38,48 @@ export async function signIn(_: unknown, formData: FormData) {
 
   if (error) {
     // Generic message — don't reveal whether email exists (OWASP A07)
-    return { error: 'Nesprávny email alebo heslo.' }
+    return { error: 'Nesprávny email alebo heslo.', success: undefined }
   }
 
   redirect('/dashboard')
+}
+
+export async function signUp(_: unknown, formData: FormData) {
+  const headersList = await headers()
+  const ip =
+    headersList.get('x-forwarded-for')?.split(',')[0]?.trim() ??
+    headersList.get('x-real-ip') ??
+    'unknown'
+
+  const { allowed } = checkRateLimit(ip)
+  if (!allowed) {
+    return { error: 'Príliš veľa pokusov. Skús to za minútu.' }
+  }
+
+  const raw = {
+    email: formData.get('email'),
+    password: formData.get('password'),
+  }
+
+  const parsed = loginSchema.safeParse(raw)
+  if (!parsed.success) {
+    const msg = parsed.error.issues[0]?.message ?? 'Neplatné údaje'
+    return { error: msg }
+  }
+
+  const { email, password } = parsed.data
+  const supabase = await createClient()
+  const { data, error } = await supabase.auth.signUp({ email, password })
+
+  if (error) {
+    return { error: `Registrácia zlyhala: ${error.message}` }
+  }
+
+  if (data.session) {
+    redirect('/dashboard')
+  }
+
+  return { success: 'Účet bol vytvorený! Ak je zapnuté overenie emailu, skontroluj svoju schránku.' }
 }
 
 export async function signOut() {
