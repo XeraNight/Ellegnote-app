@@ -22,6 +22,7 @@ extension Color {
     static let standardBlue = Color(red: 59/255, green: 130/255, blue: 246/255)      // #3B82F6 Vibrant Royal Blue
     static let latinPink = Color(red: 244/255, green: 63/255, blue: 94/255)          // #F43F5E Latin Rose
     static let latinRed = Color(red: 225/255, green: 29/255, blue: 72/255)            // #E11D48 Latin Crimson / REC
+    static let latinCrimson = Color(red: 225/255, green: 29/255, blue: 72/255)        // #E11D48 Latin Crimson / REC
     static let amberGold = Color(red: 212/255, green: 175/255, blue: 55/255)          // #D4AF37 Core Gold
     static let syncEmerald = Color(red: 16/255, green: 185/255, blue: 129/255)        // #10B981 Sync Emerald
     
