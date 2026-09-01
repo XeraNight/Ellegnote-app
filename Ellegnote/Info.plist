@@ -2,8 +2,6 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<key>NSSupportsLiveActivities</key>
-	<true/>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleExecutable</key>
@@ -24,52 +22,54 @@
 			<key>CFBundleTypeRole</key>
 			<string>Editor</string>
 			<key>CFBundleURLName</key>
+			<string>GoogleSignIn</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>com.googleusercontent.apps.390349651729-rbam5nu6pulablrmuolqdf8m0fr6ohak</string>
+			</array>
+		</dict>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLName</key>
 			<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
-				<string>metaglasses</string>
 				<string>ellegnote</string>
 			</array>
 		</dict>
 	</array>
 	<key>CFBundleVersion</key>
 	<string>1</string>
+	<key>GIDClientID</key>
+	<string>390349651729-rbam5nu6pulablrmuolqdf8m0fr6ohak.apps.googleusercontent.com</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
-	<key>MWDAT</key>
-	<dict>
-		<key>AppLinkURLScheme</key>
-		<string>metaglasses://</string>
-		<key>ClientToken</key>
-		<string>AR|1532094421982914|bf202e6e612da36357a4623f2d5fa108</string>
-		<key>DAMEnabled</key>
-		<true/>
-		<key>MetaAppID</key>
-		<string>1532094421982914</string>
-		<key>TeamID</key>
-		<string>$(DEVELOPMENT_TEAM)</string>
-	</dict>
 	<key>NSBluetoothAlwaysUsageDescription</key>
-	<string>Potrebné na vyhľadanie a pripojenie k okuliarom Ellegnote cez Bluetooth.</string>
+	<string>Ellegnote využíva Bluetooth na bezdrôtovú komunikáciu, synchronizáciu tréningových senzorov a zdieľanie dát s partnerom.</string>
+	<key>NSBluetoothPeripheralUsageDescription</key>
+	<string>Umožňuje zariadeniu fungovať ako Bluetooth periféria pre lokálny prenos tanečných zostáv a pokynov.</string>
 	<key>NSCameraUsageDescription</key>
-	<string>Potrebné na zobrazenie a streamovanie obrazu z okuliarov.</string>
-	<key>NSLocalNetworkUsageDescription</key>
-	<string>Potrebné na prenos dát a komunikáciu s okuliarmi cez Wi-Fi.</string>
+	<string>Ellegnote potrebuje prístup ku kamere na nahrávanie tréningových videí figúr a skenovanie QR kódov zostáv.</string>
 	<key>NSFaceIDUsageDescription</key>
-	<string>Potrebné na rýchle a bezpečné prihlásenie do aplikácie Ellegnote pomocou tváre (Face ID).</string>
-	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-	<string>Potrebné na turn-by-turn navigovanie do okuliarov na pozadí aj pri zamknutej obrazovke iPhonu.</string>
-	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>Potrebné na vyhľadanie trasy a hands-free navigovanie relative k tvojej aktuálnej polohe.</string>
+	<string>Potrebné na rýchle a bezpečné prihlásenie do aplikácie Ellegnote pomocou Face ID.</string>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>Potrebné na streamovanie zvuku a ovládanie hlasom pomocou mikrofónu okuliarov.</string>
-		<key>NSSpeechRecognitionUsageDescription</key>
-		<string>Potrebné na rozpoznávanie aktivačného slova "Cayde" pre ovládanie okuliarov hlasom.</string>
-		<key>SUPABASE_ANON_KEY</key>
-		<string>$(SUPABASE_ANON_KEY)</string>
-		<key>SUPABASE_URL</key>
-		<string>$(SUPABASE_URL)</string>
-		<key>UIApplicationSceneManifest</key>
+	<string>Ellegnote potrebuje prístup k mikrofónu na nahrávanie hlasových poznámok trénera a zachytenie zvuku k tréningovým videám.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Ellegnote vyžaduje povolenie na ukladanie vygenerovaných QR kódov a tréningových materiálov do knižnice fotiek.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Ellegnote potrebuje prístup ku knižnici fotiek na výber fotografií figúr a profilového obrázku.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>Ellegnote využíva rozpoznávanie reči na okamžitý automatický prepis hovorených pokynov trénera do textu.</string>
+	<key>NSSupportsLiveActivities</key>
+	<true/>
+	<key>NSSupportsLiveActivitiesFrequentUpdates</key>
+	<true/>
+	<key>SUPABASE_ANON_KEY</key>
+	<string>eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml1a2Jsd2x0dHZyY2RjbG1seXh1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQyMTc5MjYsImV4cCI6MjA5OTc5MzkyNn0.Xq8BKQliVLT7rS2xHn8n_I84tD_rwPSz15AdHp1hcNo</string>
+	<key>SUPABASE_URL</key>
+	<string>https://iukblwlttvrcdclmlyxu.supabase.co</string>
+	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
 		<false/>
@@ -77,18 +77,12 @@
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>audio</string>
+		<string>bluetooth-central</string>
 		<string>bluetooth-peripheral</string>
-		<string>external-accessory</string>
-		<string>location</string>
+		<string>remote-notification</string>
 	</array>
 	<key>UILaunchScreen</key>
 	<dict/>
-	<key>UISupportedExternalAccessoryProtocols</key>
-	<array>
-		<string>com.meta.ar.wearable</string>
-	</array>
-	<key>UIRequiresFullScreen</key>
-	<true/>
 	<key>UISupportedInterfaceOrientations</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>

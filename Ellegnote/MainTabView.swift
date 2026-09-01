@@ -12,6 +12,9 @@ struct MainTabView: View {
     @State private var showCaptureSheet = false
     @StateObject private var navDepth = NavDepth.shared
 
+    // Splash — skryje prvý render kým SwiftData načíta dáta
+    @State private var showSplash = true
+
     var body: some View {
         ZStack {
             // ── Native SwiftUI paging scroll ───────────────────────────────
@@ -60,11 +63,26 @@ struct MainTabView: View {
                 .allowsHitTesting(true)
                 .transition(.move(edge: .bottom).combined(with: .opacity))
             }
+
+            // ── Splash overlay ─────────────────────────────────────────────
+            // AppSplashView má vlastný exit timer (~1.1s), potom zavolá onComplete
+            // a zmizne s opacity transition. Skryje prvý render SwiftData queries.
+            if showSplash {
+                AppSplashView {
+                    withAnimation(.easeOut(duration: 0.25)) {
+                        showSplash = false
+                    }
+                }
+                .zIndex(10)
+                .transition(.opacity)
+                .ignoresSafeArea()
+            }
         }
         .animation(.spring(response: 0.3, dampingFraction: 0.8), value: navDepth.isDocked)
         .sheet(isPresented: $showCaptureSheet) {
             CaptureModeView(isPresented: $showCaptureSheet)
         }
+
         .onAppear {
             // Transparent Navigation Bar
             let navAppearance = UINavigationBarAppearance()
@@ -79,94 +97,133 @@ struct MainTabView: View {
                 titleFont = baseFont
             }
             navAppearance.titleTextAttributes = [
-                .foregroundColor: UIColor(Color.themeDark),
+                .foregroundColor: UIColor(Color.gold500),
                 .font: titleFont
             ]
             navAppearance.largeTitleTextAttributes = [
-                .foregroundColor: UIColor(Color.themeDark)
+                .foregroundColor: UIColor(Color.gold500)
             ]
             UINavigationBar.appearance().standardAppearance = navAppearance
             UINavigationBar.appearance().scrollEdgeAppearance = navAppearance
             UINavigationBar.appearance().compactAppearance = navAppearance
-            UINavigationBar.appearance().tintColor = UIColor(Color.themeAccent)
+            UINavigationBar.appearance().tintColor = UIColor(Color.gold500)
             UITextView.appearance().backgroundColor = .clear
         }
     }
 }
 
-// MARK: - Native iOS 26 Liquid Glass Dock
+// MARK: - Native iOS Liquid Glass Dock
 private struct NativeLiquidGlassDock: View {
     @Binding var pageIndex: Int
     @Binding var showCaptureSheet: Bool
 
-    private let pages: [(page: Int, icon: String)] = [
-        (0, "house.fill"),
-        (1, "books.vertical.fill"),
-        (2, "person.crop.circle.fill")
-    ]
-
     var body: some View {
         GlassEffectContainer {
-            HStack(spacing: 0) {
-                ForEach(pages, id: \.page) { item in
-                    DockItem(
-                        icon: item.icon,
-                        isActive: pageIndex == item.page
-                    ) {
-                        withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
-                            pageIndex = item.page
-                        }
-                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            HStack(spacing: 6) {
+                // 1. Home
+                DockItem(
+                    icon: "house.fill",
+                    title: "Domov",
+                    isActive: pageIndex == 0
+                ) {
+                    withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
+                        pageIndex = 0
                     }
+                    HapticFeedback.light()
                 }
 
-                // Camera — modal action (not a tab page)
-                DockItem(icon: "video.badge.plus", isActive: false) {
+                // 2. Canvas / Library
+                DockItem(
+                    icon: "square.grid.2x2.fill",
+                    title: "Canvas",
+                    isActive: pageIndex == 1
+                ) {
+                    withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
+                        pageIndex = 1
+                    }
+                    HapticFeedback.light()
+                }
+
+                // 3. Instant Camera
+                DockItem(
+                    icon: "video.fill",
+                    title: "Kamera",
+                    isActive: false
+                ) {
                     showCaptureSheet = true
-                    UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                    HapticFeedback.medium()
+                }
+
+                // 4. Settings / Profile
+                DockItem(
+                    icon: "person.crop.circle.fill",
+                    title: "Profil",
+                    isActive: pageIndex == 2
+                ) {
+                    withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
+                        pageIndex = 2
+                    }
+                    HapticFeedback.light()
                 }
             }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 8)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 6)
         }
-        .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 40, style: .continuous))
+        .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 36, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 36, style: .continuous)
+                .stroke(
+                    LinearGradient(
+                        colors: [Color.gold400.opacity(0.30), Color.white.opacity(0.12), Color.clear],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    ),
+                    lineWidth: 1
+                )
+        )
+        .shadow(color: Color.black.opacity(0.35), radius: 14, x: 0, y: 6)
     }
 }
 
-// MARK: - Single dock icon — conditionally wrapped in native iOS 26 glass
+// MARK: - Single dock item — with subtle interactive liquid glass pill
 private struct DockItem: View {
     let icon: String
+    let title: String
     let isActive: Bool
     let onTap: () -> Void
 
     var body: some View {
-        if isActive {
-            Button(action: onTap) { iconLabel }
-                .glassEffect(.regular.interactive(), in: .capsule)
-        } else {
-            Button(action: onTap) { iconLabel }
+        Button(action: onTap) {
+            HStack(spacing: 6) {
+                Image(systemName: icon)
+                    .font(.system(size: isActive ? 16 : 17, weight: isActive ? .bold : .regular))
+                
+                if isActive {
+                    Text(title)
+                        .font(.system(size: 12, weight: .bold))
+                        .transition(.move(edge: .leading).combined(with: .opacity))
+                }
+            }
+            .foregroundStyle(isActive ? Color.gold400 : Color.white.opacity(0.55))
+            .padding(.horizontal, isActive ? 14 : 12)
+            .padding(.vertical, 10)
+        }
+        .if(isActive) { view in
+            view.glassEffect(.regular.interactive(), in: .capsule)
         }
     }
+}
 
-    private var iconLabel: some View {
-        Image(systemName: icon)
-            .font(.system(size: 22, weight: isActive ? .semibold : .regular))
-            .foregroundStyle(isActive ? Color.primary : Color.secondary)
-            .padding(.horizontal, 22)
-            .padding(.vertical, 14)
+private extension View {
+    @ViewBuilder
+    func `if`<Transform: View>(_ condition: Bool, transform: (Self) -> Transform) -> some View {
+        if condition {
+            transform(self)
+        } else {
+            self
+        }
     }
 }
 
-// MARK: - (Legacy shim — kept for any external references)
-struct PureTransparentGlassDockModifier: ViewModifier {
-    var cornerRadius: CGFloat = 36
-    func body(content: Content) -> some View {
-        content
-            .background {
-                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .fill(.ultraThinMaterial)
-                    .environment(\.colorScheme, .dark)
-            }
-            .shadow(color: .black.opacity(0.30), radius: 20, x: 0, y: 8)
-    }
-}
+
+

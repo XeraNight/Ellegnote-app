@@ -1,31 +1,49 @@
 import Foundation
+import UIKit
 
 enum MediaStorageManager {
-    static var documentsDirectory: URL {
+    nonisolated static var documentsDirectory: URL {
         FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
     }
     
-    static func url(for filename: String) -> URL {
+    nonisolated static func url(for filename: String) -> URL {
         documentsDirectory.appendingPathComponent(filename)
     }
     
-    static func fileExists(_ filename: String?) -> Bool {
+    nonisolated static func fileExists(_ filename: String?) -> Bool {
         guard let filename else { return false }
         return FileManager.default.fileExists(atPath: url(for: filename).path)
     }
     
-    static func removeFile(named filename: String?) {
+    nonisolated static func removeFile(named filename: String?) {
         guard let filename else { return }
         try? FileManager.default.removeItem(at: url(for: filename))
     }
     
-    static func store(data: Data, prefix: String, fileExtension: String) throws -> String {
+    /// Check available disk space on device
+    nonisolated static func getFreeDiskSpaceMB() -> Int64 {
+        do {
+            let values = try documentsDirectory.resourceValues(forKeys: [.volumeAvailableCapacityForImportantUsageKey])
+            if let capacity = values.volumeAvailableCapacityForImportantUsage {
+                return capacity / (1024 * 1024)
+            }
+        } catch {
+            print("Failed to query free disk space: \(error)")
+        }
+        return 1024 // Fallback 1GB
+    }
+    
+    nonisolated static func hasAvailableDiskSpace(minMB: Int64 = 200) -> Bool {
+        return getFreeDiskSpaceMB() >= minMB
+    }
+    
+    nonisolated static func store(data: Data, prefix: String, fileExtension: String) throws -> String {
         let filename = "\(prefix)_\(UUID().uuidString).\(fileExtension)"
         try data.write(to: url(for: filename), options: .atomic)
         return filename
     }
     
-    static func copyIntoDocuments(from sourceURL: URL, fileExtension: String) throws -> String {
+    nonisolated static func copyIntoDocuments(from sourceURL: URL, fileExtension: String) throws -> String {
         let filename = "\(UUID().uuidString).\(fileExtension)"
         let destinationURL = url(for: filename)
         if FileManager.default.fileExists(atPath: destinationURL.path) {
@@ -35,7 +53,7 @@ enum MediaStorageManager {
         return filename
     }
     
-    static func moveIntoDocuments(from sourceURL: URL, fileExtension: String) throws -> String {
+    nonisolated static func moveIntoDocuments(from sourceURL: URL, fileExtension: String) throws -> String {
         let filename = "\(UUID().uuidString).\(fileExtension)"
         let destinationURL = url(for: filename)
         if FileManager.default.fileExists(atPath: destinationURL.path) {
@@ -45,7 +63,7 @@ enum MediaStorageManager {
         return filename
     }
     
-    static func totalSize(for filenames: [String]) -> Int64 {
+    nonisolated static func totalSize(for filenames: [String]) -> Int64 {
         filenames.reduce(0) { total, filename in
             let fileURL = url(for: filename)
             let size = (try? FileManager.default.attributesOfItem(atPath: fileURL.path)[.size] as? NSNumber)?.int64Value ?? 0

@@ -1,5 +1,69 @@
 import Foundation
 import SwiftData
+import SwiftUI
+
+enum VideoMediaRole: String, Codable, CaseIterable, Identifiable {
+    case myTake = "my_take"
+    case targetIdol = "target_idol"
+    case coach = "coach"
+    case draft = "draft"
+    
+    var id: String { rawValue }
+    
+    var displayName: String {
+        switch self {
+        case .myTake: return "Moje video"
+        case .targetIdol: return "Idol / Vzor"
+        case .coach: return "Tréner"
+        case .draft: return "Pokus / Návrh"
+        }
+    }
+    
+    var iconName: String {
+        switch self {
+        case .myTake: return "person.fill"
+        case .targetIdol: return "star.fill"
+        case .coach: return "person.badge.shield.checkmark.fill"
+        case .draft: return "lightbulb.fill"
+        }
+    }
+    
+    var tagColor: Color {
+        switch self {
+        case .myTake: return .red
+        case .targetIdol: return .green
+        case .coach: return .blue
+        case .draft: return .orange
+        }
+    }
+}
+
+@Model
+final class VideoMediaEntry {
+    @Attribute(.unique) var id: UUID
+    var filePath: String
+    var title: String
+    var roleRawValue: String
+    var createdAt: Date
+    var isFavorite: Bool
+    
+    var routine: Routine?
+    var canvasNode: CanvasNode?
+    
+    var role: VideoMediaRole {
+        get { VideoMediaRole(rawValue: roleRawValue) ?? .myTake }
+        set { roleRawValue = newValue.rawValue }
+    }
+    
+    init(id: UUID = UUID(), filePath: String, title: String, role: VideoMediaRole = .myTake, createdAt: Date = Date(), isFavorite: Bool = false) {
+        self.id = id
+        self.filePath = filePath
+        self.title = title
+        self.roleRawValue = role.rawValue
+        self.createdAt = createdAt
+        self.isFavorite = isFavorite
+    }
+}
 
 @Model
 final class Dance {
@@ -32,8 +96,9 @@ final class FigureLibraryItem {
     var imagePath: String?
     var videoPath: String?
     var isCustom: Bool
+    var masteryRating: Int = 3 // 1 to 5 stars
     
-    init(id: UUID = UUID(), name: String, danceName: String, rhythm: String, techniqueNotes: String = "", imagePath: String? = nil, videoPath: String? = nil, isCustom: Bool = false) {
+    init(id: UUID = UUID(), name: String, danceName: String, rhythm: String, techniqueNotes: String = "", imagePath: String? = nil, videoPath: String? = nil, isCustom: Bool = false, masteryRating: Int = 3) {
         self.id = id
         self.name = name
         self.danceName = danceName
@@ -42,6 +107,7 @@ final class FigureLibraryItem {
         self.imagePath = imagePath
         self.videoPath = videoPath
         self.isCustom = isCustom
+        self.masteryRating = masteryRating
     }
 }
 
@@ -54,11 +120,16 @@ final class Routine {
     var createdAt: Date
     var updatedAt: Date
     var lastModifiedBy: String?
+    var videoPath: String?
+    var activeTargetVideoPath: String?
     
     @Relationship(deleteRule: .cascade, inverse: \CanvasNode.routine)
     var canvasNodes: [CanvasNode] = []
     
-    init(id: UUID = UUID(), name: String, danceName: String, danceCategory: String, createdAt: Date = Date(), updatedAt: Date = Date(), lastModifiedBy: String? = nil) {
+    @Relationship(deleteRule: .cascade, inverse: \VideoMediaEntry.routine)
+    var mediaVault: [VideoMediaEntry] = []
+    
+    init(id: UUID = UUID(), name: String, danceName: String, danceCategory: String, createdAt: Date = Date(), updatedAt: Date = Date(), lastModifiedBy: String? = nil, videoPath: String? = nil, activeTargetVideoPath: String? = nil) {
         self.id = id
         self.name = name
         self.danceName = danceName
@@ -66,6 +137,8 @@ final class Routine {
         self.createdAt = createdAt
         self.updatedAt = updatedAt
         self.lastModifiedBy = lastModifiedBy
+        self.videoPath = videoPath
+        self.activeTargetVideoPath = activeTargetVideoPath
     }
 }
 
@@ -77,13 +150,18 @@ final class CanvasNode {
     var figureName: String
     var rhythm: String
     var notes: String
-    var videoPath: String? // Local file name in app sandbox
+    var videoPath: String? // Local file name in app sandbox (Active My Take)
+    var activeTargetVideoPath: String? // Active Target/Idol video
     var orderIndex: Int
     var transitionNotes: String
+    var masteryRating: Int = 3 // 1 to 5 stars
     
     var routine: Routine?
     
-    init(id: UUID = UUID(), x: Double, y: Double, figureName: String, rhythm: String = "", notes: String = "", videoPath: String? = nil, orderIndex: Int = 0, transitionNotes: String = "") {
+    @Relationship(deleteRule: .cascade, inverse: \VideoMediaEntry.canvasNode)
+    var mediaVault: [VideoMediaEntry] = []
+    
+    init(id: UUID = UUID(), x: Double, y: Double, figureName: String, rhythm: String = "", notes: String = "", videoPath: String? = nil, activeTargetVideoPath: String? = nil, orderIndex: Int = 0, transitionNotes: String = "", masteryRating: Int = 3) {
         self.id = id
         self.x = x
         self.y = y
@@ -91,8 +169,10 @@ final class CanvasNode {
         self.rhythm = rhythm
         self.notes = notes
         self.videoPath = videoPath
+        self.activeTargetVideoPath = activeTargetVideoPath
         self.orderIndex = orderIndex
         self.transitionNotes = transitionNotes
+        self.masteryRating = masteryRating
     }
 }
 
@@ -222,13 +302,16 @@ extension FigureLibraryItem {
             ]
         ]
         
+        let existingFigures = (try? context.fetch(FetchDescriptor<FigureLibraryItem>())) ?? []
+        var existingSet = Set<String>(minimumCapacity: existingFigures.count)
+        for fig in existingFigures {
+            existingSet.insert("\(fig.danceName)_\(fig.name)")
+        }
+        
         for (danceName, figures) in figuresData {
             for fig in figures {
-                let name = fig.0
-                let descriptor = FetchDescriptor<FigureLibraryItem>(
-                    predicate: #Predicate { $0.name == name && $0.danceName == danceName }
-                )
-                if let existing = try? context.fetch(descriptor), !existing.isEmpty {
+                let key = "\(danceName)_\(fig.0)"
+                if existingSet.contains(key) {
                     continue
                 }
                 
@@ -239,6 +322,7 @@ extension FigureLibraryItem {
                     isCustom: false
                 )
                 context.insert(item)
+                existingSet.insert(key)
             }
         }
         try? context.save()

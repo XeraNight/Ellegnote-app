@@ -1,6 +1,7 @@
 import Foundation
 import Supabase
 import Observation
+import OSLog
 
 struct DragMessage: Codable, Sendable {
     let nodeId: UUID
@@ -42,7 +43,8 @@ struct PresenceState: Codable, Sendable {
 
 @Observable
 final class CanvasRealtimeManager {
-    private let client: SupabaseClient?
+    // Uses the shared SupabaseConfig.client singleton — no separate instantiation.
+    private var client: SupabaseClient? { SupabaseConfig.client }
     private var channel: RealtimeChannelV2?
     private let senderId = UUID()
     private var lastBroadcastAtByNode: [UUID: Date] = [:]
@@ -68,22 +70,16 @@ final class CanvasRealtimeManager {
     var onDBNodeUpdated: ((DBCanvasNodeRow) -> Void)?
     var onDBNodeDeleted: ((UUID) -> Void)?
 
-    init() {
-        if let url = SupabaseConfig.url, let anonKey = SupabaseConfig.anonKey {
-            self.client = SupabaseClient(supabaseURL: url, supabaseKey: anonKey)
-        } else {
-            self.client = nil
-        }
-    }
+    init() {}
 
     func connect(to routineId: UUID) {
         guard let client else {
-            print("Supabase Realtime disabled: missing SUPABASE_URL or SUPABASE_ANON_KEY.")
+            Logger.realtime.warning("Supabase Realtime disabled: missing configuration.")
             return
         }
         
         let channelId = "canvas_\(routineId.uuidString.lowercased())"
-        print("Connecting to Supabase Realtime Channel: \(channelId)")
+        Logger.realtime.info("Connecting to channel: \(channelId, privacy: .public)")
 
         Task {
             let ch = client.realtimeV2.channel(channelId)
@@ -148,7 +144,7 @@ final class CanvasRealtimeManager {
             // MARK: Postgres Changes – DB-level fallback (upsert nevyvolá false DELETE eventy)
             // Requires: ALTER PUBLICATION supabase_realtime ADD TABLE canvas_nodes;
             // Requires: ALTER TABLE canvas_nodes REPLICA IDENTITY FULL;
-            let pgFilter = "routine_id=eq.\(routineId.uuidString.lowercased())"
+            let pgFilter: RealtimePostgresFilter = .eq("routine_id", value: routineId.uuidString.lowercased())
             let insertions = ch.postgresChange(InsertAction.self, schema: "public", table: "canvas_nodes", filter: pgFilter)
             let updates    = ch.postgresChange(UpdateAction.self, schema: "public", table: "canvas_nodes", filter: pgFilter)
             let deletions  = ch.postgresChange(DeleteAction.self, schema: "public", table: "canvas_nodes", filter: pgFilter)
@@ -159,14 +155,14 @@ final class CanvasRealtimeManager {
             do {
                 try await ch.subscribeWithError()
             } catch {
-                print("Failed to subscribe to Supabase Realtime: \(error)")
+                Logger.realtime.error("Subscribe failed: \(error.localizedDescription, privacy: .public)")
                 return
             }
 
             self.channel = ch
             await MainActor.run {
                 self.isConnected = true
-                print("Successfully subscribed to Supabase Realtime: \(channelId)")
+                Logger.realtime.info("Subscribed to: \(channelId, privacy: .public)")
             }
 
             // Track our own presence
@@ -245,13 +241,13 @@ final class CanvasRealtimeManager {
                     try? await Task.sleep(for: .seconds(8))
                     guard let self, let ch = self.channel else { continue }
                     // RealtimeChannelV2.status je synchronná property
-                    let alive = await ch.status == .subscribed
+                    let alive = ch.status == .subscribed
                     await MainActor.run {
                         if alive && !wasConnected {
                             // Práve sa obnovilo spojenie
                             self.isConnected = true
                             self.needsRefreshAfterReconnect = true
-                            print("Supabase Realtime reconnected – triggering auto-refresh")
+                            Logger.realtime.info("Reconnected — triggering auto-refresh")
                         } else if !alive {
                             self.isConnected = false
                         }
@@ -333,11 +329,11 @@ final class CanvasRealtimeManager {
         partnerPresences = [:]
         guard let client, let ch = channel else { return }
         Task {
-            try? await ch.untrack()
+            await ch.untrack()
             await client.realtimeV2.removeChannel(ch)
         }
         channel = nil
         isConnected = false
-        print("Disconnected from Supabase Realtime")
+        Logger.realtime.info("Disconnected from channel")
     }
 }

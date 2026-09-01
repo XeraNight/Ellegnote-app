@@ -48,10 +48,23 @@ final class KeychainHelper {
         
         var newQuery = query
         newQuery[kSecValueData as String] = data
-        newQuery[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlock
+        
+        // S4-3: Explicit access control bound to device unlock state
+        var error: Unmanaged<CFError>?
+        if let accessControl = SecAccessControlCreateWithFlags(
+            kCFAllocatorDefault,
+            kSecAttrAccessibleWhenUnlockedThisDeviceOnly,
+            [],
+            &error
+        ) {
+            newQuery[kSecAttrAccessControl as String] = accessControl
+        } else {
+            newQuery[kSecAttrAccessible as String] = kSecAttrAccessibleWhenUnlockedThisDeviceOnly
+        }
         
         SecItemAdd(newQuery as CFDictionary, nil)
     }
+
     
     private func read(key: String) -> Data? {
         let query: [String: Any] = [

@@ -1,0 +1,20 @@
+{
+  "info" : {
+    "author" : "xcode",
+    "version" : 1
+  },
+  "layers" : [
+    {
+      "filename" : "Background.png"
+    },
+    {
+      "filename" : "Shadow.png"
+    },
+    {
+      "filename" : "Foreground.png"
+    },
+    {
+      "filename" : "Highlight.png"
+    }
+  ]
+}

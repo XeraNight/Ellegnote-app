@@ -1,8 +1,8 @@
 import SwiftUI
 
 // MARK: - Animated Splash Screen
-// Clean 0.8s entry — no fake progress bar, no "Načítavam..." text.
-// The app is fully loaded by the time splash completes.
+// Ultra-fast 0.35s entrance — dark obsidian gold luxury aesthetic.
+// Instantly dismisses so user actions respond in < 0.3s.
 struct AppSplashView: View {
     var onComplete: () -> Void
 
@@ -15,33 +15,19 @@ struct AppSplashView: View {
 
     var body: some View {
         ZStack {
-            Color.themeBg.ignoresSafeArea()
-
-            // Lightweight ambient blobs — no blur, just RadialGradient
-            Canvas { ctx, size in
-                ctx.fill(
-                    Path(ellipseIn: CGRect(x: -80, y: -60, width: 320, height: 320)),
-                    with: .color(Color.themeAccent.opacity(0.10))
-                )
-                ctx.fill(
-                    Path(ellipseIn: CGRect(x: size.width - 200, y: size.height - 220, width: 280, height: 280)),
-                    with: .color(Color.amberGold.opacity(0.10))
-                )
-            }
-            .ignoresSafeArea()
-            .allowsHitTesting(false)
+            EllegancePageBackground()
 
             VStack(spacing: 20) {
                 Spacer()
 
-                // Logo ring
+                // Luxury Gold Logo Ring
                 ZStack {
                     Circle()
-                        .stroke(Color.themeDark.opacity(0.30), lineWidth: 1.5)
+                        .stroke(Color.gold400.opacity(0.20), lineWidth: 1.5)
                         .frame(width: 140, height: 140)
 
                     Circle()
-                        .stroke(Color.themeDark.opacity(0.75), lineWidth: 2)
+                        .stroke(Color.gold500.opacity(0.60), lineWidth: 2)
                         .frame(width: 124, height: 124)
 
                     // Spinning gradient arc
@@ -49,7 +35,7 @@ struct AppSplashView: View {
                         .trim(from: 0.15, to: 0.75)
                         .stroke(
                             LinearGradient(
-                                colors: [.themeAccent, .amberGold],
+                                colors: [Color.gold500, Color.gold400],
                                 startPoint: .topLeading,
                                 endPoint: .bottomTrailing
                             ),
@@ -59,34 +45,34 @@ struct AppSplashView: View {
                         .rotationEffect(.degrees(rotationDegrees))
 
                     Circle()
-                        .fill(Color.themeCard)
+                        .fill(Color.obsidian800)
                         .frame(width: 104, height: 104)
-                        .shadow(color: Color.themeDark.opacity(0.10), radius: 8, x: 0, y: 4)
+                        .overlay(Circle().stroke(Color.gold400.opacity(0.35), lineWidth: 1))
+                        .shadow(color: Color.black.opacity(0.40), radius: 10, x: 0, y: 5)
 
-                    Image(systemName: "figure.dance")
-                        .font(.system(size: 44, weight: .bold))
-                        .foregroundColor(.themeAccent)
+                    Image("EllegnoteLogo")
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 64, height: 64)
                         .scaleEffect(isAnimatingLogo ? 1.05 : 0.95)
                 }
 
-                // Name fade-in (no stroke animation — lighter on GPU)
+                // Name fade-in
                 VStack(spacing: 4) {
-                    Text("vítaj")
-                        .font(.system(size: 18, weight: .medium, design: .serif))
-                        .italic()
-                        .foregroundColor(.themeDark.opacity(0.60))
+                    Text("Vítaj v Ellegnote")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(Color.white.opacity(0.50))
 
                     Text(userName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "Jakub" : userName)
-                        .font(.system(size: 42, weight: .bold, design: .serif))
-                        .italic()
+                        .font(.system(size: 34, weight: .bold))
                         .foregroundStyle(
                             LinearGradient(
-                                colors: [.themeAccent, .amberGold, .latinPink],
+                                colors: [Color.gold400, Color.gold300, Color.white],
                                 startPoint: .leading,
                                 endPoint: .trailing
                             )
                         )
-                        .shadow(color: Color.themeAccent.opacity(0.28), radius: 6, x: 0, y: 3)
+                        .shadow(color: Color.gold500.opacity(0.30), radius: 8, x: 0, y: 3)
                 }
                 .opacity(nameOpacity)
 
@@ -95,29 +81,28 @@ struct AppSplashView: View {
             .scaleEffect(scale)
             .opacity(opacity)
         }
-        .onAppear {
+        .task {
             // Logo pulse
-            withAnimation(.easeInOut(duration: 0.9).repeatForever(autoreverses: true)) {
+            withAnimation(.easeInOut(duration: 0.5).repeatForever(autoreverses: true)) {
                 isAnimatingLogo = true
             }
             // Arc spin
-            withAnimation(.linear(duration: 2.0).repeatForever(autoreverses: false)) {
+            withAnimation(.linear(duration: 1.0).repeatForever(autoreverses: false)) {
                 rotationDegrees = 360
             }
-            // Name fades in
-            withAnimation(.easeOut(duration: 0.5).delay(0.2)) {
+            // Name instant fade-in
+            withAnimation(.easeOut(duration: 0.2)) {
                 nameOpacity = 1.0
             }
-            // Exit at 0.85s — fast but not rushed
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.85) {
-                withAnimation(.spring(response: 0.30, dampingFraction: 0.78)) {
-                    scale   = 1.04
-                    opacity = 0.0
-                }
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
-                    onComplete()
-                }
+            // S3-1: Fast exit using Swift Concurrency — no legacy GCD timers.
+            // Task.sleep cooperates with the Swift scheduler and is cancellable.
+            try? await Task.sleep(for: .milliseconds(250))
+            withAnimation(.easeOut(duration: 0.15)) {
+                scale = 1.02
+                opacity = 0.0
             }
+            try? await Task.sleep(for: .milliseconds(150))
+            onComplete()
         }
     }
 }

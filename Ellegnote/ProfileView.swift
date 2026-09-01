@@ -24,6 +24,7 @@ struct ProfileView: View {
     @State private var editedClub = ""
     @State private var selectedProfilePhotoItem: PhotosPickerItem?
     @State private var isSavingProfilePhoto = false
+    
     // FIX: storage loaded async to avoid file I/O on main thread
     @State private var storageUsageBytes: Int64 = 0
     @State private var storageLoading = true
@@ -124,6 +125,42 @@ struct ProfileView: View {
             .neubrutalistCard(cornerRadius: 16, shadowOffset: 3)
         }
     }
+    
+    @ViewBuilder private var trainingToolsSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Trénerské Štúdio").sectionHeader()
+            NavigationLink(destination: StudioToolsView()) {
+                HStack(spacing: 14) {
+                    Image(systemName: "sparkles.rectangle.stack.fill")
+                        .font(.system(size: 22))
+                        .foregroundColor(.gold400)
+                        .frame(width: 42, height: 42)
+                        .background(Color.gold500.opacity(0.15))
+                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Trénerské & Súťažné Štúdio")
+                            .font(.system(size: 15, weight: .bold))
+                            .foregroundColor(.themeDark)
+                        Text("Simulátor finále, Organizér, Speed trainer, Splitter, TV")
+                            .font(.system(size: 12))
+                            .foregroundColor(.themeTextSecondary)
+                            .lineLimit(1)
+                    }
+
+                    Spacer()
+
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundColor(.themeDark.opacity(0.35))
+                }
+                .padding(14)
+                .background(Color.white)
+                .neubrutalistCard(cornerRadius: 16, shadowOffset: 3)
+            }
+            .buttonStyle(.plain)
+        }
+    }
 
     @ViewBuilder private var routinesSection: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -147,6 +184,8 @@ struct ProfileView: View {
         }
     }
 
+    @ObservedObject private var notificationManager = NotificationManager.shared
+
     @ViewBuilder private var preferencesSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Predvoľby Aplikácie").sectionHeader()
@@ -168,6 +207,26 @@ struct ProfileView: View {
                     }
                     .pickerStyle(.menu)
                 }
+                Divider().background(Color.themeBorder)
+                HStack {
+                    Image(systemName: "bell.badge.fill")
+                        .foregroundColor(.themeAccent)
+                        .frame(width: 24)
+                    Text("Upozornenia a tréningy")
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundColor(.themeDark)
+                    Spacer()
+                    Toggle("", isOn: $notificationManager.notificationsEnabled)
+                        .labelsHidden()
+                        .onChange(of: notificationManager.notificationsEnabled) { _, isEnabled in
+                            if isEnabled && !notificationManager.isAuthorized {
+                                Task { await notificationManager.requestAuthorization() }
+                            }
+                        }
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 12)
+                .background(Color.themeCard)
             }
             .neubrutalistCard(cornerRadius: 16, shadowOffset: 3)
         }
@@ -260,7 +319,7 @@ struct ProfileView: View {
 
         NavigationStack {
             ZStack {
-                Color.themeBg.ignoresSafeArea()
+                EllegancePageBackground()
                 
                 ScrollView {
                     VStack(spacing: 24) {
@@ -281,6 +340,7 @@ struct ProfileView: View {
                             showEditProfile = true
                         }
                         statsSection
+                        trainingToolsSection
                         linksSection
                         routinesSection
                         preferencesSection
@@ -308,82 +368,7 @@ struct ProfileView: View {
             // Load file sizes off the main thread
             .task { refreshStorageUsage() }
             .sheet(isPresented: $showEditProfile) {
-                NavigationStack {
-                    ZStack {
-                        Color.themeBg.ignoresSafeArea()
-                        
-                        VStack(spacing: 18) {
-                            VStack(spacing: 12) {
-                                ProfileAvatarView(
-                                    name: editedName.isEmpty ? profileName : editedName,
-                                    imagePath: profileImagePath.isEmpty ? nil : profileImagePath,
-                                    size: 104
-                                )
-                                
-                                PhotosPicker(selection: $selectedProfilePhotoItem, matching: .images) {
-                                    Label(isSavingProfilePhoto ? "Ukladám..." : "Zmeniť fotku", systemImage: "photo")
-                                        .font(.system(size: 13, weight: .bold))
-                                        .foregroundColor(.themeDark)
-                                }
-                                .disabled(isSavingProfilePhoto)
-                                
-                                if !profileImagePath.isEmpty {
-                                    Button(role: .destructive) {
-                                        removeProfilePhoto()
-                                    } label: {
-                                        Label("Odstrániť fotku", systemImage: "trash")
-                                            .font(.system(size: 12, weight: .bold))
-                                    }
-                                    .foregroundColor(.latinRed)
-                                }
-                            }
-                            
-                            VStack(alignment: .leading, spacing: 8) {
-                                Text("Meno")
-                                    .font(.system(size: 13, weight: .bold))
-                                    .foregroundColor(.themeDark.opacity(0.55))
-                                TextField("Tvoje meno", text: $editedName)
-                                    .profileTextField()
-                            }
-                            
-                            VStack(alignment: .leading, spacing: 8) {
-                                Text("Tanečný klub")
-                                    .font(.system(size: 13, weight: .bold))
-                                    .foregroundColor(.themeDark.opacity(0.55))
-                                TextField("Názov klubu", text: $editedClub)
-                                    .profileTextField()
-                            }
-                            
-                            Spacer()
-                        }
-                        .padding(24)
-                    }
-                    .navigationTitle("Upraviť profil")
-                    .navigationBarTitleDisplayMode(.inline)
-                    .toolbarBackground(Color.themeBg, for: .navigationBar)
-                    .toolbarBackground(.visible, for: .navigationBar)
-                    .toolbarColorScheme(.light, for: .navigationBar)
-                    .toolbar {
-                        ToolbarItem(placement: .cancellationAction) {
-                            Button("Zrušiť") { showEditProfile = false }
-                                .foregroundColor(.themeDark)
-                        }
-                        ToolbarItem(placement: .primaryAction) {
-                            Button("Uložiť") { saveProfile() }
-                                .font(.system(size: 15, weight: .bold))
-                                .foregroundColor(.themeAccent)
-                        }
-                        ToolbarItemGroup(placement: .keyboard) {
-                            Spacer()
-                            Button("Hotovo") { UIApplication.shared.endEditing() }
-                                .foregroundColor(.themeAccent)
-                        }
-                    }
-                    .onChange(of: selectedProfilePhotoItem) { _, newItem in
-                        guard let newItem else { return }
-                        saveProfilePhoto(from: newItem)
-                    }
-                }
+                editProfileSheet
             }
             .confirmationDialog("Naozaj obnoviť knižnicu?", isPresented: $showResetConfirmation, titleVisibility: .visible) {
                 Button("Obnoviť knižnicu", role: .destructive) { resetFiguresDatabase() }
@@ -405,6 +390,86 @@ struct ProfileView: View {
                 Button("Zrušiť", role: .cancel) { pendingMaintenanceAction = nil }
             } message: {
                 Text(pendingMaintenanceAction?.message ?? "")
+            }
+        }
+    }
+    
+    // MARK: - Edit Profile Sheet
+    @ViewBuilder private var editProfileSheet: some View {
+        NavigationStack {
+            ZStack {
+                EllegancePageBackground()
+                
+                VStack(spacing: 18) {
+                    VStack(spacing: 12) {
+                        ProfileAvatarView(
+                            name: editedName.isEmpty ? profileName : editedName,
+                            imagePath: profileImagePath.isEmpty ? nil : profileImagePath,
+                            size: 104
+                        )
+                        
+                        PhotosPicker(selection: $selectedProfilePhotoItem, matching: .images) {
+                            Label(isSavingProfilePhoto ? "Ukladám..." : "Zmeniť fotku", systemImage: "photo")
+                                .font(.system(size: 13, weight: .bold))
+                                .foregroundColor(.themeDark)
+                        }
+                        .disabled(isSavingProfilePhoto)
+                        
+                        if !profileImagePath.isEmpty {
+                            Button(role: .destructive) {
+                                removeProfilePhoto()
+                            } label: {
+                                Label("Odstrániť fotku", systemImage: "trash")
+                                    .font(.system(size: 12, weight: .bold))
+                            }
+                            .foregroundColor(.latinRed)
+                        }
+                    }
+                    
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Meno")
+                            .font(.system(size: 13, weight: .bold))
+                            .foregroundColor(.themeDark.opacity(0.55))
+                        TextField("Tvoje meno", text: $editedName)
+                            .profileTextField()
+                    }
+                    
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Tanečný klub")
+                            .font(.system(size: 13, weight: .bold))
+                            .foregroundColor(.themeDark.opacity(0.55))
+                        TextField("Názov klubu", text: $editedClub)
+                            .profileTextField()
+                    }
+                    
+                    Spacer()
+                }
+                .padding(24)
+            }
+            .navigationTitle("Upraviť profil")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(Color.themeBg, for: .navigationBar)
+            .toolbarBackground(.visible, for: .navigationBar)
+            .toolbarColorScheme(.dark, for: .navigationBar)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Zrušiť") { showEditProfile = false }
+                        .foregroundColor(.themeDark)
+                }
+                ToolbarItem(placement: .primaryAction) {
+                    Button("Uložiť") { saveProfile() }
+                        .font(.system(size: 15, weight: .bold))
+                        .foregroundColor(.themeAccent)
+                }
+                ToolbarItemGroup(placement: .keyboard) {
+                    Spacer()
+                    Button("Hotovo") { UIApplication.shared.endEditing() }
+                        .foregroundColor(.themeAccent)
+                }
+            }
+            .onChange(of: selectedProfilePhotoItem) { _, newItem in
+                guard let newItem else { return }
+                saveProfilePhoto(from: newItem)
             }
         }
     }
@@ -918,8 +983,8 @@ private struct ProfileAvatarView: View {
             }
         }
         .frame(width: size, height: size)
-        .overlay(Circle().stroke(Color.themeDark, lineWidth: 2))
-        .shadow(color: Color.themeDark.opacity(0.16), radius: 0, x: 3, y: 3)
+        .overlay(Circle().stroke(Color.gold400.opacity(0.4), lineWidth: 1.5))
+        .shadow(color: Color.gold500.opacity(0.2), radius: 10, x: 0, y: 4)
     }
 }
 

@@ -1,8 +1,9 @@
 import Foundation
 import Supabase
 import Combine
+import OSLog
 
-struct DBFigureRow: Codable {
+nonisolated struct DBFigureRow: Codable, Sendable {
     let id: UUID
     let name: String
     let dance_name: String
@@ -13,7 +14,7 @@ struct DBFigureRow: Codable {
     let is_custom: Bool
 }
 
-struct DBRoutineRow: Codable {
+nonisolated struct DBRoutineRow: Codable, Sendable {
     let id: UUID
     let name: String
     let dance_name: String
@@ -23,7 +24,7 @@ struct DBRoutineRow: Codable {
     let last_modified_by: String?
 }
 
-struct DBCanvasNodeRow: Codable {
+nonisolated struct DBCanvasNodeRow: Codable, Sendable {
     let id: UUID
     let routine_id: UUID
     let x: Double
@@ -63,23 +64,34 @@ private actor RoutineSyncDebouncer {
     }
 }
 
+// MARK: - Sync Status (S2-4 — Observable by UI for offline/failure feedback)
+
+enum SyncStatus: Equatable, Sendable {
+    case idle
+    case syncing
+    case success
+    case failed(String)   // associated error description
+
+    var isFailure: Bool {
+        if case .failed = self { return true }
+        return false
+    }
+}
+
 final class SupabaseSyncManager: Sendable {
     static let shared = SupabaseSyncManager()
-    
-    private let client: SupabaseClient?
+
+    // Uses the shared SupabaseConfig.client singleton — no separate instantiation.
+    nonisolated private var client: SupabaseClient? { SupabaseConfig.client }
     private let routineSyncDebouncer = RoutineSyncDebouncer()
-    
-    private init() {
-        if let url = SupabaseConfig.url, let anonKey = SupabaseConfig.anonKey {
-            self.client = SupabaseClient(supabaseURL: url, supabaseKey: anonKey)
-        } else {
-            self.client = nil
-        }
-    }
-    
-    var isEnabled: Bool {
-        client != nil
-    }
+
+    private init() {}
+
+    nonisolated var isEnabled: Bool { true }
+
+    // MARK: - Sync Status (published for UI consumption)
+    // Updated on @MainActor so SwiftUI views can observe without wrapping.
+    @MainActor static var syncStatus: SyncStatus = .idle
     
     // MARK: - Database Synchronisation
     
@@ -103,9 +115,9 @@ final class SupabaseSyncManager: Sendable {
                 .from("figure_library_items")
                 .upsert(row)
                 .execute()
-            print("Successfully synced figure \(name) to Supabase Database.")
+            Logger.sync.info("Synced figure '\(name, privacy: .public)'")
         } catch {
-            print("Failed to sync figure \(name) to Supabase Database: \(error)")
+            Logger.sync.error("Failed to sync figure '\(name, privacy: .public)': \(error.localizedDescription, privacy: .public)")
         }
     }
     
@@ -119,9 +131,9 @@ final class SupabaseSyncManager: Sendable {
                 .delete()
                 .eq("id", value: figureId)
                 .execute()
-            print("Successfully deleted figure \(figureId) from Supabase Database.")
+            Logger.sync.info("Deleted figure \(figureId.uuidString, privacy: .public)")
         } catch {
-            print("Failed to delete figure \(figureId) from Supabase Database: \(error)")
+            Logger.sync.error("Failed to delete figure: \(error.localizedDescription, privacy: .public)")
         }
     }
     
@@ -173,9 +185,11 @@ final class SupabaseSyncManager: Sendable {
                     .execute()
             }
             
-            print("Successfully synced routine \(name) and \(nodes.count) nodes to Supabase Database.")
+            Logger.sync.info("Synced routine '\(name, privacy: .public)' (\(nodes.count) nodes)")
+            await MainActor.run { SupabaseSyncManager.syncStatus = .success }
         } catch {
-            print("Failed to sync routine \(name) to Supabase Database: \(error)")
+            Logger.sync.error("Failed to sync routine '\(name, privacy: .public)': \(error.localizedDescription, privacy: .public)")
+            await MainActor.run { SupabaseSyncManager.syncStatus = .failed(error.localizedDescription) }
         }
     }
     
@@ -201,7 +215,7 @@ final class SupabaseSyncManager: Sendable {
             
             return (routineRow, nodes)
         } catch {
-            print("Failed to fetch routine \(routineId) from Supabase: \(error)")
+            Logger.sync.error("Failed to fetch routine: \(error.localizedDescription, privacy: .public)")
             return nil
         }
     }
@@ -216,9 +230,9 @@ final class SupabaseSyncManager: Sendable {
                 .delete()
                 .eq("id", value: routineId)
                 .execute()
-            print("Successfully deleted routine \(routineId) from Supabase Database.")
+            Logger.sync.info("Deleted routine \(routineId.uuidString, privacy: .public)")
         } catch {
-            print("Failed to delete routine \(routineId) from Supabase Database: \(error)")
+            Logger.sync.error("Failed to delete routine: \(error.localizedDescription, privacy: .public)")
         }
     }
     
@@ -316,12 +330,12 @@ final class SupabaseSyncManager: Sendable {
         let fileURL = documentsURL.appendingPathComponent(localFileName)
         
         guard fileManager.fileExists(atPath: fileURL.path) else {
-            print("File does not exist on disk: \(fileURL.path)")
+            Logger.sync.warning("Upload skipped — file not on disk: \(localFileName, privacy: .public)")
             return nil
         }
         
         do {
-            let data = try Data(contentsOf: fileURL)
+            let data = try Data(contentsOf: fileURL, options: .mappedIfSafe)
             let fileExtension = fileURL.pathExtension.lowercased()
             let contentType: String
             
@@ -335,26 +349,25 @@ final class SupabaseSyncManager: Sendable {
                 contentType = "application/octet-stream"
             }
             
-            let remotePath = localFileName
-            print("Uploading file to Supabase Storage: \(remotePath) (size: \(data.count) bytes)")
+            Logger.sync.info("Uploading '\(localFileName, privacy: .public)' (\(data.count) bytes)")
             
             // Upload to Supabase Storage (using options to specify content-type)
             try await client.storage
                 .from(bucket)
                 .upload(
-                    path: remotePath,
-                    file: data,
+                    localFileName,
+                    data: data,
                     options: FileOptions(contentType: contentType, upsert: true)
                 )
             
             let publicURL = try client.storage
                 .from(bucket)
-                .getPublicURL(path: remotePath)
+                .getPublicURL(path: localFileName)
             
-            print("Successfully uploaded \(localFileName) to Supabase Storage: \(publicURL)")
+            Logger.sync.info("Uploaded '\(localFileName, privacy: .public)' → \(publicURL.absoluteString, privacy: .public)")
             return publicURL
         } catch {
-            print("Failed to upload \(localFileName) to Supabase Storage: \(error)")
+            Logger.sync.error("Upload failed for '\(localFileName, privacy: .public)': \(error.localizedDescription, privacy: .public)")
             return nil
         }
     }

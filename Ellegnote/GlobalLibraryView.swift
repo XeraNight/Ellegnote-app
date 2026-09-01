@@ -22,12 +22,23 @@ struct GlobalLibraryView: View {
     let danceNames = ["Waltz", "Tango", "Viennese Waltz", "Slowfoxtrot", "Quickstep", "Samba", "Cha-Cha-Cha", "Rumba", "Paso Doble", "Jive"]
     
     var filteredFigures: [FigureLibraryItem] {
-        let normalizedSearch = searchText.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        let normalizedDance = selectedDanceFilter.lowercased()
+        let isAllDances = selectedDanceFilter == "Všetky"
+        let trimmedSearch = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
         
+        // Fast path: no filter & no search
+        if isAllDances && trimmedSearch.isEmpty {
+            return allFigures
+        }
+        
+        // Fast path: dance filter only (no search query)
+        if trimmedSearch.isEmpty {
+            return allFigures.filter { $0.danceName == selectedDanceFilter }
+        }
+        
+        let normalizedSearch = trimmedSearch.lowercased()
         return allFigures.filter { fig in
-            let matchesSearch = normalizedSearch.isEmpty || fig.name.lowercased().contains(normalizedSearch)
-            let matchesDance = selectedDanceFilter == "Všetky" || fig.danceName.lowercased() == normalizedDance
+            let matchesSearch = fig.name.localizedCaseInsensitiveContains(normalizedSearch)
+            let matchesDance = isAllDances || fig.danceName == selectedDanceFilter
             return matchesSearch && matchesDance
         }
     }
@@ -35,19 +46,19 @@ struct GlobalLibraryView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                Color.themeBg.ignoresSafeArea()
+                EllegancePageBackground()
                 
                 VStack(spacing: 0) {
                     
                     // Search bar
                     HStack {
                         Image(systemName: "magnifyingglass")
-                            .foregroundColor(.gray)
+                            .foregroundColor(Color.gold400)
                         TextField("Hľadať figúru...", text: $searchText)
-                            .foregroundColor(.themeDark)
+                            .foregroundColor(.white)
                     }
                     .padding()
-                    .neubrutalistCard(cornerRadius: 12, shadowOffset: 2)
+                    .neubrutalistCard(cornerRadius: 14, shadowOffset: 2)
                     .padding(.horizontal, 20)
                     .padding(.top, 10)
                     
@@ -74,10 +85,10 @@ struct GlobalLibraryView: View {
                         VStack(spacing: 12) {
                             Image(systemName: "book.closed")
                                 .font(.system(size: 32))
-                                .foregroundColor(.gray)
+                                .foregroundColor(Color.white.opacity(0.3))
                             Text("Nenašli sa žiadne figúry")
                                 .font(.system(size: 14, weight: .bold))
-                                .foregroundColor(.gray)
+                                .foregroundColor(Color.white.opacity(0.5))
                         }
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 40)
@@ -92,8 +103,8 @@ struct GlobalLibraryView: View {
                                         VStack(alignment: .leading, spacing: 8) {
                                             HStack {
                                                 Text(fig.name)
-                                                    .font(.system(size: 16, weight: .bold, design: .serif))
-                                                    .foregroundColor(.themeDark)
+                                                    .font(.system(size: 16, weight: .bold))
+                                                    .foregroundColor(.white)
                                                 Spacer()
                                                 Text(fig.danceName)
                                                     .font(.system(size: 11, weight: .bold))
@@ -101,20 +112,16 @@ struct GlobalLibraryView: View {
                                                     .padding(.horizontal, 8)
                                                     .padding(.vertical, 3)
                                                     .background(
-                                                        fig.danceName.lowercased() == "waltz" || fig.danceName.lowercased() == "tango" || fig.danceName.lowercased() == "viennese waltz" || fig.danceName.lowercased() == "slowfoxtrot" || fig.danceName.lowercased() == "quickstep" ? Color.standardBlue : Color.latinPink
+                                                        fig.danceName.lowercased() == "waltz" || fig.danceName.lowercased() == "tango" || fig.danceName.lowercased() == "viennese waltz" || fig.danceName.lowercased() == "slowfoxtrot" || fig.danceName.lowercased() == "quickstep" ? Color.standardBlue.opacity(0.85) : Color.latinPink.opacity(0.85)
                                                     )
                                                     .cornerRadius(6)
-                                                    .overlay(
-                                                        RoundedRectangle(cornerRadius: 6)
-                                                            .stroke(Color.themeDark, lineWidth: 1.5)
-                                                    )
                                             }
                                             
                                             HStack {
                                                 if !fig.rhythm.isEmpty {
                                                     Text("Rytmus: \(fig.rhythm)")
-                                                        .font(.system(size: 12, weight: .semibold))
-                                                        .foregroundColor(.themeAccent)
+                                                        .font(.system(size: 12, weight: .semibold, design: .monospaced))
+                                                        .foregroundColor(Color.gold400)
                                                 }
                                                 
                                                 Spacer()
@@ -124,12 +131,12 @@ struct GlobalLibraryView: View {
                                                     if fig.imagePath != nil {
                                                         Image(systemName: "photo")
                                                             .font(.system(size: 11))
-                                                            .foregroundColor(.themeAccent)
+                                                            .foregroundColor(Color.gold400)
                                                     }
                                                     if fig.videoPath != nil {
                                                         Image(systemName: "video.fill")
                                                             .font(.system(size: 11))
-                                                            .foregroundColor(.themeAccent)
+                                                            .foregroundColor(Color.gold400)
                                                     }
                                                 }
                                             }
@@ -137,19 +144,19 @@ struct GlobalLibraryView: View {
                                             if !fig.techniqueNotes.isEmpty {
                                                 Text(fig.techniqueNotes)
                                                     .font(.system(size: 13))
-                                                    .foregroundColor(.gray)
-                                                    .lineLimit(1)
-                                                    .padding(.top, 2)
+                                                    .foregroundColor(Color.white.opacity(0.6))
+                                                    .lineLimit(2)
                                             }
                                         }
-                                        .padding()
-                                        .neubrutalistCard(cornerRadius: 14, shadowOffset: 2)
+                                        .padding(16)
+                                        .background(Color.themeCard)
+                                        .neubrutalistCard(cornerRadius: 16, shadowOffset: 2)
                                     }
                                     .buttonStyle(.plain)
                                 }
                             }
                             .padding(.horizontal, 20)
-                            .padding(.bottom, 100)  // clear space above liquid glass dock
+                            .padding(.bottom, 100)
                         }
                     }
                 }
@@ -169,7 +176,7 @@ struct GlobalLibraryView: View {
             .sheet(isPresented: $showAddFigure) {
                 NavigationStack {
                     ZStack {
-                        Color.themeBg.ignoresSafeArea()
+                        EllegancePageBackground()
                         
                         ScrollView {
                             VStack(spacing: 20) {
@@ -182,10 +189,10 @@ struct GlobalLibraryView: View {
                                             .padding()
                                             .background(Color.themeCard)
                                             .cornerRadius(10)
-                                            .foregroundColor(.themeDark)
+                                            .foregroundColor(.white)
                                             .overlay(
                                                 RoundedRectangle(cornerRadius: 10)
-                                                    .stroke(Color.themeDark, lineWidth: 2)
+                                                    .stroke(Color.gold400.opacity(0.25), lineWidth: 1)
                                             )
                                     }
                                     
@@ -206,39 +213,39 @@ struct GlobalLibraryView: View {
                                         .cornerRadius(10)
                                         .overlay(
                                             RoundedRectangle(cornerRadius: 10)
-                                                .stroke(Color.themeDark, lineWidth: 2)
+                                                .stroke(Color.gold400.opacity(0.25), lineWidth: 1)
                                         )
                                     }
                                     
                                     VStack(alignment: .leading, spacing: 6) {
                                         Text("Rytmizácia")
                                             .font(.system(size: 13, weight: .bold))
-                                            .foregroundColor(.themeDark.opacity(0.55))
+                                            .foregroundColor(.white.opacity(0.60))
                                         TextField("napr. 1, 2, 3", text: $newFigureRhythm)
                                             .padding()
                                             .background(Color.themeCard)
                                             .cornerRadius(10)
-                                            .foregroundColor(.themeDark)
+                                            .foregroundColor(.white)
                                             .overlay(
                                                 RoundedRectangle(cornerRadius: 10)
-                                                    .stroke(Color.themeDark, lineWidth: 2)
+                                                    .stroke(Color.gold400.opacity(0.25), lineWidth: 1)
                                             )
                                     }
                                     
                                     VStack(alignment: .leading, spacing: 6) {
                                         Text("Technika / Popis")
                                             .font(.system(size: 13, weight: .bold))
-                                            .foregroundColor(.themeDark.opacity(0.55))
+                                            .foregroundColor(.white.opacity(0.60))
                                         TextEditor(text: $newFigureNotes)
                                             .scrollContentBackground(.hidden)
                                             .frame(height: 100)
                                             .padding(6)
                                             .background(Color.themeCard)
-                                            .foregroundColor(.themeDark)
+                                            .foregroundColor(.white)
                                             .cornerRadius(10)
                                             .overlay(
                                                 RoundedRectangle(cornerRadius: 10)
-                                                    .stroke(Color.themeDark, lineWidth: 2)
+                                                    .stroke(Color.gold400.opacity(0.25), lineWidth: 1)
                                             )
                                     }
                                 }
@@ -547,7 +554,7 @@ struct LibraryFigureDetailSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(Color.themeBg, for: .navigationBar)
             .toolbarBackground(.visible, for: .navigationBar)
-            .toolbarColorScheme(.light, for: .navigationBar)
+            .toolbarColorScheme(.dark, for: .navigationBar)
             .confirmationDialog("Naozaj chcete vymazať túto figúru z knižnice?", isPresented: $showDeleteConfirmation, titleVisibility: .visible) {
                 Button("Vymazať figúru", role: .destructive) {
                     deleteFigureItem()
@@ -583,7 +590,7 @@ struct LibraryFigureDetailSheet: View {
                 playbackRate = Float(defaultPlaybackRate)
             }
             .fullScreenCover(isPresented: $showCamera) {
-                VideoRecorderView { localPath in
+                DanceCameraView { localPath in
                     figure.videoPath = localPath
                     try? modelContext.save()
                     showCamera = false

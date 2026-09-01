@@ -71,6 +71,7 @@ private class QRScannerViewController: UIViewController, AVCaptureMetadataOutput
     
     private var captureSession: AVCaptureSession?
     private var previewLayer: AVCaptureVideoPreviewLayer?
+    private let sessionQueue = DispatchQueue(label: "com.ellegnote.qrScanner.session", qos: .userInitiated)
     
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -96,7 +97,7 @@ private class QRScannerViewController: UIViewController, AVCaptureMetadataOutput
         button.addTarget(self, action: #selector(simulateScan), for: .touchUpInside)
         view.addSubview(button)
         #else
-        setupCamera()
+        checkPermissionAndSetupCamera()
         #endif
         
         setupCancelButton()
@@ -109,42 +110,89 @@ private class QRScannerViewController: UIViewController, AVCaptureMetadataOutput
         delegate?.qrScannerDidScan(code: dummyPayload)
     }
     
+    private func checkPermissionAndSetupCamera() {
+        switch AVCaptureDevice.authorizationStatus(for: .video) {
+        case .authorized:
+            setupCamera()
+        case .notDetermined:
+            AVCaptureDevice.requestAccess(for: .video) { [weak self] granted in
+                DispatchQueue.main.async {
+                    granted ? self?.setupCamera() : self?.showCameraMessage("Prístup ku kamere bol odmietnutý.")
+                }
+            }
+        case .denied, .restricted:
+            showCameraMessage("Prístup ku kamere je zakázaný.\nPovoľ ho v Nastavenia → Ellegnote.")
+        @unknown default:
+            setupCamera()
+        }
+    }
+    
     private func setupCamera() {
-        let session = AVCaptureSession()
-        self.captureSession = session
-        
-        guard let videoCaptureDevice = AVCaptureDevice.default(for: .video) else { return }
-        let videoInput: AVCaptureDeviceInput
-        
-        do {
-            videoInput = try AVCaptureDeviceInput(device: videoCaptureDevice)
-        } catch {
-            return
-        }
-        
-        if session.canAddInput(videoInput) {
+        sessionQueue.async { [weak self] in
+            guard let self else { return }
+            
+            let session = AVCaptureSession()
+            session.beginConfiguration()
+            session.sessionPreset = session.canSetSessionPreset(.high) ? .high : .medium
+            
+            guard let videoCaptureDevice = AVCaptureDevice.default(for: .video),
+                  let videoInput = try? AVCaptureDeviceInput(device: videoCaptureDevice),
+                  session.canAddInput(videoInput) else {
+                session.commitConfiguration()
+                DispatchQueue.main.async { self.showCameraMessage("Kamera nie je dostupná.") }
+                return
+            }
             session.addInput(videoInput)
-        } else {
-            return
-        }
-        
-        let metadataOutput = AVCaptureMetadataOutput()
-        if session.canAddOutput(metadataOutput) {
+            
+            let metadataOutput = AVCaptureMetadataOutput()
+            guard session.canAddOutput(metadataOutput) else {
+                session.commitConfiguration()
+                DispatchQueue.main.async { self.showCameraMessage("QR skener nie je dostupný.") }
+                return
+            }
             session.addOutput(metadataOutput)
             metadataOutput.setMetadataObjectsDelegate(self, queue: DispatchQueue.main)
             metadataOutput.metadataObjectTypes = [.qr]
-        } else {
+            session.commitConfiguration()
+            
+            DispatchQueue.main.async {
+                self.captureSession = session
+                
+                let preview = AVCaptureVideoPreviewLayer(session: session)
+                preview.frame = self.view.layer.bounds
+                preview.videoGravity = .resizeAspectFill
+                self.view.layer.insertSublayer(preview, at: 0)
+                self.previewLayer = preview
+            }
+            
+            session.startRunning()
+        }
+    }
+    
+    private func showCameraMessage(_ message: String) {
+        let label = UILabel()
+        label.text = message
+        label.numberOfLines = 0
+        label.textColor = .white
+        label.textAlignment = .center
+        label.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(label)
+        NSLayoutConstraint.activate([
+            label.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            label.centerYAnchor.constraint(equalTo: view.centerYAnchor),
+            label.leadingAnchor.constraint(greaterThanOrEqualTo: view.leadingAnchor, constant: 24),
+            label.trailingAnchor.constraint(lessThanOrEqualTo: view.trailingAnchor, constant: -24)
+        ])
+    }
+    
+    private func stopSession() {
+        guard let session = captureSession else {
             return
         }
-        
-        let preview = AVCaptureVideoPreviewLayer(session: session)
-        preview.frame = view.layer.bounds
-        preview.videoGravity = .resizeAspectFill
-        view.layer.addSublayer(preview)
-        self.previewLayer = preview
-        
-        DispatchQueue.global(qos: .background).async {
-            session.startRunning()
+        sessionQueue.async {
+            if session.isRunning {
+                session.stopRunning()
+            }
         }
     }
     
@@ -169,20 +217,17 @@ private class QRScannerViewController: UIViewController, AVCaptureMetadataOutput
     
     override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
-        if let session = captureSession, session.isRunning {
-            session.stopRunning()
-        }
+        stopSession()
     }
     
-    func metadataOutput(_ output: AVCaptureMetadataOutput, didOutput metadataObjects: [AVMetadataObject], from connection: AVCaptureConnection) {
+    nonisolated func metadataOutput(_ output: AVCaptureMetadataOutput, didOutput metadataObjects: [AVMetadataObject], from connection: AVCaptureConnection) {
         if let metadataObject = metadataObjects.first {
             guard let readableObject = metadataObject as? AVMetadataMachineReadableCodeObject,
                   let stringValue = readableObject.stringValue else { return }
-            AudioServicesPlaySystemSound(SystemSoundID(kSystemSoundID_Vibrate))
-            delegate?.qrScannerDidScan(code: stringValue)
-            
-            if let session = captureSession, session.isRunning {
-                session.stopRunning()
+            Task { @MainActor [weak self] in
+                AudioServicesPlaySystemSound(SystemSoundID(kSystemSoundID_Vibrate))
+                self?.delegate?.qrScannerDidScan(code: stringValue)
+                self?.stopSession()
             }
         }
     }

@@ -16,4 +16,17 @@ struct EllegnoteAttributes: ActivityAttributes {
     var routineName: String
     var danceName: String
 }
+
+struct RecordingActivityAttributes: ActivityAttributes {
+    public struct ContentState: Codable, Hashable {
+        var startDate: Date
+        var sessionTitle: String
+        var metronomeName: String
+        var bpm: Int
+        var beatsPerMeasure: Int
+        var audioLevel: Float
+    }
+
+    var recordingName: String
+}
 #endif

@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import GoogleSignIn
 
 @main
 struct EllegnoteApp: App {
@@ -11,7 +12,8 @@ struct EllegnoteApp: App {
             FigureLibraryItem.self,
             Routine.self,
             CanvasNode.self,
-            InstantNote.self
+            InstantNote.self,
+            VideoMediaEntry.self
         ])
         let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
         do {
@@ -34,8 +36,10 @@ struct EllegnoteApp: App {
 
     var body: some Scene {
         WindowGroup {
-            MainTabView()
+            RootAppView()
+                .preferredColorScheme(.dark)
                 .onOpenURL { url in
+                    _ = GIDSignIn.sharedInstance.handle(url)
                     Task { await AuthManager.shared.handleDeepLink(url) }
                 }
         }
@@ -81,5 +85,23 @@ struct EllegnoteApp: App {
         FigureLibraryItem.seedDefaultFigures(in: context)
 
         try? context.save()
+    }
+}
+
+// MARK: - Root App Authentication Gate
+struct RootAppView: View {
+    @ObservedObject private var authManager = AuthManager.shared
+
+    var body: some View {
+        ZStack {
+            if authManager.isAuthenticated {
+                MainTabView()
+                    .transition(.opacity)
+            } else {
+                AuthSheetView(isSheet: false)
+                    .transition(.opacity)
+            }
+        }
+        .animation(.easeInOut(duration: 0.28), value: authManager.isAuthenticated)
     }
 }

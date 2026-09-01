@@ -23,7 +23,7 @@ struct CaptureModeView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                Color.themeBg.ignoresSafeArea()
+                EllegancePageBackground()
                 
                 VStack(spacing: 20) {
                     
@@ -52,7 +52,7 @@ struct CaptureModeView: View {
                                     .cornerRadius(16)
                                     .overlay(
                                         RoundedRectangle(cornerRadius: 16)
-                                            .stroke(Color.themeDark, lineWidth: 2)
+                                            .stroke(Color.gold400.opacity(0.25), lineWidth: 1)
                                     )
                                 
                                 HStack(spacing: 12) {
@@ -174,7 +174,7 @@ struct CaptureModeView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(Color.themeBg, for: .navigationBar)
             .toolbarBackground(.visible, for: .navigationBar)
-            .toolbarColorScheme(.light, for: .navigationBar)
+            .toolbarColorScheme(.dark, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Zatvoriť") { dismiss() }
@@ -190,10 +190,16 @@ struct CaptureModeView: View {
                 }
             }
             .fullScreenCover(isPresented: $showCamera) {
-                VideoRecorderView { localPath in
+                DanceCameraView { localPath in
                     capturedVideoPath = localPath
+                    showCamera = false
                 }
                 .ignoresSafeArea()
+            }
+            .onChange(of: showCamera) { _, isShowing in
+                if isShowing && speechManager.isRecording {
+                    speechManager.stopTranscribing()
+                }
             }
             .onAppear {
                 speechManager.requestPermissions()

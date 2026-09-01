@@ -11,6 +11,8 @@
 		3B1C9429300D1EDA00DBA704 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 3B1C9428300D1EDA00DBA704 /* WidgetKit.framework */; };
 		3B1C942B300D1EDA00DBA704 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 3B1C942A300D1EDA00DBA704 /* SwiftUI.framework */; };
 		3B1C9438300D1EDC00DBA704 /* EllegnoteWigdetExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 3B1C9426300D1EDA00DBA704 /* EllegnoteWigdetExtension.appex */; platformFilter = ios; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		3B7A0A643030B64600CFDE7E /* GoogleSignIn in Frameworks */ = {isa = PBXBuildFile; productRef = 3B7A0A633030B64600CFDE7E /* GoogleSignIn */; };
+		3B7A0A663030B64600CFDE7E /* GoogleSignInSwift in Frameworks */ = {isa = PBXBuildFile; productRef = 3B7A0A653030B64600CFDE7E /* GoogleSignInSwift */; };
 		3B87636730095A6E00FE6FE1 /* (null) in Frameworks */ = {isa = PBXBuildFile; };
 		3B87636830095A6E00FE6FE1 /* Supabase in Frameworks */ = {isa = PBXBuildFile; productRef = 89EB6A59E6230AE6B59BBCFD /* Supabase */; };
 		3B87638C30097EFD00FE6FE1 /* MediaStorageManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B87638B30097EFD00FE6FE1 /* MediaStorageManager.swift */; };
@@ -126,7 +128,9 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				3B7A0A663030B64600CFDE7E /* GoogleSignInSwift in Frameworks */,
 				376E76175D01963F05894D54 /* Supabase in Frameworks */,
+				3B7A0A643030B64600CFDE7E /* GoogleSignIn in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -228,6 +232,8 @@
 			name = Ellegnote;
 			packageProductDependencies = (
 				89EB6A59E6230AE6B59BBCFD /* Supabase */,
+				3B7A0A633030B64600CFDE7E /* GoogleSignIn */,
+				3B7A0A653030B64600CFDE7E /* GoogleSignInSwift */,
 			);
 			productName = Ellegnote;
 			productReference = 3BD4422B2FF3134A00C5BCB4 /* Ellegnote.app */;
@@ -292,9 +298,13 @@
 				TargetAttributes = {
 					3B1C9425300D1EDA00DBA704 = {
 						CreatedOnToolsVersion = 26.4;
+						DevelopmentTeam = 2MD5BS4DLM;
+						ProvisioningStyle = Automatic;
 					};
 					3BD4422A2FF3134A00C5BCB4 = {
 						CreatedOnToolsVersion = 26.4;
+						DevelopmentTeam = 2MD5BS4DLM;
+						ProvisioningStyle = Automatic;
 					};
 					3BD442392FF3134E00C5BCB4 = {
 						CreatedOnToolsVersion = 26.4;
@@ -317,6 +327,7 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				12F58D13E51F519401A98DC6 /* XCRemoteSwiftPackageReference "supabase-swift" */,
+				3B7A0A623030B64600CFDE7E /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 3BD4422C2FF3134A00C5BCB4 /* Products */;
@@ -609,9 +620,22 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 2MD5BS4DLM;
 				ENABLE_APP_SANDBOX = YES;
+				ENABLE_FILE_ACCESS_DOWNLOADS_FOLDER = readwrite;
+				ENABLE_FILE_ACCESS_MUSIC_FOLDER = readwrite;
+				ENABLE_FILE_ACCESS_PICTURE_FOLDER = readwrite;
 				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_INCOMING_NETWORK_CONNECTIONS = YES;
+				ENABLE_OUTGOING_NETWORK_CONNECTIONS = NO;
 				ENABLE_PREVIEWS = YES;
-				ENABLE_USER_SELECTED_FILES = readonly;
+				ENABLE_RESOURCE_ACCESS_AUDIO_INPUT = YES;
+				ENABLE_RESOURCE_ACCESS_BLUETOOTH = YES;
+				ENABLE_RESOURCE_ACCESS_CALENDARS = YES;
+				ENABLE_RESOURCE_ACCESS_CAMERA = YES;
+				ENABLE_RESOURCE_ACCESS_CONTACTS = NO;
+				ENABLE_RESOURCE_ACCESS_LOCATION = NO;
+				ENABLE_RESOURCE_ACCESS_PRINTING = NO;
+				ENABLE_RESOURCE_ACCESS_USB = NO;
+				ENABLE_USER_SELECTED_FILES = readwrite;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = Ellegnote/Info.plist;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
@@ -656,9 +680,22 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 2MD5BS4DLM;
 				ENABLE_APP_SANDBOX = YES;
+				ENABLE_FILE_ACCESS_DOWNLOADS_FOLDER = readwrite;
+				ENABLE_FILE_ACCESS_MUSIC_FOLDER = readwrite;
+				ENABLE_FILE_ACCESS_PICTURE_FOLDER = readwrite;
 				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_INCOMING_NETWORK_CONNECTIONS = YES;
+				ENABLE_OUTGOING_NETWORK_CONNECTIONS = NO;
 				ENABLE_PREVIEWS = YES;
-				ENABLE_USER_SELECTED_FILES = readonly;
+				ENABLE_RESOURCE_ACCESS_AUDIO_INPUT = YES;
+				ENABLE_RESOURCE_ACCESS_BLUETOOTH = YES;
+				ENABLE_RESOURCE_ACCESS_CALENDARS = YES;
+				ENABLE_RESOURCE_ACCESS_CAMERA = YES;
+				ENABLE_RESOURCE_ACCESS_CONTACTS = NO;
+				ENABLE_RESOURCE_ACCESS_LOCATION = NO;
+				ENABLE_RESOURCE_ACCESS_PRINTING = NO;
+				ENABLE_RESOURCE_ACCESS_USB = NO;
+				ENABLE_USER_SELECTED_FILES = readwrite;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = Ellegnote/Info.plist;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
@@ -862,9 +899,27 @@
 				minimumVersion = 2.21.1;
 			};
 		};
+		3B7A0A623030B64600CFDE7E /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/google/GoogleSignIn-iOS";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 9.2.0;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		3B7A0A633030B64600CFDE7E /* GoogleSignIn */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 3B7A0A623030B64600CFDE7E /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */;
+			productName = GoogleSignIn;
+		};
+		3B7A0A653030B64600CFDE7E /* GoogleSignInSwift */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 3B7A0A623030B64600CFDE7E /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */;
+			productName = GoogleSignInSwift;
+		};
 		89EB6A59E6230AE6B59BBCFD /* Supabase */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 12F58D13E51F519401A98DC6 /* XCRemoteSwiftPackageReference "supabase-swift" */;

@@ -3,6 +3,7 @@ import AVKit
 import Speech
 import SwiftData
 import Combine
+import UniformTypeIdentifiers
 
 
 struct FigureDetailCard: View {
@@ -17,7 +18,10 @@ struct FigureDetailCard: View {
     @State private var notesText = ""
     @State private var showCamera = false
     @State private var player: AVPlayer? = nil
-    
+    @State private var playerObserverToken: (any NSObjectProtocol)? = nil
+    @State private var showFigureVideoVault = false
+    @State private var showDuelComparison = false
+
     // Auto-save and Cloud Indicator state
     @State private var autoSaveTask: Task<Void, Never>? = nil
     @State private var isAutoSaved = false
@@ -29,16 +33,33 @@ struct FigureDetailCard: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                Color.themeBg.ignoresSafeArea()
+                EllegancePageBackground()
                 
                 ScrollView {
                     VStack(alignment: .leading, spacing: 20) {
                         
-                        // Video loop section
+                        // Video loop and Vault section
                         VStack(alignment: .leading, spacing: 10) {
-                            Text("Video ukážka")
-                                .font(.system(size: 14, weight: .bold))
-                                .foregroundColor(.gray)
+                            HStack {
+                                Text("Tréningové & Referenčné Videá")
+                                    .font(.system(size: 14, weight: .bold))
+                                    .foregroundColor(.gray)
+                                Spacer()
+                                Button {
+                                    showFigureVideoVault = true
+                                } label: {
+                                    HStack(spacing: 4) {
+                                        Image(systemName: "film.stack")
+                                        Text("Inventár (\(node.mediaVault.count))")
+                                            .font(.system(size: 12, weight: .bold))
+                                    }
+                                    .foregroundColor(.themeAccent)
+                                    .padding(.horizontal, 8)
+                                    .padding(.vertical, 4)
+                                    .background(Color.themeAccent.opacity(0.12))
+                                    .cornerRadius(6)
+                                }
+                            }
                             
                             if let videoPath = node.videoPath,
                                let _ = resolveVideoURL(path: videoPath) {
@@ -50,12 +71,12 @@ struct FigureDetailCard: View {
                                             .cornerRadius(16)
                                             .overlay(
                                                 RoundedRectangle(cornerRadius: 16)
-                                                    .stroke(Color.themeDark, lineWidth: 2)
+                                                    .stroke(Color.gold400.opacity(0.25), lineWidth: 1)
                                             )
                                     }
                                     
-                                    // Playback Speed Controls
-                                    HStack(spacing: 12) {
+                                    // Playback Speed Controls & Actions
+                                    HStack(spacing: 8) {
                                         Text("Rýchlosť:")
                                             .font(.system(size: 12, weight: .bold, design: .serif))
                                             .foregroundColor(.themeDark)
@@ -73,6 +94,20 @@ struct FigureDetailCard: View {
                                         }
                                         
                                         Spacer()
+                                        
+                                        // Duel button if target exists or multiple videos exist
+                                        if node.activeTargetVideoPath != nil || node.mediaVault.count > 1 {
+                                            Button {
+                                                showDuelComparison = true
+                                            } label: {
+                                                Image(systemName: "rectangle.split.2x1.fill")
+                                                    .font(.system(size: 16, weight: .bold))
+                                                    .foregroundColor(.white)
+                                                    .padding(6)
+                                                    .background(Color.themeAccent)
+                                                    .cornerRadius(8)
+                                            }
+                                        }
                                         
                                         // Delete Video Option
                                         Button(action: deleteVideo) {
@@ -103,6 +138,39 @@ struct FigureDetailCard: View {
                         }
                         .padding(.horizontal, 20)
                         
+                        // Mastery Star Rating & Coach Evaluation (Funkcia 19)
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack {
+                                Text("Úroveň zvládnutia figúry")
+                                    .font(.system(size: 14, weight: .bold, design: .serif))
+                                    .foregroundColor(.themeDark)
+                                Spacer()
+                                Text(ratingLabel(node.masteryRating))
+                                    .font(.system(size: 11, weight: .black))
+                                    .foregroundColor(ratingColor(node.masteryRating))
+                            }
+                            
+                            HStack(spacing: 12) {
+                                ForEach(1...5, id: \.self) { star in
+                                    Button {
+                                        node.masteryRating = star
+                                        let gen = UIImpactFeedbackGenerator(style: .light)
+                                        gen.impactOccurred()
+                                    } label: {
+                                        Image(systemName: star <= node.masteryRating ? "star.fill" : "star")
+                                            .font(.system(size: 22))
+                                            .foregroundColor(star <= node.masteryRating ? .amberGold : Color.themeBorder)
+                                    }
+                                }
+                            }
+                            .padding(.vertical, 8)
+                            .padding(.horizontal, 12)
+                            .background(Color.themeCard)
+                            .cornerRadius(12)
+                            .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.gold400.opacity(0.25), lineWidth: 1))
+                        }
+                        .padding(.horizontal, 20)
+                        
                         // Text notes section
                         VStack(alignment: .leading, spacing: 8) {
                             Text("Moje poznámky k figúre")
@@ -118,7 +186,7 @@ struct FigureDetailCard: View {
                                 .cornerRadius(12)
                                 .overlay(
                                     RoundedRectangle(cornerRadius: 12)
-                                        .stroke(Color.themeDark, lineWidth: 2)
+                                        .stroke(Color.gold400.opacity(0.25), lineWidth: 1)
                                 )
                         }
                         .padding(.horizontal, 20)
@@ -200,7 +268,7 @@ struct FigureDetailCard: View {
                                 if let routine = node.routine {
                                     Task.detached(priority: .background) {
                                         await SupabaseSyncManager.shared.uploadFileAsync(localFileName: videoPath)
-                                        SupabaseSyncManager.shared.syncRoutineOnBackground(routine)
+                                        await SupabaseSyncManager.shared.syncRoutineOnBackground(routine)
                                     }
                                 }
                             }
@@ -281,8 +349,23 @@ struct FigureDetailCard: View {
             .onChange(of: playbackRate) { _, newRate in
                 player?.rate = newRate
             }
+            .onChange(of: showCamera) { _, isShowing in
+                if isShowing {
+                    if let token = playerObserverToken {
+                        NotificationCenter.default.removeObserver(token)
+                        playerObserverToken = nil
+                    }
+                    player?.pause()
+                    player = nil
+                    if speechManager.isRecording {
+                        speechManager.stopTranscribing()
+                    }
+                } else {
+                    setupPlayer(for: node.videoPath)
+                }
+            }
             .fullScreenCover(isPresented: $showCamera) {
-                VideoRecorderView { localPath in
+                DanceCameraView(ghostVideoPath: node.activeTargetVideoPath) { localPath in
                     node.videoPath = localPath
                     try? node.modelContext?.save()
                     showCamera = false
@@ -295,7 +378,7 @@ struct FigureDetailCard: View {
                         
                         Task.detached(priority: .background) {
                             await SupabaseSyncManager.shared.uploadFileAsync(localFileName: localPath)
-                            SupabaseSyncManager.shared.syncRoutineOnBackground(routine)
+                            await SupabaseSyncManager.shared.syncRoutineOnBackground(routine)
                         }
                     }
                     
@@ -304,10 +387,29 @@ struct FigureDetailCard: View {
                 }
                 .ignoresSafeArea()
             }
+            .sheet(isPresented: $showFigureVideoVault) {
+                VideoVaultView(
+                    node: node,
+                    activeSlotAPath: $node.videoPath,
+                    activeSlotBPath: $node.activeTargetVideoPath
+                )
+            }
+            .sheet(isPresented: $showDuelComparison) {
+                DualVideoComparisonView(
+                    pathA: $node.videoPath,
+                    pathB: $node.activeTargetVideoPath,
+                    titleA: "\(node.figureName) (Moje)",
+                    titleB: "\(node.figureName) (Vzor)"
+                )
+            }
         }
     }
     
     private func saveChanges() {
+        autoSaveTask?.cancel()
+        autoSaveTask = nil
+        
+        guard node.notes != notesText else { return }
         node.notes = notesText
         try? node.modelContext?.save()
         
@@ -336,41 +438,83 @@ struct FigureDetailCard: View {
                 try? routine.modelContext?.save()
                 SupabaseSyncManager.shared.syncRoutineOnBackground(routine)
             }
+            // Cleanup observer a player pred vymazaním
+            if let token = playerObserverToken {
+                NotificationCenter.default.removeObserver(token)
+                playerObserverToken = nil
+            }
             player = nil
+            Task { await AudioSessionCoordinator.shared.deactivate(.player) }
             
             // Broadcast update
             realtimeManager?.broadcastNodeUpdated(node: node, senderName: userName)
         }
     }
     
+    private func ratingLabel(_ rating: Int) -> String {
+        switch rating {
+        case 1: return "🔴 Potrebuje tréning"
+        case 2: return "🟠 Začiatočná fáza"
+        case 3: return "🟡 Dobre zvládnuté"
+        case 4: return "🔵 Pokročilá technika"
+        case 5: return "🟢 Súťažná istota"
+        default: return "🟡 Dobre zvládnuté"
+        }
+    }
+    
+    private func ratingColor(_ rating: Int) -> Color {
+        switch rating {
+        case 1: return .red
+        case 2: return .orange
+        case 3: return .amberGold
+        case 4: return .blue
+        case 5: return .green
+        default: return .amberGold
+        }
+    }
+    
     private func setupPlayer(for path: String?) {
-        guard let path = path, let url = resolveVideoURL(path: path),
+
+        // ✅ OPRAVA 1: Vždy odober starý observer pred novou inštanciou.
+        // Pôvodný kód ukladal token do nicoho → removeObserver nešlo nikdy zavolať.
+        if let token = playerObserverToken {
+            NotificationCenter.default.removeObserver(token)
+            playerObserverToken = nil
+        }
+        player?.pause()
+        player = nil
+
+        guard let path = path,
+              let url = resolveVideoURL(path: path),
               (url.isFileURL ? MediaStorageManager.fileExists(path) : true) else {
-            player = nil
             return
         }
+
         let ap = AVPlayer(url: url)
-        // Looping via notification
-        NotificationCenter.default.addObserver(
+
+        // ✅ OPRAVA 2: Token uložený → observer sa dá neskôr odstrániť.
+        // ✅ OPRAVA 3: [weak ap] → žiadny retain cycle (pôvodný kód držal ap silno).
+        let token = NotificationCenter.default.addObserver(
             forName: .AVPlayerItemDidPlayToEndTime,
             object: ap.currentItem,
             queue: .main
-        ) { _ in
-            ap.seek(to: .zero)
+        ) { [weak ap] _ in
+            ap?.seek(to: .zero)
+            ap?.play()
+        }
+        playerObserverToken = token
+        player = ap
+
+        // ✅ OPRAVA 4: Prehrávač ide cez koordinátora — koniec konfliktu so speech session.
+        Task { @MainActor in
+            try? await AudioSessionCoordinator.shared.activate(.player)
             ap.play()
             ap.rate = playbackRate
         }
-        player = ap
-        ap.play()
-        ap.rate = playbackRate
     }
     
     private func resolveVideoURL(path: String) -> URL? {
         return MediaResolver.resolveVideoURL(path: path)
-    }
-    
-    private func getDocumentsDirectory() -> URL {
-        return FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
     }
     
     private func toggleVoiceRecording() {
@@ -395,26 +539,25 @@ class LoopingPlayerUIView: UIView {
     
     init(url: URL, rate: Float) {
         super.init(frame: .zero)
-        
-        // Configure AVAudioSession for playback (unmutes audio in Silent Mode)
-        let audioSession = AVAudioSession.sharedInstance()
-        try? audioSession.setCategory(.playback, mode: .moviePlayback, options: [])
-        try? audioSession.setActive(true)
-        
+
         let asset = AVURLAsset(url: url)
         let playerItem = AVPlayerItem(asset: asset)
-        
+
         let player = AVQueuePlayer(playerItem: playerItem)
         player.actionAtItemEnd = .none
         self.queuePlayer = player
-        
+
         playerLooper = AVPlayerLooper(player: player, templateItem: playerItem)
         playerLayer.player = player
         playerLayer.videoGravity = .resizeAspectFill
         layer.addSublayer(playerLayer)
-        
-        player.play()
-        player.rate = rate
+
+        // ✅ Audio session cez koordinátora — nie priamo, aby nenarazil do kamery.
+        Task {
+            try? await AudioSessionCoordinator.shared.activate(.player)
+            player.play()
+            player.rate = rate
+        }
     }
     
     override func layoutSubviews() {
@@ -431,6 +574,9 @@ class LoopingPlayerUIView: UIView {
         playerLooper?.disableLooping()
         playerLooper = nil
         queuePlayer = nil
+        Task {
+            await AudioSessionCoordinator.shared.deactivate(.player)
+        }
     }
     
     required init?(coder: NSCoder) {
@@ -488,40 +634,55 @@ class SpeechRecognizerHelper: ObservableObject {
     
     func startTranscribing() {
         guard let recognizer = recognizer, recognizer.isAvailable else { return }
-        
-        let audioSession = AVAudioSession.sharedInstance()
-        try? audioSession.setCategory(.record, mode: .measurement, options: .duckOthers)
-        try? audioSession.setActive(true, options: .notifyOthersOnDeactivation)
-        
-        audioEngine = AVAudioEngine()
-        request = SFSpeechAudioBufferRecognitionRequest()
-        
-        guard let audioEngine = audioEngine, let request = request else { return }
-        request.shouldReportPartialResults = true
-        
-        let inputNode = audioEngine.inputNode
-        let recordingFormat = inputNode.outputFormat(forBus: 0)
-        
-        inputNode.installTap(onBus: 0, bufferSize: 1024, format: recordingFormat) { buffer, _ in
-            request.append(buffer)
-        }
-        
-        audioEngine.prepare()
-        try? audioEngine.start()
-        
-        isRecording = true
-        transcript = ""
-        
-        task = recognizer.recognitionTask(with: request) { [weak self] result, error in
-            guard let self = self else { return }
-            
-            let text = result?.bestTranscription.formattedString ?? ""
-            let isDone = error != nil || result?.isFinal == true
-            
-            DispatchQueue.main.async {
-                self.transcript = text
-                if isDone {
-                    self.stopTranscribing()
+
+        // ✅ Audio session cez koordinátora — aktivujeme .speech PRED štartom audioEngine.
+        // Koordinátor nastaví .record/.measurement a bezpečne odovzdá session od .player.
+        Task {
+            do {
+                try await AudioSessionCoordinator.shared.activate(.speech)
+            } catch {
+                print("[Speech] AudioSessionCoordinator activate failed: \(error)")
+                return
+            }
+
+            audioEngine = AVAudioEngine()
+            request = SFSpeechAudioBufferRecognitionRequest()
+
+            guard let audioEngine = audioEngine, let request = request else { return }
+            request.shouldReportPartialResults = true
+            request.contextualStrings = [
+                "Waltz", "Valčík", "Tango", "Slowfox", "Quickstep", "Samba", "Cha-Cha", "Čača", "Rumba", "Paso Doble", "Jive",
+                "Chassé", "Rondé", "Fleckerl", "Contra Check", "Whisk", "Feather Step", "Hover Corte", "Telemark", "Impetus",
+                "Natural Spin Turn", "Reverse Pivot", "Botafogo", "Volta", "Samba Rolls", "New York", "Spot Turn", "Alemana",
+                "Rumba Walks", "Sliding Doors", "Opening Out", "Promenade", "Appell", "Huit", "Chasse Cape", "Link", "Whip",
+                "Fallaway", "Toe Heel", "MPM", "BPM", "Sway", "Rise & Fall", "CBMP", "CBM", "Pohyb", "Držanie", "Rám", "Nášľap",
+                "Chodidlo", "Rotácia", "Panva", "Partnerka", "Partner", "Tréner", "Rytmus", "Akcent", "Zdvih", "Klesanie"
+            ]
+
+            let inputNode = audioEngine.inputNode
+            let recordingFormat = inputNode.outputFormat(forBus: 0)
+
+            inputNode.installTap(onBus: 0, bufferSize: 1024, format: recordingFormat) { buffer, _ in
+                request.append(buffer)
+            }
+
+            audioEngine.prepare()
+            try? audioEngine.start()
+
+            isRecording = true
+            transcript = ""
+
+            task = recognizer.recognitionTask(with: request) { [weak self] result, error in
+                guard let self = self else { return }
+
+                let text = result?.bestTranscription.formattedString ?? ""
+                let isDone = error != nil || result?.isFinal == true
+
+                DispatchQueue.main.async {
+                    self.transcript = text
+                    if isDone {
+                        self.stopTranscribing()
+                    }
                 }
             }
         }
@@ -537,455 +698,71 @@ class SpeechRecognizerHelper: ObservableObject {
         audioEngine?.inputNode.removeTap(onBus: 0)
         request?.endAudio()
         task?.cancel()
-        
+
         audioEngine = nil
         request = nil
         task = nil
         isRecording = false
+
+        Task {
+            await AudioSessionCoordinator.shared.deactivate(.speech)
+        }
+
         return capturedTranscript
     }
 }
 
-// MARK: - Simple camera view representable
-// MARK: - Full-Screen Camera with Frosted Cream Bottom Overlay
-
-/// Kamera na celú obrazovku. Ovládacie prvky plávajú ako frosted creamy panel dolu,
-/// priehľadný X button hore. Žiadny čierny obdĺžnik — kamera vypĺňa celý screen.
+// MARK: - Native Video Camera Recorder (Apple Standard)
 struct VideoRecorderView: UIViewControllerRepresentable {
+    @Environment(\.dismiss) private var dismiss
     var onRecordComplete: (String) -> Void
 
-    func makeUIViewController(context: Context) -> CameraWrapperViewController {
-        let vc = CameraWrapperViewController()
-        vc.onRecordComplete = onRecordComplete
-        return vc
+    func makeCoordinator() -> Coordinator {
+        Coordinator(self)
     }
 
-    func updateUIViewController(_ uiViewController: CameraWrapperViewController, context: Context) {}
-    func makeCoordinator() -> Void {}
-}
-
-// MARK: - CameraWrapperViewController
-
-final class CameraWrapperViewController: UIViewController, AVCaptureFileOutputRecordingDelegate {
-    var onRecordComplete: ((String) -> Void)?
-    
-    private let cream = UIColor(red: 0.961, green: 0.929, blue: 0.847, alpha: 1.0)
-    private let espresso = UIColor(red: 0.18, green: 0.12, blue: 0.08, alpha: 1.0)
-    
-    private var captureSession: AVCaptureSession?
-    private var movieOutput: AVCaptureMovieFileOutput?
-    private var previewLayer: AVCaptureVideoPreviewLayer?
-    private var activeInput: AVCaptureDeviceInput?
-    private let sessionQueue = DispatchQueue(label: "com.ellegnote.videoRecorder.session", qos: .userInitiated)
-    
-    private var isRecording = false
-    private var recordBtn: UIButton!
-    private var timerLabel: UILabel!
-    private var recordingTimer: Timer?
-    private var elapsedSeconds = 0
-    
-    override var preferredStatusBarStyle: UIStatusBarStyle { .lightContent }
-    override var prefersHomeIndicatorAutoHidden: Bool { true }
-    
-    override func viewDidLoad() {
-        super.viewDidLoad()
-        view.backgroundColor = .black
-        buildOverlay()
-        checkPermissionsAndSetup()
-    }
-
-    // MARK: - Permission gate
-    // Production apps ALWAYS check permissions before touching AVCaptureSession.
-    // Without this, the session silently fails when the user hasn't explicitly
-    // granted camera access yet (first launch after install).
-    private func checkPermissionsAndSetup() {
-        switch AVCaptureDevice.authorizationStatus(for: .video) {
-        case .authorized:
-            setupCaptureSession()
-        case .notDetermined:
-            AVCaptureDevice.requestAccess(for: .video) { [weak self] granted in
-                DispatchQueue.main.async {
-                    if granted {
-                        self?.setupCaptureSession()
-                    } else {
-                        self?.showCameraSetupError("Prístup ku kamere bol odmietnutý.\nPovoľ ho v Nastavenia → Ellegnote.")
-                    }
-                }
-            }
-        case .denied, .restricted:
-            showCameraSetupError("Prístup ku kamere je zakázaný.\nPovoľ ho v Nastavenia → Ellegnote.")
-        @unknown default:
-            setupCaptureSession()
-        }
-    }
-    
-    override func viewDidLayoutSubviews() {
-        super.viewDidLayoutSubviews()
-        previewLayer?.frame = view.bounds
-    }
-    
-    override func viewWillDisappear(_ animated: Bool) {
-        super.viewWillDisappear(animated)
-        stopTimer()
-        sessionQueue.async { [weak self] in
-            self?.captureSession?.stopRunning()
-        }
-    }
-    
-    // MARK: - Setup AVCaptureSession
-    private func setupCaptureSession() {
-        sessionQueue.async { [weak self] in
-            guard let self else { return }
-
-            // Step 1: Configure AVAudioSession BEFORE adding audio input.
-            // Default category .soloAmbient is incompatible with capture → err=-19224.
-            do {
-                let as_ = AVAudioSession.sharedInstance()
-                try as_.setCategory(.playAndRecord, mode: .videoRecording,
-                                    options: [.defaultToSpeaker, .allowBluetooth, .mixWithOthers])
-                try as_.setActive(true, options: .notifyOthersOnDeactivation)
-            } catch {
-                print("[Camera] AVAudioSession: \(error.localizedDescription)")
-                // Non-fatal — video records without audio
-            }
-
-            // Step 2: Build capture session
-            let session = AVCaptureSession()
-            session.beginConfiguration()
-            session.sessionPreset = .hd1280x720
-
-            // Video input
-            guard let videoDevice = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .back),
-                  let videoInput = try? AVCaptureDeviceInput(device: videoDevice),
-                  session.canAddInput(videoInput) else {
-                session.commitConfiguration()
-                DispatchQueue.main.async { self.showCameraSetupError("Kamera nie je dostupná.") }
-                return
-            }
-            session.addInput(videoInput)
-
-            // Audio input — optional, failure is non-fatal
-            if let audioDevice = AVCaptureDevice.default(for: .audio),
-               let audioInput = try? AVCaptureDeviceInput(device: audioDevice),
-               session.canAddInput(audioInput) {
-                session.addInput(audioInput)
-            }
-
-            // Movie output
-            let output = AVCaptureMovieFileOutput()
-            guard session.canAddOutput(output) else {
-                session.commitConfiguration()
-                DispatchQueue.main.async { self.showCameraSetupError("Výstup nie je dostupný.") }
-                return
-            }
-            session.addOutput(output)
-            session.commitConfiguration()
-
-            // Step 3: Attach to UI on main thread, then start
-            DispatchQueue.main.async {
-                self.captureSession = session
-                self.movieOutput   = output
-                self.activeInput   = videoInput
-
-                // Preview layer — use current bounds (layout is complete at this point)
-                let preview = AVCaptureVideoPreviewLayer(session: session)
-                preview.frame = self.view.bounds
-                preview.videoGravity = .resizeAspectFill
-                self.view.layer.insertSublayer(preview, at: 0)
-                self.previewLayer = preview
-
-                // Enable record button
-                self.recordBtn.isEnabled = true
-                self.recordBtn.alpha = 1.0
-
-                // Start running on background queue
-                self.sessionQueue.async { session.startRunning() }
+    func makeUIViewController(context: Context) -> UIImagePickerController {
+        let picker = UIImagePickerController()
+        if UIImagePickerController.isSourceTypeAvailable(.camera) {
+            picker.sourceType = .camera
+            picker.mediaTypes = [UTType.movie.identifier]
+            picker.cameraCaptureMode = .video
+            picker.videoQuality = .typeHigh
+            picker.cameraDevice = .rear
+            picker.allowsEditing = false
+            if UIImagePickerController.isFlashAvailable(for: .rear) {
+                picker.cameraFlashMode = .off
             }
         }
+        picker.delegate = context.coordinator
+        return picker
     }
-    
-    private func showCameraSetupError(_ message: String) {
-        let label = UILabel()
-        label.text = message
-        label.textColor = .white
-        label.font = .systemFont(ofSize: 16, weight: .semibold)
-        label.textAlignment = .center
-        label.numberOfLines = 0
-        label.translatesAutoresizingMaskIntoConstraints = false
-        view.addSubview(label)
-        NSLayoutConstraint.activate([
-            label.centerXAnchor.constraint(equalTo: view.centerXAnchor),
-            label.centerYAnchor.constraint(equalTo: view.centerYAnchor),
-            label.leadingAnchor.constraint(greaterThanOrEqualTo: view.leadingAnchor, constant: 24),
-            label.trailingAnchor.constraint(lessThanOrEqualTo: view.trailingAnchor, constant: -24)
-        ])
-    }
-    
-    // MARK: - Floating Overlays
-    private func buildOverlay() {
-        let bottomH: CGFloat = 160
-        
-        // Bottom: liquid glass creamy bar floating over camera
-        let blur = UIVisualEffectView(effect: UIBlurEffect(style: .systemUltraThinMaterial))
-        blur.translatesAutoresizingMaskIntoConstraints = false
-        view.addSubview(blur)
-        
-        let creamTint = UIView()
-        creamTint.backgroundColor = cream.withAlphaComponent(0.42)
-        creamTint.translatesAutoresizingMaskIntoConstraints = false
-        blur.contentView.addSubview(creamTint)
-        
-        let separator = UIView()
-        separator.backgroundColor = UIColor.white.withAlphaComponent(0.65)
-        separator.translatesAutoresizingMaskIntoConstraints = false
-        blur.contentView.addSubview(separator)
-        
-        NSLayoutConstraint.activate([
-            blur.bottomAnchor.constraint(equalTo: view.bottomAnchor),
-            blur.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            blur.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            blur.heightAnchor.constraint(equalToConstant: bottomH),
-            
-            creamTint.topAnchor.constraint(equalTo: blur.topAnchor),
-            creamTint.bottomAnchor.constraint(equalTo: blur.bottomAnchor),
-            creamTint.leadingAnchor.constraint(equalTo: blur.leadingAnchor),
-            creamTint.trailingAnchor.constraint(equalTo: blur.trailingAnchor),
-            
-            separator.topAnchor.constraint(equalTo: blur.topAnchor),
-            separator.leadingAnchor.constraint(equalTo: blur.leadingAnchor),
-            separator.trailingAnchor.constraint(equalTo: blur.trailingAnchor),
-            separator.heightAnchor.constraint(equalToConstant: 1.5)
-        ])
-        
-        // Record button
-        recordBtn = UIButton(type: .custom)
-        recordBtn.translatesAutoresizingMaskIntoConstraints = false
-        recordBtn.addTarget(self, action: #selector(toggleRecording), for: .touchUpInside)
-        blur.contentView.addSubview(recordBtn)
-        NSLayoutConstraint.activate([
-            recordBtn.centerXAnchor.constraint(equalTo: blur.centerXAnchor),
-            recordBtn.topAnchor.constraint(equalTo: blur.topAnchor, constant: 22),
-            recordBtn.widthAnchor.constraint(equalToConstant: 76),
-            recordBtn.heightAnchor.constraint(equalToConstant: 76)
-        ])
-        recordBtn.isEnabled = false
-        recordBtn.alpha = 0.45
-        drawRecordButton(recording: false)
-        
-        // Flip camera — right side
-        let flipBtn = makeIconButton(systemName: "camera.rotate.fill", size: 24, weight: .medium)
-        flipBtn.tintColor = espresso
-        flipBtn.addTarget(self, action: #selector(flipCamera), for: .touchUpInside)
-        blur.contentView.addSubview(flipBtn)
-        NSLayoutConstraint.activate([
-            flipBtn.centerYAnchor.constraint(equalTo: recordBtn.centerYAnchor),
-            flipBtn.trailingAnchor.constraint(equalTo: blur.trailingAnchor, constant: -32),
-            flipBtn.widthAnchor.constraint(equalToConstant: 48),
-            flipBtn.heightAnchor.constraint(equalToConstant: 48)
-        ])
-        
-        // Close button (Top Left)
-        let closeBtn = makeIconButton(systemName: "xmark.circle.fill", size: 26, weight: .bold)
-        closeBtn.tintColor = .white
-        closeBtn.layer.shadowColor = UIColor.black.cgColor
-        closeBtn.layer.shadowRadius = 4
-        closeBtn.layer.shadowOpacity = 0.5
-        closeBtn.layer.shadowOffset = .zero
-        closeBtn.addTarget(self, action: #selector(dismissCamera), for: .touchUpInside)
-        view.addSubview(closeBtn)
-        NSLayoutConstraint.activate([
-            closeBtn.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
-            closeBtn.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 12),
-            closeBtn.widthAnchor.constraint(equalToConstant: 44),
-            closeBtn.heightAnchor.constraint(equalToConstant: 44)
-        ])
-        
-        // Timer (Top Center)
-        timerLabel = UILabel()
-        timerLabel.text = ""
-        timerLabel.font = UIFont.monospacedDigitSystemFont(ofSize: 14, weight: .bold)
-        timerLabel.textColor = .white
-        timerLabel.layer.shadowColor = UIColor.black.cgColor
-        timerLabel.layer.shadowRadius = 4
-        timerLabel.layer.shadowOpacity = 0.8
-        timerLabel.layer.shadowOffset = .zero
-        timerLabel.translatesAutoresizingMaskIntoConstraints = false
-        view.addSubview(timerLabel)
-        NSLayoutConstraint.activate([
-            timerLabel.centerXAnchor.constraint(equalTo: view.centerXAnchor),
-            timerLabel.centerYAnchor.constraint(equalTo: closeBtn.centerYAnchor)
-        ])
-    }
-    
-    private func makeIconButton(systemName: String, size: CGFloat, weight: UIImage.SymbolWeight) -> UIButton {
-        let btn = UIButton(type: .system)
-        btn.translatesAutoresizingMaskIntoConstraints = false
-        let cfg = UIImage.SymbolConfiguration(pointSize: size, weight: weight)
-        btn.setImage(UIImage(systemName: systemName, withConfiguration: cfg), for: .normal)
-        return btn
-    }
-    
-    private func drawRecordButton(recording: Bool) {
-        recordBtn.layer.sublayers?.forEach { $0.removeFromSuperlayer() }
-        let size: CGFloat = 76
-        
-        // Outer ring — cream fill with espresso border
-        let ring = CALayer()
-        ring.frame = CGRect(x: 0, y: 0, width: size, height: size)
-        ring.cornerRadius = size / 2
-        ring.borderWidth = 3.5
-        ring.borderColor = espresso.cgColor
-        ring.backgroundColor = cream.withAlphaComponent(0.85).cgColor
-        recordBtn.layer.addSublayer(ring)
-        
-        // Inner shape — circle when idle, rounded square when recording
-        let innerSize: CGFloat = recording ? 30 : 58
-        let pad = (size - innerSize) / 2
-        let inner = CALayer()
-        inner.frame = CGRect(x: pad, y: pad, width: innerSize, height: innerSize)
-        inner.cornerRadius = recording ? 8 : innerSize / 2
-        inner.backgroundColor = UIColor.systemRed.cgColor
-        recordBtn.layer.addSublayer(inner)
-    }
-    
-    // MARK: - Actions
-    @objc private func toggleRecording() {
-        guard let movieOutput = movieOutput else { return }
-        
-        if isRecording {
-            isRecording = false
-            stopTimer()
-            drawRecordButton(recording: false)
-            sessionQueue.async {
-                movieOutput.stopRecording()
-            }
-        } else {
-            let outputDirectory = NSTemporaryDirectory()
-            let outputURL = URL(fileURLWithPath: outputDirectory).appendingPathComponent("\(UUID().uuidString).mp4")
-            isRecording = true
-            startTimer()
-            drawRecordButton(recording: true)
-            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-            sessionQueue.async {
-                movieOutput.startRecording(to: outputURL, recordingDelegate: self)
-            }
+
+    func updateUIViewController(_ uiViewController: UIImagePickerController, context: Context) {}
+
+    class Coordinator: NSObject, UIImagePickerControllerDelegate, UINavigationControllerDelegate {
+        let parent: VideoRecorderView
+
+        init(_ parent: VideoRecorderView) {
+            self.parent = parent
         }
-    }
-    
-    @objc private func flipCamera() {
-        guard let session = captureSession, !isRecording else { return }
-        
-        recordBtn.isEnabled = false
-        sessionQueue.async { [weak self] in
-            guard let self, let currentInput = self.activeInput else {
-                DispatchQueue.main.async {
-                    self?.recordBtn.isEnabled = true
-                }
-                return
-            }
-            
-            session.beginConfiguration()
-            session.removeInput(currentInput)
-            
-            let newPosition: AVCaptureDevice.Position = (currentInput.device.position == .back) ? .front : .back
-            guard let newDevice = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: newPosition),
-                  let newInput = try? AVCaptureDeviceInput(device: newDevice) else {
-                session.addInput(currentInput)
-                session.commitConfiguration()
-                DispatchQueue.main.async {
-                    self.recordBtn.isEnabled = true
-                }
-                return
-            }
-            
-            if session.canAddInput(newInput) {
-                session.addInput(newInput)
-                DispatchQueue.main.async {
-                    self.activeInput = newInput
-                    self.recordBtn.isEnabled = true
-                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+
+        func imagePickerController(_ picker: UIImagePickerController, didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey : Any]) {
+            if let videoURL = info[.mediaURL] as? URL {
+                do {
+                    let filename = try MediaStorageManager.moveIntoDocuments(from: videoURL, fileExtension: "mp4")
+                    parent.onRecordComplete(filename)
+                } catch {
+                    print("[Camera] Failed to move recorded video: \(error)")
+                    parent.dismiss()
                 }
             } else {
-                session.addInput(currentInput)
-                DispatchQueue.main.async {
-                    self.recordBtn.isEnabled = true
-                }
+                parent.dismiss()
             }
-            session.commitConfiguration()
-        }
-    }
-    
-    @objc private func dismissCamera() {
-        if isRecording {
-            movieOutput?.stopRecording()
-            isRecording = false
-            stopTimer()
-        }
-        dismiss(animated: true)
-    }
-    
-    // MARK: - Timer
-    private func startTimer() {
-        elapsedSeconds = 0
-        updateTimerLabel()
-        recordingTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
-            self?.elapsedSeconds += 1
-            self?.updateTimerLabel()
-        }
-    }
-    
-    private func stopTimer() {
-        recordingTimer?.invalidate()
-        recordingTimer = nil
-        timerLabel?.text = ""
-        elapsedSeconds = 0
-    }
-    
-    private func updateTimerLabel() {
-        let m = elapsedSeconds / 60
-        let s = elapsedSeconds % 60
-        timerLabel?.text = String(format: "● %02d:%02d", m, s)
-        timerLabel?.textColor = isRecording ? .systemRed : .white
-    }
-    
-    // MARK: - AVCaptureFileOutputRecordingDelegate
-    func fileOutput(_ output: AVCaptureFileOutput,
-                    didFinishRecordingTo outputFileURL: URL,
-                    from connections: [AVCaptureConnection],
-                    error: Error?) {
-        stopTimer()
-
-        // An error here can be non-fatal (e.g. max duration reached) — check if
-        // there's usable data in the file before deciding to discard.
-        let recordingSucceeded: Bool
-        if let error = error as NSError? {
-            let isPartialData = error.userInfo[AVErrorRecordingSuccessfullyFinishedKey] as? Bool ?? false
-            recordingSucceeded = isPartialData
-            if !isPartialData {
-                print("[Camera] Recording error (no data): \(error.localizedDescription)")
-            }
-        } else {
-            recordingSucceeded = true
         }
 
-        guard recordingSucceeded else {
-            DispatchQueue.main.async { self.dismiss(animated: true) }
-            return
-        }
-
-        Task.detached(priority: .userInitiated) {
-            do {
-                let filename = try MediaStorageManager.moveIntoDocuments(
-                    from: outputFileURL, fileExtension: "mp4"
-                )
-                await MainActor.run { [weak self] in
-                    self?.onRecordComplete?(filename)
-                    self?.dismiss(animated: true)
-                }
-            } catch {
-                print("[Camera] Failed to save recording: \(error)")
-                await MainActor.run { [weak self] in self?.dismiss(animated: true) }
-            }
+        func imagePickerControllerDidCancel(_ picker: UIImagePickerController) {
+            parent.dismiss()
         }
     }
 }

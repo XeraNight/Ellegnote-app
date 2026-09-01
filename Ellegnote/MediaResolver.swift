@@ -1,23 +1,28 @@
 import Foundation
 import UIKit
+import ImageIO
+import AVFoundation
+import CoreGraphics
 
-struct MediaResolver {
+public struct MediaResolver {
     private static let downloadLock = NSLock()
     private static var activeDownloads = Set<URL>()
+    
+    // In-memory hardware thumbnail cache (max 150 items, 50MB budget)
     private static let imageCache: NSCache<NSString, UIImage> = {
         let cache = NSCache<NSString, UIImage>()
-        cache.countLimit = 120
-        cache.totalCostLimit = 60 * 1024 * 1024
+        cache.countLimit = 150
+        cache.totalCostLimit = 50 * 1024 * 1024
         return cache
     }()
     
     /// Vráti cestu k lokálnemu adresáru dokumentov aplikácie
-    static func getDocumentsDirectory() -> URL {
+    public static func getDocumentsDirectory() -> URL {
         MediaStorageManager.documentsDirectory
     }
     
     /// Rozhodne, či je video dostupné lokálne. Ak nie, vráti online stream URL zo Supabase a spustí sťahovanie na pozadí.
-    static func resolveVideoURL(path: String) -> URL? {
+    public static func resolveVideoURL(path: String) -> URL? {
         let localURL = MediaStorageManager.url(for: path)
         if MediaStorageManager.fileExists(path) {
             return localURL
@@ -32,34 +37,47 @@ struct MediaResolver {
         return nil
     }
     
-    /// Pokúsi sa získať obrázok z lokálneho disku. Ak chýba, asynchrónne ho stiahne pre budúce zobrazenia.
-    static func resolveImage(path: String) -> UIImage? {
-        let cacheKey = path as NSString
+    /// Hardvérovo akcelerovaný dekóder obrázkov (CGImageSource / ImageIO bez preťaženia RAM)
+    public static func resolveImage(path: String, maxPixelSize: CGFloat = 1200) -> UIImage? {
+        let cacheKey = "\(path)_\(Int(maxPixelSize))" as NSString
         if let cached = imageCache.object(forKey: cacheKey) {
             return cached
         }
         
         let localURL = MediaStorageManager.url(for: path)
-        if let uiImage = UIImage(contentsOfFile: localURL.path) {
-            let prepared = uiImage.preparingForEllegnotePreview()
-            imageCache.setObject(prepared, forKey: cacheKey, cost: prepared.ellegnoteMemoryCost)
-            return prepared
+        guard MediaStorageManager.fileExists(path) else {
+            // Asynchrónne stiahneme z cloudu ak chýba
+            if let publicURL = getPublicStorageURL(for: path) {
+                downloadFileToCache(from: publicURL, destination: localURL)
+            }
+            return nil
         }
         
-        // Ak neexistuje lokálne, spustíme sťahovanie z online úložiska
-        if let publicURL = getPublicStorageURL(for: path) {
-            downloadFileToCache(from: publicURL, destination: localURL)
+        // Hardvérové dekódovanie priamo z disku do požadovaného rozlíšenia
+        guard let source = CGImageSourceCreateWithURL(localURL as CFURL, nil) else {
+            return nil
         }
         
-        return nil
+        let options: [CFString: Any] = [
+            kCGImageSourceCreateThumbnailFromImageAlways: true,
+            kCGImageSourceShouldCacheImmediately: true,
+            kCGImageSourceCreateThumbnailWithTransform: true,
+            kCGImageSourceThumbnailMaxPixelSize: maxPixelSize
+        ]
+        
+        guard let cgImage = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary) else {
+            return nil
+        }
+        
+        let image = UIImage(cgImage: cgImage)
+        let memoryCost = cgImage.bytesPerRow * cgImage.height
+        imageCache.setObject(image, forKey: cacheKey, cost: memoryCost)
+        return image
     }
     
     /// Vytvorí verejnú URL pre stiahnutie alebo streamovanie súboru zo Supabase Storage
-    static func getPublicStorageURL(for fileName: String) -> URL? {
-        guard let baseURL = SupabaseConfig.url else { return nil }
-        
-        // Cesta pre verejné objekty v Supabase: baseURL/storage/v1/object/public/ellegnote-media/fileName
-        return baseURL
+    public static func getPublicStorageURL(for fileName: String) -> URL? {
+        return SupabaseConfig.url
             .appendingPathComponent("storage/v1/object/public")
             .appendingPathComponent("ellegnote-media")
             .appendingPathComponent(fileName)
@@ -77,7 +95,6 @@ struct MediaResolver {
                 return
             }
             
-            // Bezpečne skopírujeme stiahnutý súbor z dočasného priečinka do cieľového dokumentového priečinka
             do {
                 if FileManager.default.fileExists(atPath: destination.path) {
                     try? FileManager.default.removeItem(at: destination)
@@ -85,8 +102,9 @@ struct MediaResolver {
                 try FileManager.default.copyItem(at: tempURL, to: destination)
                 print("Successfully cached media file locally: \(destination.lastPathComponent)")
                 
-                // Vyvoláme NotificationCenter udalosť na osvieženie UI (najmä pre fotky)
-                NotificationCenter.default.post(name: NSNotification.Name("MediaCacheDidUpdate"), object: nil)
+                DispatchQueue.main.async {
+                    NotificationCenter.default.post(name: NSNotification.Name("MediaCacheDidUpdate"), object: nil)
+                }
             } catch {
                 print("Failed to save downloaded file to local cache: \(error)")
             }
@@ -106,35 +124,5 @@ struct MediaResolver {
         downloadLock.lock()
         activeDownloads.remove(destination)
         downloadLock.unlock()
-    }
-}
-
-private extension UIImage {
-    var ellegnoteMemoryCost: Int {
-        guard let cgImage else { return 1 }
-        return cgImage.bytesPerRow * cgImage.height
-    }
-    
-    func preparingForEllegnotePreview(maxPixel: CGFloat = 1400) -> UIImage {
-        let longestSide = max(size.width, size.height)
-        guard longestSide > maxPixel else {
-            return preparingForDisplay() ?? self
-        }
-        
-        let scaleRatio = maxPixel / longestSide
-        let targetSize = CGSize(
-            width: max(1, floor(size.width * scaleRatio)),
-            height: max(1, floor(size.height * scaleRatio))
-        )
-        
-        let format = UIGraphicsImageRendererFormat()
-        format.scale = 1
-        format.opaque = false
-        
-        let renderer = UIGraphicsImageRenderer(size: targetSize, format: format)
-        let resized = renderer.image { _ in
-            draw(in: CGRect(origin: .zero, size: targetSize))
-        }
-        return resized.preparingForDisplay() ?? resized
     }
 }
