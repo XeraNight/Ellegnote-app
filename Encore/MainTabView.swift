@@ -17,47 +17,75 @@ struct MainTabView: View {
             // Root Velvet Stage Background covering 100% of screen without black bars
             EllegancePageBackground()
 
-            // ── Native SwiftUI paging scroll ───────────────────────────────
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 0) {
-                    ContentView()
-                        .id(0)
-                        .containerRelativeFrame(.horizontal)
-
-                    CanvasRoutinesHubView()
-                        .id(1)
-                        .containerRelativeFrame(.horizontal)
-
-                    ProfileView()
-                        .id(2)
-                        .containerRelativeFrame(.horizontal)
+            if #available(iOS 18.0, *) {
+                // ── Official Native Apple iOS 18 Floating Liquid Glass TabBar ─────────
+                TabView(selection: $selectedTab) {
+                    Tab("Domov", systemImage: "house.fill", value: 0) {
+                        ContentView()
+                    }
+                    
+                    Tab("Canvas", systemImage: "square.grid.2x2.fill", value: 1) {
+                        CanvasRoutinesHubView()
+                    }
+                    
+                    Tab("Kamera", systemImage: "video.fill", value: 2) {
+                        Color.clear
+                    }
+                    
+                    Tab("Profil", systemImage: "person.crop.circle.fill", value: 3) {
+                        ProfileView()
+                    }
                 }
-                .scrollTargetLayout()
-            }
-            .scrollTargetBehavior(.paging)
-            .scrollPosition(id: Binding(
-                get: { selectedTab == 3 ? 2 : selectedTab },
-                set: { selectedTab = ($0 ?? 0) == 2 ? 3 : ($0 ?? 0) }
-            ))
-            .scrollDisabled(navDepth.isLocked)
-            .ignoresSafeArea(edges: .vertical)
-            
-            // ── Custom Liquid Glass dock overlay ───────────────────────────
-            if navDepth.isDocked {
-                VStack {
-                    Spacer()
-                    NativeLiquidGlassDock(
-                        pageIndex: Binding(
-                            get: { selectedTab == 3 ? 2 : selectedTab },
-                            set: { selectedTab = $0 == 2 ? 3 : $0 }
-                        ),
-                        showCaptureSheet: $showCaptureSheet
-                    )
-                    .padding(.bottom, 16)
-                    .padding(.horizontal, 16)
+                .tint(Color.gold400)
+                .onChange(of: selectedTab) { oldTab, newTab in
+                    if newTab == 2 {
+                        showCaptureSheet = true
+                        selectedTab = oldTab
+                    }
                 }
-                .ignoresSafeArea(edges: .bottom)
-                .transition(.move(edge: .bottom).combined(with: .opacity))
+            } else {
+                // ── Fallback Paging for iOS 17 ───────────────────────────────
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 0) {
+                        ContentView()
+                            .id(0)
+                            .containerRelativeFrame(.horizontal)
+
+                        CanvasRoutinesHubView()
+                            .id(1)
+                            .containerRelativeFrame(.horizontal)
+
+                        ProfileView()
+                            .id(2)
+                            .containerRelativeFrame(.horizontal)
+                    }
+                    .scrollTargetLayout()
+                }
+                .scrollTargetBehavior(.paging)
+                .scrollPosition(id: Binding(
+                    get: { selectedTab == 3 ? 2 : selectedTab },
+                    set: { selectedTab = ($0 ?? 0) == 2 ? 3 : ($0 ?? 0) }
+                ))
+                .scrollDisabled(navDepth.isLocked)
+                .ignoresSafeArea(edges: .vertical)
+                
+                // ── Custom Liquid Glass dock overlay ───────────────────────────
+                if navDepth.isDocked {
+                    VStack {
+                        Spacer()
+                        NativeLiquidGlassDock(
+                            pageIndex: Binding(
+                                get: { selectedTab == 3 ? 2 : selectedTab },
+                                set: { selectedTab = $0 == 2 ? 3 : $0 }
+                            ),
+                            showCaptureSheet: $showCaptureSheet
+                        )
+                        .padding(.bottom, 16)
+                        .padding(.horizontal, 16)
+                    }
+                    .ignoresSafeArea(edges: .bottom)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                }
             }
 
             // ── Splash overlay ─────────────────────────────────────────────
