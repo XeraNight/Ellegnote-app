@@ -5,7 +5,6 @@ import {
   Video,
   Play,
   Pause,
-  RotateCcw,
   FlipHorizontal,
   Camera,
   Gauge,
@@ -13,12 +12,15 @@ import {
   Clock,
   Sparkles,
 } from 'lucide-react'
+import { RotateCCWIcon } from '@/components/icons/RotateCCWIcon'
+import { RepeatIcon } from '@/components/icons/RepeatIcon'
 
 export default function StudioView() {
   const [isPlaying, setIsPlaying] = useState(false)
   const [playbackSpeed, setPlaybackSpeed] = useState<number>(1.0)
   const [isMirrored, setIsMirrored] = useState(false)
   const [isWebcamActive, setIsWebcamActive] = useState(false)
+  const [isLooping, setIsLooping] = useState(true)
   const [coachNotes, setCoachNotes] = useState<
     { id: string; time: string; text: string; author: string }[]
   >([
@@ -208,12 +210,28 @@ export default function StudioView() {
                 <Play className="w-5 h-5 fill-black ml-0.5" />
               )}
             </button>
+            {/* Restart Video */}
             <button
               onClick={() => setIsPlaying(false)}
-              className="p-2.5 rounded-full bg-white/[0.05] hover:bg-white/[0.1] text-white/60 hover:text-white transition-colors cursor-pointer"
+              title="Reštartovať video od začiatku"
+              className="p-2.5 rounded-full bg-white/[0.05] hover:bg-white/[0.1] text-white/60 hover:text-white transition-colors cursor-pointer group"
             >
-              <RotateCcw className="w-4 h-4" />
+              <RotateCCWIcon size={16} />
             </button>
+
+            {/* Repeat / Loop Video */}
+            <button
+              onClick={() => setIsLooping(!isLooping)}
+              title={isLooping ? 'Vypnúť opakovanie (Loop ON)' : 'Zapnúť opakovanie videa (Loop)'}
+              className={`p-2.5 rounded-full transition-colors cursor-pointer ${
+                isLooping
+                  ? 'bg-[#D4AF37]/20 border border-[#D4AF37]/50 text-[#D4AF37]'
+                  : 'bg-white/[0.05] hover:bg-white/[0.1] text-white/60 hover:text-white'
+              }`}
+            >
+              <RepeatIcon size={16} />
+            </button>
+
             <span className="text-xs font-mono font-bold text-white/80">00:14 / 01:30</span>
           </div>
 

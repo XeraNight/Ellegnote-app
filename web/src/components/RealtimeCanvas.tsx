@@ -3,6 +3,8 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import type { RealtimeChannel } from '@supabase/supabase-js'
+import { RotateCCWIcon } from '@/components/icons/RotateCCWIcon'
+import { RepeatIcon } from '@/components/icons/RepeatIcon'
 
 export type CanvasNodeItem = {
   id: string
@@ -125,6 +127,7 @@ export default function RealtimeCanvas({ routine, user, availableFigures, onClos
   // Quick Figure Add Modal
   const [showAddModal, setShowAddModal] = useState(false)
   const [searchFig, setSearchFig] = useState('')
+  const [isLooping, setIsLooping] = useState(false)
 
   // Toast Notification
   const [toastMsg, setToastMsg] = useState<string | null>(null)
@@ -629,13 +632,33 @@ export default function RealtimeCanvas({ routine, user, availableFigures, onClos
             <span>+</span> Pridať figúru
           </button>
 
+          {/* Repeat / Loop Routine */}
+          <button
+            onClick={() => {
+              setIsLooping(!isLooping)
+              showToast(!isLooping ? 'Slučka choreografie zapnutá (Loop ON)' : 'Slučka choreografie vypnutá')
+            }}
+            title={isLooping ? 'Vypnúť opakovanie (Loop ON)' : 'Zapnúť opakovanie choreografie (Loop)'}
+            className={`w-9 h-9 rounded-xl border flex items-center justify-center transition-all cursor-pointer ${
+              isLooping
+                ? 'bg-[#D4AF37]/25 border-[#D4AF37] text-[#D4AF37] shadow-[0_0_15px_rgba(212,175,55,0.35)]'
+                : 'bg-white/[0.05] hover:bg-white/[0.1] border-white/[0.1] text-white/70 hover:text-white'
+            }`}
+          >
+            <RepeatIcon size={17} />
+          </button>
+
           {/* Reset Zoom & View */}
           <button
-            onClick={() => { setScale(0.85); setPan({ x: 0, y: 0 }) }}
-            title="Vycentrovať plátno"
-            className="w-9 h-9 rounded-xl bg-white/[0.05] hover:bg-white/[0.1] border border-white/[0.1] flex items-center justify-center text-xs font-bold transition-colors cursor-pointer"
+            onClick={() => {
+              setScale(0.85)
+              setPan({ x: 0, y: 0 })
+              showToast('Pohľad na plátno vycentrovaný')
+            }}
+            title="Vycentrovať plátno (Reset)"
+            className="w-9 h-9 rounded-xl bg-white/[0.05] hover:bg-white/[0.1] border border-white/[0.1] flex items-center justify-center text-white/70 hover:text-white transition-colors cursor-pointer group"
           >
-            🎯
+            <RotateCCWIcon size={17} />
           </button>
         </div>
       </header>
