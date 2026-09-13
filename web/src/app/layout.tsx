@@ -5,7 +5,7 @@ import './globals.css'
 const inter = Inter({ subsets: ['latin'], display: 'swap' })
 
 export const metadata: Metadata = {
-  title: 'Ellegnote',
+  title: 'Encore',
   description: 'Dance practice & routine manager',
   robots: { index: false, follow: false }, // Private app — no indexing
 }

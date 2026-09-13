@@ -43,7 +43,7 @@ export function DownloadButton({
   onDownload,
   className = '',
   data,
-  filename = 'ellegnote-export.json'
+  filename = 'encore-export.json'
 }: DownloadButtonProps) {
   const [status, setStatus] = useState<'idle' | 'loading' | 'success'>('idle')
 

@@ -41,6 +41,20 @@ export async function signIn(_: unknown, formData: FormData) {
     return { error: 'Nesprávny email alebo heslo.', success: undefined }
   }
 
+  // Record web platform metadata in Supabase
+  try {
+    await supabase.auth.updateUser({
+      data: {
+        last_platform: 'web',
+        client_type: 'web_companion',
+        last_sign_in_at: new Date().toISOString(),
+        last_user_agent: headersList.get('user-agent') || 'web_browser'
+      }
+    })
+  } catch {
+    // Non-blocking metadata sync
+  }
+
   redirect('/dashboard')
 }
 
@@ -69,7 +83,19 @@ export async function signUp(_: unknown, formData: FormData) {
 
   const { email, password } = parsed.data
   const supabase = await createClient()
-  const { data, error } = await supabase.auth.signUp({ email, password })
+  const { data, error } = await supabase.auth.signUp({
+    email,
+    password,
+    options: {
+      data: {
+        platform: 'web',
+        last_platform: 'web',
+        client_type: 'web_companion',
+        registered_at: new Date().toISOString(),
+        user_agent: headersList.get('user-agent') || 'web_browser'
+      }
+    }
+  })
 
   if (error) {
     return { error: `Registrácia zlyhala: ${error.message}` }
