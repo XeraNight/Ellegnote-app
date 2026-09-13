@@ -94,7 +94,7 @@ struct ProfileView: View {
                 StatCardView(title: "Moje figúry", value: "\(customFiguresCount)", icon: "book.closed.fill")
                 StatCardView(title: "Videá", value: "\(videoCount)", icon: "video.fill")
                 StatCardView(title: "Poznámky", value: "\(notesCount)", icon: "mic.fill")
-                StatCardView(title: "Standard", value: "\(standardCount)", icon: "star.fill", tintColor: .standardBlue)
+                StatCardView(title: "Standard", value: "\(standardCount)", icon: "drop.fill", tintColor: .standardBlue)
                 StatCardView(title: "Latin", value: "\(latinCount)", icon: "flame.fill", tintColor: .latinPink)
                 StatCardView(title: "Najviac cvičené", value: mostUsedDanceName, icon: "chart.line.uptrend.xyaxis")
                 StatCardView(title: "Úložisko", value: storageUsageText, icon: "internaldrive.fill")
@@ -1512,7 +1512,7 @@ private struct RecentRoutineRow: View {
     let routine: Routine
     var body: some View {
         HStack(spacing: 12) {
-            Image(systemName: routine.danceCategory.lowercased() == "standard" ? "star.fill" : "flame.fill")
+            Image(systemName: routine.danceCategory.lowercased() == "standard" ? "drop.fill" : "flame.fill")
                 .font(.system(size: 14, weight: .bold))
                 .foregroundColor(routine.danceCategory.lowercased() == "standard" ? .standardBlue : .latinPink)
                 .frame(width: 32, height: 32)

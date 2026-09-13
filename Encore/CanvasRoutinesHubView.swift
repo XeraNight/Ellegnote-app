@@ -199,6 +199,11 @@ public struct CanvasRoutinesHubView: View {
             HStack(spacing: 8) {
                 ForEach(categories, id: \.self) { cat in
                     let isSelected = selectedCategoryFilter == cat
+                    let catIcon: String? = {
+                        if cat.lowercased() == "standard" { return "drop.fill" }
+                        if cat.lowercased() == "latin" || cat.lowercased() == "latina" { return "flame.fill" }
+                        return nil
+                    }()
                     Button {
                         let generator = UIImpactFeedbackGenerator(style: .light)
                         generator.impactOccurred()
@@ -206,32 +211,39 @@ public struct CanvasRoutinesHubView: View {
                             selectedCategoryFilter = cat
                         }
                     } label: {
-                        Text(cat)
-                            .font(.system(size: 12, weight: .bold, design: .rounded))
-                            .foregroundColor(isSelected ? LuxuryTheme.obsidian900 : Color.white.opacity(0.75))
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 6)
-                            .background(
-                                isSelected
-                                ? AnyView(
-                                    LinearGradient(
-                                        colors: [LuxuryTheme.gold400, LuxuryTheme.gold500],
-                                        startPoint: .leading,
-                                        endPoint: .trailing
-                                    )
-                                )
-                                : AnyView(
-                                    ZStack {
-                                        Capsule().fill(LuxuryTheme.obsidian800.opacity(0.6))
-                                        Capsule().fill(.ultraThinMaterial)
-                                    }
+                        HStack(spacing: 5) {
+                            if let icon = catIcon {
+                                Image(systemName: icon)
+                                    .font(.system(size: 10, weight: .bold))
+                                    .foregroundColor(isSelected ? LuxuryTheme.obsidian900 : (cat.lowercased() == "standard" ? LuxuryTheme.standardBlue : LuxuryTheme.latinCrimson))
+                            }
+                            Text(cat)
+                                .font(.system(size: 12, weight: .bold, design: .rounded))
+                                .foregroundColor(isSelected ? LuxuryTheme.obsidian900 : Color.white.opacity(0.75))
+                        }
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .background(
+                            isSelected
+                            ? AnyView(
+                                LinearGradient(
+                                    colors: [LuxuryTheme.gold400, LuxuryTheme.gold500],
+                                    startPoint: .leading,
+                                    endPoint: .trailing
                                 )
                             )
-                            .clipShape(Capsule())
-                            .overlay(
-                                Capsule()
-                                    .stroke(isSelected ? Color.white.opacity(0.3) : Color.white.opacity(0.1), lineWidth: 1)
+                            : AnyView(
+                                ZStack {
+                                    Capsule().fill(LuxuryTheme.obsidian800.opacity(0.6))
+                                    Capsule().fill(.ultraThinMaterial)
+                                }
                             )
+                        )
+                        .clipShape(Capsule())
+                        .overlay(
+                            Capsule()
+                                .stroke(isSelected ? Color.white.opacity(0.3) : Color.white.opacity(0.1), lineWidth: 1)
+                        )
                     }
                     .buttonStyle(.plain)
                 }
@@ -270,7 +282,7 @@ public struct CanvasRoutinesHubView: View {
                 // Top Metadata Row: Discipline Badge + Quick QR Button
                 HStack(alignment: .center) {
                     HStack(spacing: 6) {
-                        Image(systemName: isStandard ? "sparkles" : "flame.fill")
+                        Image(systemName: isStandard ? "drop.fill" : "flame.fill")
                             .font(.system(size: 11, weight: .bold))
                             .foregroundColor(disciplineColor)
                         

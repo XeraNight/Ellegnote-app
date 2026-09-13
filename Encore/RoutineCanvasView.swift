@@ -305,7 +305,7 @@ struct RoutineCanvasView: View {
                         // Right Side: Hrubý Refresh & Vycentrovanie & Veľkosť Kariet & Priesvitnosť
                         VStack(spacing: 12) {
                             LiquidGlassCircleButton(
-                                icon: "arrow.clockwise",
+                                icon: "arrow.counterclockwise",
                                 size: 44,
                                 iconSize: 17,
                                 isSpinning: isRefreshing

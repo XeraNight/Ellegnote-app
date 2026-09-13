@@ -480,7 +480,7 @@ struct ContentView: View {
                                             .stroke(Color.gold400.opacity(0.4), lineWidth: 1)
                                     )
                                 
-                                Image(systemName: recentRoutine.danceCategory == "Latin" ? "flame.fill" : "sparkles")
+                                Image(systemName: recentRoutine.danceCategory == "Latin" ? "flame.fill" : "drop.fill")
                                     .font(.system(size: 17, weight: .bold))
                                     .foregroundColor(Color.gold300)
                             }
@@ -933,21 +933,25 @@ struct ContentView: View {
                         HStack(alignment: .top) {
                             VStack(alignment: .leading, spacing: 5) {
                                 HStack(spacing: 8) {
-                                    Text(latestRoutine.danceCategory.uppercased())
-                                        .font(.system(size: 10, weight: .black))
-                                        .padding(.horizontal, 8)
-                                        .padding(.vertical, 3)
-                                        .background(
-                                            latestRoutine.danceCategory.lowercased() == "standard"
-                                            ? Color.standardBlue.opacity(0.25)
-                                            : Color.latinPink.opacity(0.25)
-                                        )
-                                        .foregroundColor(
-                                            latestRoutine.danceCategory.lowercased() == "standard"
-                                            ? Color.standardBlue
-                                            : Color.latinPink
-                                        )
-                                        .cornerRadius(6)
+                                    HStack(spacing: 4) {
+                                        Image(systemName: latestRoutine.danceCategory.lowercased() == "standard" ? "drop.fill" : "flame.fill")
+                                            .font(.system(size: 9, weight: .bold))
+                                        Text(latestRoutine.danceCategory.uppercased())
+                                            .font(.system(size: 10, weight: .black))
+                                    }
+                                    .padding(.horizontal, 8)
+                                    .padding(.vertical, 3)
+                                    .background(
+                                        latestRoutine.danceCategory.lowercased() == "standard"
+                                        ? Color.standardBlue.opacity(0.25)
+                                        : Color.latinPink.opacity(0.25)
+                                    )
+                                    .foregroundColor(
+                                        latestRoutine.danceCategory.lowercased() == "standard"
+                                        ? Color.standardBlue
+                                        : Color.latinPink
+                                    )
+                                    .cornerRadius(6)
                                     
                                     Text("•")
                                         .foregroundColor(Color.white.opacity(0.25))
@@ -1564,7 +1568,7 @@ struct DanceCategorySelectionSheet: View {
                                         Circle()
                                             .fill(Color.standardBlue.opacity(0.2))
                                             .frame(width: 48, height: 48)
-                                        Image(systemName: "star.fill")
+                                        Image(systemName: "drop.fill")
                                             .font(.system(size: 20))
                                             .foregroundColor(.standardBlue)
                                     }
@@ -2035,21 +2039,25 @@ struct AllRoutinesSheetView: View {
                                     HStack {
                                         VStack(alignment: .leading, spacing: 4) {
                                             HStack(spacing: 6) {
-                                                Text(routine.danceCategory.uppercased())
-                                                    .font(.system(size: 9, weight: .black))
-                                                    .padding(.horizontal, 6)
-                                                    .padding(.vertical, 2)
-                                                    .background(
-                                                        routine.danceCategory.lowercased() == "standard"
-                                                        ? Color.standardBlue.opacity(0.25)
-                                                        : Color.latinPink.opacity(0.25)
-                                                    )
-                                                    .foregroundColor(
-                                                        routine.danceCategory.lowercased() == "standard"
-                                                        ? Color.standardBlue
-                                                        : Color.latinPink
-                                                    )
-                                                    .cornerRadius(4)
+                                                HStack(spacing: 4) {
+                                                    Image(systemName: routine.danceCategory.lowercased() == "standard" ? "drop.fill" : "flame.fill")
+                                                        .font(.system(size: 8, weight: .bold))
+                                                    Text(routine.danceCategory.uppercased())
+                                                        .font(.system(size: 9, weight: .black))
+                                                }
+                                                .padding(.horizontal, 6)
+                                                .padding(.vertical, 2)
+                                                .background(
+                                                    routine.danceCategory.lowercased() == "standard"
+                                                    ? Color.standardBlue.opacity(0.25)
+                                                    : Color.latinPink.opacity(0.25)
+                                                )
+                                                .foregroundColor(
+                                                    routine.danceCategory.lowercased() == "standard"
+                                                    ? Color.standardBlue
+                                                    : Color.latinPink
+                                                )
+                                                .cornerRadius(4)
                                                 
                                                 Text(routine.danceName)
                                                     .font(.system(size: 11, weight: .bold))
@@ -2169,10 +2177,15 @@ struct DanceCategoryView: View {
                 
                 ScrollView {
                     VStack(alignment: .leading, spacing: 20) {
-                        Text(category == "Standard" ? "Štandardné tance" : "Latinsko-americké tance")
-                            .font(.system(size: 24, weight: .bold, design: .serif))
-                            .foregroundColor(.white)
-                            .padding(.top, 16)
+                        HStack(spacing: 12) {
+                            Image(systemName: category.lowercased() == "standard" ? "drop.fill" : "flame.fill")
+                                .font(.system(size: 22, weight: .bold))
+                                .foregroundColor(category.lowercased() == "standard" ? .standardBlue : .latinPink)
+                            Text(category == "Standard" ? "Štandardné tance" : "Latinsko-americké tance")
+                                .font(.system(size: 24, weight: .bold, design: .serif))
+                                .foregroundColor(.white)
+                        }
+                        .padding(.top, 16)
                         
                         VStack(spacing: 12) {
                             ForEach(filteredDances) { dance in

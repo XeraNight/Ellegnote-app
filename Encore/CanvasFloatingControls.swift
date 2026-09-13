@@ -68,7 +68,7 @@ public struct LiquidGlassCircleButton: View {
                 Image(systemName: icon)
                     .font(.system(size: iconSize, weight: .bold))
                     .foregroundColor(isActive ? activeColor : .white)
-                    .rotationEffect(.degrees(isSpinning ? 360 : 0))
+                    .rotationEffect(.degrees(isSpinning ? (icon.contains("counterclockwise") ? -360 : 360) : 0))
                     .animation(
                         isSpinning
                         ? .linear(duration: 0.75).repeatForever(autoreverses: false)

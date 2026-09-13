@@ -396,6 +396,20 @@ struct DualVideoComparisonView: View {
                         .foregroundColor(.themeDark)
                 }
                 
+                // Loop / Repeat Toggle
+                Button {
+                    withAnimation(.spring(response: 0.25)) {
+                        isLooping.toggle()
+                    }
+                } label: {
+                    Image(systemName: "repeat")
+                        .font(.system(size: 16, weight: .bold))
+                        .foregroundColor(isLooping ? .themeAccent : .themeDark.opacity(0.45))
+                        .padding(6)
+                        .background(isLooping ? Color.themeAccent.opacity(0.15) : Color.clear)
+                        .clipShape(Circle())
+                }
+                
                 Spacer()
                 
                 // Toggle Fine Offset Control Button
