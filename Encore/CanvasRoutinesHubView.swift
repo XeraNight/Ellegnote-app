@@ -220,7 +220,9 @@ public struct CanvasRoutinesHubView: View {
                             Text(cat)
                                 .font(.system(size: 12, weight: .bold, design: .rounded))
                                 .foregroundColor(isSelected ? LuxuryTheme.obsidian900 : Color.white.opacity(0.75))
+                                .lineLimit(1)
                         }
+                        .fixedSize(horizontal: true, vertical: false)
                         .padding(.horizontal, 12)
                         .padding(.vertical, 6)
                         .background(
