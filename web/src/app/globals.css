@@ -1,3 +1,4 @@
+
 @import url('https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=Space+Mono:ital,wght@0,400;0,700;1,400;1,700&display=swap');
 @import "tailwindcss";
 
@@ -124,7 +125,7 @@ body {
   animation: scaleUp 0.18s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
-/* ── Ellegnote Dark Luxury Neo-Brutalist Form System ───────────────────── */
+/* ── Encore Dark Luxury Neo-Brutalist Form System ───────────────────── */
 
 .form, .neo-form {
   --background: #0d0d12;

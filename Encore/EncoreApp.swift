@@ -43,6 +43,9 @@ struct EncoreApp: App {
         Task.detached(priority: .background) {
             await EncoreApp.seedIfNeeded(container: containerRef)
         }
+
+        // Analytics setup (PostHog – see AnalyticsManager.swift for setup instructions)
+        AnalyticsManager.shared.setup()
     }
 
     var body: some Scene {
@@ -51,7 +54,17 @@ struct EncoreApp: App {
                 .preferredColorScheme(.dark)
                 .onOpenURL { url in
                     _ = GIDSignIn.sharedInstance.handle(url)
-                    Task { await AuthManager.shared.handleDeepLink(url) }
+                    Task {
+                        await AuthManager.shared.handleDeepLink(url)
+                        _ = FriendManager.shared.handleIncomingURL(url)
+                    }
+                }
+                .onContinueUserActivity(NSUserActivityTypeBrowsingWeb) { userActivity in
+                    if let url = userActivity.webpageURL {
+                        Task {
+                            _ = FriendManager.shared.handleIncomingURL(url)
+                        }
+                    }
                 }
         }
         .modelContainer(container)
@@ -99,10 +112,13 @@ struct EncoreApp: App {
     }
 }
 
-// MARK: - Root App Authentication Gate
+// MARK: - Root App Authentication Gate & Precautions Guard
 struct RootAppView: View {
     @ObservedObject private var authManager = AuthManager.shared
+    @ObservedObject private var remoteConfig = RemoteConfigManager.shared
+    @ObservedObject private var friendManager = FriendManager.shared
     @Environment(\.scenePhase) private var scenePhase
+    @State private var dismissMaintenanceOffline = false
 
     var body: some View {
         ZStack {
@@ -113,14 +129,46 @@ struct RootAppView: View {
                 AuthSheetView(isSheet: false)
                     .transition(.opacity)
             }
+            
+            // Emergency Precautions & Fallback Overlays
+            if remoteConfig.needsForceUpdate {
+                ForceUpdateView(appStoreURL: remoteConfig.appStoreURL)
+                    .transition(.opacity)
+                    .zIndex(200)
+            } else if remoteConfig.isMaintenanceMode && !dismissMaintenanceOffline {
+                MaintenanceNoticeView(message: remoteConfig.maintenanceMessage) {
+                    dismissMaintenanceOffline = true
+                }
+                .transition(.opacity)
+                .zIndex(190)
+            }
         }
         .animation(.easeInOut(duration: 0.28), value: authManager.isAuthenticated)
+        .animation(.easeInOut(duration: 0.28), value: remoteConfig.needsForceUpdate)
+        .animation(.easeInOut(duration: 0.28), value: remoteConfig.isMaintenanceMode)
+        .sheet(isPresented: $friendManager.showInviteSheet) {
+            if let invite = friendManager.incomingInvite {
+                FriendInviteSheetView(invite: invite) {
+                    friendManager.showInviteSheet = false
+                    friendManager.incomingInvite = nil
+                }
+            }
+        }
+        .sheet(isPresented: $friendManager.showDeferredInvitePrompt) {
+            DeferredInvitePasteSheet()
+        }
+        .task {
+            await remoteConfig.syncConfig()
+        }
         .onChange(of: scenePhase) { oldPhase, newPhase in
             if newPhase == .active && (oldPhase == .background || oldPhase == .inactive) {
                 // Device woke up from lock screen or returned from background!
                 UserProfileStore.shared.refreshForActiveUser()
+                friendManager.checkPendingInviteAfterLogin()
+                friendManager.checkPasteboardForDeferredInvite()
                 Task {
                     await authManager.checkCurrentSession()
+                    await remoteConfig.syncConfig()
                 }
             }
         }

@@ -15,9 +15,13 @@ struct ProfileView: View {
     @ObservedObject private var profileStore = UserProfileStore.shared
     @ObservedObject private var authManager = AuthManager.shared
     @ObservedObject private var notificationManager = NotificationManager.shared
+    @ObservedObject private var friendManager = FriendManager.shared
+    @ObservedObject private var competitionManager = CompetitionManager.shared
     
     @State private var showEditProfile = false
     @State private var showResetConfirmation = false
+    @State private var showDeleteAccountConfirmation = false
+    @State private var isDeletingAccount = false
     @State private var pendingMaintenanceAction: MaintenanceAction?
     @State private var editedName = ""
     @State private var editedClub = ""
@@ -85,6 +89,118 @@ struct ProfileView: View {
     }
 
     // MARK: - Body sections (Luxury Obsidian & Gold Styling)
+
+    @ViewBuilder private var memberCardSection: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack {
+                Text("Moja Digitálna Karta").sectionHeader()
+                Spacer()
+                Text("Apple Peňaženka")
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundColor(Color.gold400)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(Color.gold500.opacity(0.12))
+                    .cornerRadius(8)
+            }
+            
+            EncoreMemberCardView(
+                name: profileStore.currentName,
+                club: profileStore.currentClub,
+                userId: profileStore.activeUserId,
+                allowInteractiveTilt: true,
+                showActionButtons: true
+            )
+        }
+    }
+
+    @ViewBuilder private var competitionDiarySection: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text("Súťažný Denník & Postupy").sectionHeader()
+            NavigationLink(destination: CompetitionTrackerView()) {
+                HStack(spacing: 14) {
+                    ZStack {
+                        Circle()
+                            .fill(Color.gold500.opacity(0.15))
+                            .frame(width: 44, height: 44)
+                        Image(systemName: "trophy.fill")
+                            .font(.system(size: 18, weight: .bold))
+                            .foregroundColor(.gold400)
+                    }
+                    .overlay(
+                        Circle().stroke(Color.gold500.opacity(0.35), lineWidth: 1)
+                    )
+
+                    VStack(alignment: .leading, spacing: 3) {
+                        if let couple = competitionManager.activeCouple {
+                            let adv = competitionManager.computeAdvancement(for: couple.coupleId)
+                            Text(couple.displayTitle)
+                                .font(.system(size: 15, weight: .bold))
+                                .foregroundColor(.white)
+                            Text("\(adv.currentPoints) / \(adv.requiredPoints) b. • \(adv.currentFinals) / \(adv.requiredFinals) finále")
+                                .font(.system(size: 12, weight: .medium))
+                                .foregroundColor(Color.gold300.opacity(0.7))
+                        } else {
+                            Text("KSIS Denník & Postupy")
+                                .font(.system(size: 15, weight: .bold))
+                                .foregroundColor(.white)
+                            Text("Prepojiť pár a importovať výsledky")
+                                .font(.system(size: 12, weight: .medium))
+                                .foregroundColor(Color.gold300.opacity(0.7))
+                        }
+                    }
+
+                    Spacer()
+
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundColor(.gold400.opacity(0.5))
+                }
+                .padding(16)
+                .luxuryProfileCard(cornerRadius: 18)
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
+    @ViewBuilder private var communitySection: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text("Tanečná Komunita & Priatelia").sectionHeader()
+            NavigationLink(destination: FriendsListView()) {
+                HStack(spacing: 14) {
+                    ZStack {
+                        Circle()
+                            .fill(Color.gold500.opacity(0.15))
+                            .frame(width: 44, height: 44)
+                        Image(systemName: "person.2.fill")
+                            .font(.system(size: 18, weight: .bold))
+                            .foregroundColor(.gold400)
+                    }
+                    .overlay(
+                        Circle().stroke(Color.gold500.opacity(0.35), lineWidth: 1)
+                    )
+                    
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text("Moji Priatelia")
+                            .font(.system(size: 15, weight: .bold))
+                            .foregroundColor(.white)
+                        Text("\(friendManager.friends.count) priateľov • Skenovanie a zdieľanie")
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundColor(Color.gold300.opacity(0.7))
+                    }
+                    
+                    Spacer()
+                    
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundColor(.gold400.opacity(0.5))
+                }
+                .padding(16)
+                .luxuryProfileCard(cornerRadius: 18)
+            }
+            .buttonStyle(.plain)
+        }
+    }
 
     @ViewBuilder private var statsSection: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -310,6 +426,16 @@ struct ProfileView: View {
                 MaintenanceButton(icon: "text.badge.xmark",
                                   title: "Vymazať všetky poznámky",
                                   isDestructive: true) { pendingMaintenanceAction = .clearNotes }
+                Divider().background(Color.gold500.opacity(0.15))
+                MaintenanceButton(icon: "envelope.badge",
+                                  title: "Spätná väzba / Nahlásiť problém",
+                                  isDestructive: false) { openFeedbackEmail() }
+                if authManager.isAuthenticated {
+                    Divider().background(Color.latinRed.opacity(0.25))
+                    MaintenanceButton(icon: "person.crop.circle.badge.xmark",
+                                      title: isDeletingAccount ? "Prebieha mazanie účtu..." : "Zmazať účet a osobné dáta",
+                                      isDestructive: true) { showDeleteAccountConfirmation = true }
+                }
             }
             .luxuryProfileCard(cornerRadius: 18)
         }
@@ -438,6 +564,9 @@ struct ProfileView: View {
                     showEditProfile = true
                 }
                 
+                memberCardSection
+                competitionDiarySection
+                communitySection
                 statsSection
                 trainingToolsSection
                 linksSection
@@ -494,6 +623,14 @@ struct ProfileView: View {
             .sheet(isPresented: $showEditProfile) {
                 editProfileSheet
             }
+            .sheet(isPresented: $friendManager.showInviteSheet) {
+                if let invite = friendManager.incomingInvite {
+                    FriendInviteSheetView(invite: invite) {
+                        friendManager.showInviteSheet = false
+                        friendManager.incomingInvite = nil
+                    }
+                }
+            }
             .confirmationDialog("Naozaj obnoviť knižnicu?", isPresented: $showResetConfirmation, titleVisibility: .visible) {
                 Button("Obnoviť knižnicu", role: .destructive) { resetFiguresDatabase() }
                 Button("Zrušiť", role: .cancel) {}
@@ -511,6 +648,18 @@ struct ProfileView: View {
                 Button("Zrušiť", role: .cancel) { pendingMaintenanceAction = nil }
             } message: {
                 Text(pendingMaintenanceAction?.message ?? "")
+            }
+            .confirmationDialog("Naozaj zmazať účet?", isPresented: $showDeleteAccountConfirmation, titleVisibility: .visible) {
+                Button("Trvalo zmazať účet", role: .destructive) {
+                    Task {
+                        isDeletingAccount = true
+                        await authManager.deleteAccount()
+                        isDeletingAccount = false
+                    }
+                }
+                Button("Zrušiť", role: .cancel) {}
+            } message: {
+                Text("Táto akcia je nevratná. Váš tanečný profil, prihlasovacie údaje a synchronizácia budú trvalo vymazané.")
             }
         }
     }
@@ -738,6 +887,24 @@ struct ProfileView: View {
         FigureLibraryItem.seedDefaultFigures(in: modelContext)
     }
     
+    private func openFeedbackEmail() {
+        let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?"
+        let build   = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "?"
+        let ios     = UIDevice.current.systemVersion
+        let subject = "Encore Feedback (v\(version) [\(build)] / iOS \(ios))"
+        let body    = "\n\n---\nApp: Encore \(version) (\(build))\niOS: \(ios)"
+
+        var components = URLComponents(string: "mailto:support@encore.dance")!
+        components.queryItems = [
+            URLQueryItem(name: "subject", value: subject),
+            URLQueryItem(name: "body", value: body)
+        ]
+
+        if let url = components.url {
+            UIApplication.shared.open(url)
+        }
+    }
+
     private func runMaintenance(_ action: MaintenanceAction) {
         switch action {
         case .clearVideos: clearAllVideos()

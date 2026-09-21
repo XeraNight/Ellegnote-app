@@ -2,7 +2,7 @@
 
 > **Dokument:** `docs/HOME_RADIAL_HUB_AND_RIVE_SPECIFICATION.md`  
 > **Dátum:** September 2026  
-> **Projekt:** Ellegnote iOS  
+> **Projekt:** Encore iOS  
 > **Cieľ:** Transformácia statického loga na domovskej obrazovke na interaktívny radiálny ovládací hub (Radial Satellite Menu), prepojený s inteligentným spodným panelom zostáv a detailným návodom na tvorbu animácie v Rive vs. SwiftUI.
 
 ---
@@ -37,7 +37,7 @@
                   │    [ 🌟 Nová zostava ]        │
                   │            ▲                  │
                   │            │                  │
-    [ 📋 Organizér ] ◄─── ( ELLEGNOTE ) ───► [ 🪞 Zrkadlo ]
+    [ 📋 Organizér ] ◄─── ( ENCORE ) ───► [ 🪞 Zrkadlo ]
                   │       (  LOGO   )             │
                   │            │                  │
                   │            ▼                  │
@@ -137,10 +137,10 @@ V paneli State Machine:
 
 ### Krok 5: Export a import do iOS
 1. Klikni na **File -> Export -> For Runtime (.riv)**.
-2. Výsledný súbor pomenuj `ellegnote_logo.riv`.
+2. Výsledný súbor pomenuj `encore_logo.riv`.
 3. V iOS projekte stačí pridať SPM balíček `https://github.com/rive-app/rive-ios` a použiť:
    ```swift
-   RiveViewModel(fileName: "ellegnote_logo", stateMachineName: "State Machine 1")
+   RiveViewModel(fileName: "encore_logo", stateMachineName: "State Machine 1")
        .view()
    ```
 

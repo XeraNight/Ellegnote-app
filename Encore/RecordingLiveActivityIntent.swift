@@ -16,7 +16,7 @@ struct StopRecordingIntent: LiveActivityIntent {
     @MainActor
     func perform() async throws -> some IntentResult {
         NotificationCenter.default.post(name: .stopRecordingFromLiveActivity, object: nil)
-        let notificationName = "com.ellegnote.stopRecording" as CFString
+        let notificationName = "com.encore.stopRecording" as CFString
         CFNotificationCenterPostNotification(
             CFNotificationCenterGetDarwinNotifyCenter(),
             CFNotificationName(notificationName),
@@ -40,7 +40,7 @@ struct BookmarkRecordingIntent: LiveActivityIntent {
     @MainActor
     func perform() async throws -> some IntentResult {
         NotificationCenter.default.post(name: .bookmarkRecordingFromLiveActivity, object: nil)
-        let notificationName = "com.ellegnote.bookmark" as CFString
+        let notificationName = "com.encore.bookmark" as CFString
         CFNotificationCenterPostNotification(
             CFNotificationCenterGetDarwinNotifyCenter(),
             CFNotificationName(notificationName),

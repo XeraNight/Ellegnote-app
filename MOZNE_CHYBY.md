@@ -1,4 +1,4 @@
-# 🛡️ ELLEGNOTE — Kompletný Register 90 Zraniteľných Scenárov & 20 Profesionálnych Tanečných Návrhov
+# 🛡️ ENCORE — Kompletný Register 90 Zraniteľných Scenárov & 20 Profesionálnych Tanečných Návrhov
 
 > **Dátum:** August 2026  
 > **Status:** Analýza rizík, edge-cases a návrhy funkcií pre tréningy, kempy, súťaže a analýzu  
@@ -21,7 +21,7 @@ Inšpirované aplikáciami ako *Apple Camera, Halide, Blackmagic Cam, Hudl Techn
 
 ```
 ┌────────────────────────────────────────────────────────────────────────┐
-│  🏆 SÚŤAŽNÝ & TRÉNINGOVÝ ASISTENT ELLEGNOTE                            │
+│  🏆 SÚŤAŽNÝ & TRÉNINGOVÝ ASISTENT ENCORE                            │
 │                                                                        │
 │  [🎥 Kamera & Slo-Mo]      [👥 Side-by-Side Duel]   [⏱️ 5-Dance Final] │
 │  [📐 Posture Angle Lines]  [🎵 BPM Pitch Trainer]  [📺 Studio AirPlay] │
@@ -76,7 +76,7 @@ Inšpirované aplikáciami ako *Apple Camera, Halide, Blackmagic Cam, Hudl Techn
 | 11 | **Zablokovanie kamery v MDM / Rodičovskej kontrole** | Kamera je systémovo zakázaná na firemnom/školskom iPhone. | Detegovať `AVCaptureDevice.authorizationStatus == .restricted` s vysvetlením. |
 | 12 | **Kamera beží v noci v úplnej tme** | Senzor zašumí a obraz je nečitateľný. | Ponúknuť zapnutie predného podsvietenia displeja alebo zadného LED prisvietenia. |
 | 13 | **Pád aplikácie z dôvodu nedostatku RAM pri 10 otvorených kartách** | Zlyhanie alokácie pamäte v SwiftUI hierarchii. | Uvoľňovať `AVPlayer` inštancie pri `onDisappear` a zavretí detailu figúry. |
-| 14 | **Zmazanie originálneho videa zo systémovej galérie Fotiek** | Ak aplikácia odkazovala na galériu, video zmizne. | Ellegnote vždy kopíruje médiá do vlastného chráneného Sandboxu (`Documents`). |
+| 14 | **Zmazanie originálneho videa zo systémovej galérie Fotiek** | Ak aplikácia odkazovala na galériu, video zmizne. | Encore vždy kopíruje médiá do vlastného chráneného Sandboxu (`Documents`). |
 | 15 | **Vyčistenie úložiska systému iOS (Storage Pressure Sweep)** | Systém zmaže dočasné súbory v `tmp/` priečinku. | Všetky trvalé videá a fotky ukladať výhradne do `Documents/`, nikdy nenechávať v `tmp/`. |
 
 ---
@@ -90,7 +90,7 @@ Inšpirované aplikáciami ako *Apple Camera, Halide, Blackmagic Cam, Hudl Techn
 | 18 | **Diktovanie dlhšie ako 60 sekúnd** | `SFSpeechRecognizer` má limit od Apple ~1 minútu na reláciu. | Automaticky segmentovať a reštartovať reláciu po 50 sekundách bez straty textu. |
 | 19 | **Odpojenie alebo vybitie AirPods počas diktovania** | Audio engine spadne pre stratu vstupného hardvéru. | Zachytiť `routeChangeNotification`, zastaviť nahrávanie a uložiť dovtedajší text. |
 | 20 | **Tréner diktuje špecifické tanečné výrazy (napr. *Chassé, Rondé, Fleckerl*)** | Slovenský slovník nepozná francúzske a nemecké tanečné termíny. | Doplniť `contextualStrings` do `SFSpeechAudioBufferRecognitionRequest` so slovníkom figúr. |
-| 21 | **Používateľ nemá povolený mikrofón** | Tlačidlo diktovania nič neurobí a zamrzne. | Zobraziť dialóg: *"Pre diktovanie povoľte mikrofón v Nastavenia -> Ellegnote"*. |
+| 21 | **Používateľ nemá povolený mikrofón** | Tlačidlo diktovania nič neurobí a zamrzne. | Zobraziť dialóg: *"Pre diktovanie povoľte mikrofón v Nastavenia -> Encore"*. |
 | 22 | **Súčasné diktovanie a prehrávanie hudby z Apple Music** | Aplikácia stlmí alebo zastaví hudbu v sále. | Použiť kategóriu `.record` s voľbou `.duckOthers`, ktorá hudbu len jemne stíši. |
 | 23 | **Offline diktovanie bez internetového pripojenia** | Staršie iPhony bez on-device dictation zlyhajú. | Overiť `recognizer.supportsOnDeviceRecognition` a informovať o stave. |
 | 24 | **200+ nespracovaných instantných poznámok v schránke** | Pomalé scrollovanie a neprehľadnosť v paneli. | Doplniť možnosť hromadného vymazania a vyhľadávania v schránke. |
@@ -141,7 +141,7 @@ Inšpirované aplikáciami ako *Apple Camera, Halide, Blackmagic Cam, Hudl Techn
 
 | # | Hraničná Situácia | Riziko / Správanie | Riešenie a Ochrana |
 |---|---|---|---|
-| 51 | **Naskenovanie QR kódu reštauračného menu alebo Wi-Fi** | Aplikácia sa pokúsi dekódovať neplatný JSON a spadne. | Validácia schémy s prefixom `ellegnote://routine` pred parsovaním. |
+| 51 | **Naskenovanie QR kódu reštauračného menu alebo Wi-Fi** | Aplikácia sa pokúsi dekódovať neplatný JSON a spadne. | Validácia schémy s prefixom `encore://routine` pred parsovaním. |
 | 52 | **Generovanie QR kódu pre obrovskú zostavu (>40 figúr)** | Hustý QR kód je nečitateľný pre staršie fotoaparáty. | Kompresia dát cez Gzip/Deflate pred generovaním QR kódu. |
 | 53 | **Zmena veľkosti systémového písma (Dynamic Type XXL)** | Prvky v navigácii a karty figúr pretečú cez okraje. | Podpora škálovania cez `@ScaledMetric` a flexibilné layouty s `ViewThatFits`. |
 | 54 | **Zapnutý VoiceOver pre zrakovo znevýhodnených** | Tanečník nepočuje názvy figúr pri dotyku na canvase. | Pridať sémantické `.accessibilityLabel` a `.accessibilityHint` na karty figúr. |
@@ -164,7 +164,7 @@ Inšpirované aplikáciami ako *Apple Camera, Halide, Blackmagic Cam, Hudl Techn
 | 64 | **Zmena siete z 5G na štúdiovú Wi-Fi uprostred uploadu videa** | HTTP spojenie sa preruší a nahrávanie zlyhá. | Použiť `URLSessionUploadTask` s podporou automatického obnovenia (Resumable Upload). |
 | 65 | **Prehrávanie videa cez štúdiový Bluetooth reproduktor s oneskorením** | Zvuk mešká 300 ms za videom (desynchronizácia dôb). | Možnosť manuálneho posunu audio offsetu (+/- ms) v prehrávači. |
 | 66 | **Paralelné cvičenie: Apple Fitness / Tréning beží na hodinkách** | Dve audio-aktívne aplikácie bojujú o kategóriu relácie. | Nastavenie `AVAudioSessionCategoryOptionMixWithOthers`. |
-| 67 | **Zdieľanie choreografie cez AirDrop (`.ellegnote` súbor)** | Systém nevie priradiť súbor aplikácii. | Zaregistrovať vlastný Document Type a UTI `com.ellegnote.routine` v `Info.plist`. |
+| 67 | **Zdieľanie choreografie cez AirDrop (`.encore` súbor)** | Systém nevie priradiť súbor aplikácii. | Zaregistrovať vlastný Document Type a UTI `com.encore.routine` v `Info.plist`. |
 | 68 | **Odpojenie AirPlay TV uprostred tímového rozboru na kempe** | Prehrávač zamrzne alebo spadne pri strate externého displeja. | Odchytiť `UIScreen.didDisconnectNotification` a vrátiť prehrávanie na telefón. |
 | 69 | **Rýchle viacnásobné klikanie na tlačidlo Nahrávať (Spamming)** | Spustenie viacerých inštancií rekordéra za sebou. | Debounce na tlačidle nahrávania (blokovanie na 500 ms po kliknutí). |
 | 70 | **Rýchle zmazanie figúry počas prebiehajúceho uploadu jej videa** | Upload nahrá video do cloudu, ale figúra v databáze už neexistuje. | Zrušiť priradený `Task` uploadu pri volaní `deleteVideo()`. |

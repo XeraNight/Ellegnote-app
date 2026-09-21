@@ -59,9 +59,29 @@ struct RoutineCanvasView: View {
         BallroomFloorConfig.floorHeight + 2 * annotationMarginY // 1260 + 128 = 1388 pt
     }
     
+    /// Fallback size used only for the very first render frame, before GeometryReader
+    /// has measured real space. Looked up through the active window scene instead of
+    /// UIScreen.main (deprecated in iOS 26 for multi-scene environments).
+    private static var fallbackViewportSize: CGSize {
+        if let window = UIApplication.shared.connectedScenes
+            .compactMap({ $0 as? UIWindowScene })
+            .flatMap({ $0.windows })
+            .first(where: { $0.isKeyWindow }) ?? UIApplication.shared.connectedScenes
+            .compactMap({ $0 as? UIWindowScene })
+            .flatMap({ $0.windows })
+            .first {
+            let size = window.bounds.size
+            if size.width > 0 && size.height > 0 {
+                return size
+            }
+        }
+        return CGSize(width: 393, height: 852)
+    }
+    
     private func computedMinScale(for viewport: CGSize) -> CGFloat {
-        let w = viewport.width > 0 ? viewport.width : (UIScreen.main.bounds.width > 0 ? UIScreen.main.bounds.width : 393)
-        let h = viewport.height > 0 ? viewport.height : (UIScreen.main.bounds.height > 0 ? UIScreen.main.bounds.height : 852)
+        let fallback = Self.fallbackViewportSize
+        let w = viewport.width > 0 ? viewport.width : fallback.width
+        let h = viewport.height > 0 ? viewport.height : fallback.height
         let availableW = max(w - 24, 280)
         let availableH = max(h - (isPresentedInTab ? 200 : 130), 320)
         let fit = min(availableW / contentWidth, availableH / contentHeight)
@@ -122,7 +142,7 @@ struct RoutineCanvasView: View {
         let accentColor = isStandard ? Color.standardBlue : Color.latinPink
         
         GeometryReader { geo in
-            let viewport = geo.size.width > 0 ? geo.size : (UIScreen.main.bounds.size.width > 0 ? UIScreen.main.bounds.size : CGSize(width: 393, height: 852))
+            let viewport = geo.size.width > 0 ? geo.size : Self.fallbackViewportSize
             let minScale = computedMinScale(for: viewport)
             let effectiveScale = min(max(scale * activeZoom, minScale), maxScale)
             
@@ -491,7 +511,7 @@ struct RoutineCanvasView: View {
             }
             .frame(width: viewport.width, height: viewport.height)
             .onAppear {
-                let initSize = geo.size.width > 0 ? geo.size : UIScreen.main.bounds.size
+                let initSize = geo.size.width > 0 ? geo.size : Self.fallbackViewportSize
                 viewportSize = initSize
                 if !hasInitializedView {
                     hasInitializedView = true

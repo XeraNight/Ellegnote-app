@@ -17,8 +17,6 @@ struct EncoreAttributes: ActivityAttributes {
     var danceName: String
 }
 
-typealias EllegnoteAttributes = EncoreAttributes
-
 struct RecordingActivityAttributes: ActivityAttributes {
     public struct ContentState: Codable, Hashable {
         var startDate: Date

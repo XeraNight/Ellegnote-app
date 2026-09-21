@@ -148,7 +148,7 @@ struct PostureAnalysisOverlayView: View {
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     Button("Zavrieť") { dismiss() }
-                        .foregroundColor(.white)
+                        .foregroundColor(Color.gold400)
                 }
                 
                 ToolbarItem(placement: .topBarTrailing) {
@@ -160,7 +160,7 @@ struct PostureAnalysisOverlayView: View {
                             Text("Uložiť")
                         }
                         .font(.system(size: 14, weight: .bold))
-                        .foregroundColor(.yellow)
+                        .foregroundColor(Color.gold400)
                     }
                     .disabled(marks.isEmpty && frameImage == nil)
                 }
@@ -311,14 +311,14 @@ struct PostureAnalysisOverlayView: View {
                                 .font(.system(size: 10, weight: .bold))
                                 .lineLimit(1)
                         }
-                        .foregroundColor(selectedTool == tool ? .black : .white)
+                        .foregroundColor(selectedTool == tool ? Color.obsidian950 : .white)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 8)
-                        .background(selectedTool == tool ? Color.yellow : Color.black.opacity(0.6))
+                        .background(selectedTool == tool ? Color.goldLinearGradient : LinearGradient(colors: [Color.black.opacity(0.6), Color.black.opacity(0.6)], startPoint: .leading, endPoint: .trailing))
                         .cornerRadius(12)
                         .overlay(
                             RoundedRectangle(cornerRadius: 12)
-                                .stroke(selectedTool == tool ? Color.yellow : Color.white.opacity(0.2), lineWidth: 1.5)
+                                .stroke(selectedTool == tool ? Color.gold400 : Color.white.opacity(0.2), lineWidth: 1.5)
                         )
                     }
                 }
@@ -334,6 +334,15 @@ struct PostureAnalysisOverlayView: View {
         guard let url = videoURL else {
             isLoadingFrame = false
             return
+        }
+        
+        // Direct support for photos (static postures)
+        if MediaResolver.isImagePath(path: url.path) || MediaResolver.isImagePath(path: url.lastPathComponent) {
+            if let data = try? Data(contentsOf: url), let img = UIImage(data: data) {
+                self.frameImage = img
+                self.isLoadingFrame = false
+                return
+            }
         }
         
         let asset = AVURLAsset(url: url)

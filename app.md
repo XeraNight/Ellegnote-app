@@ -1,4 +1,4 @@
-# 💃 ELLEGNOTE — Kompletný Prehľad Aplikácie, Brandu, UI a Architektúry
+# 💃 ENCORE — Kompletný Prehľad Aplikácie, Brandu, UI a Architektúry
 
 > **Súbor:** `app.md`  
 > **Dátum:** September 2026  
@@ -139,12 +139,12 @@ Všetky obrazovky majú implementovaný **Auto-Padding systém** (8–10 % šír
   * Kanál s odozvou pod **50 ms** pre okamžitý prenos ťahania figúry na parkete (`node_moved`).
   * **Presence kurzory:** Ak majú partneri súčasne otvorené rovnaké plátno, vidia navzájom svoje kurzory a pohyb v reálnom čase.
 * **Supabase Storage:**
-  * Špecializovaný bucket `ellegnote-media` pre bezpečný upload a streamovanie tréningových videí a fotografií.
+  * Špecializovaný bucket `encore-media` pre bezpečný upload a streamovanie tréningových videí a fotografií.
 
 ### 2. E-maily & Overovanie (Resend & SMTP)
 * Supabase Auth automaticky zabezpečuje odosielanie aktivačných e-mailov a obnovu zabudnutého hesla.
 * V Supabase Dashboarde v sekcii *Authentication -> SMTP Settings* je pripravená integrácia na **Resend API / SMTP**.
-* Výhoda: E-maily nepadajú do spamu, odchádzajú z vlastnej overenej domény (napr. `auth@ellegnote.com`) a majú vlastný HTML branding.
+* Výhoda: E-maily nepadajú do spamu, odchádzajú z vlastnej overenej domény (napr. `auth@encore.com`) a majú vlastný HTML branding.
 
 ### 3. SwiftData & Offline-First Odolnosť
 * Aplikácia je navrhnutá pre tanečné sály v podzemí a na kempingoch bez mobilného signálu.
@@ -183,9 +183,9 @@ Aplikácia obsahuje komplexnú výbavu, ktorá ďaleko presahuje bežné poznám
 18. 📋 **Súťažný organizér kôl (`CompetitionOrganizerView`):** Správa štartovných čísel, rozdelenia do heatov a časového harmonogramu súťaže.
 19. 📺 **AirPlay TV Hub (`StudioAirPlayManager`):** Okamžité bezdrôtové premietanie parketu alebo videa na TV v sále.
 20. 📄 **PDF Exporter (`RoutinePDFExporter`):** Tlač choreografických listov pre trénerov a súťažné páry.
-21. 🏝️ **Live Activity & Dynamic Island (`EllegnoteWidget`):** Zobrazenie aktuálnej a nasledujúcej figúry a času na zamknutej obrazovke iPhonu.
+21. 🏝️ **Live Activity & Dynamic Island (`EncoreWidget`):** Zobrazenie aktuálnej a nasledujúcej figúry a času na zamknutej obrazovke iPhonu.
 22. ⌚ **Apple Watch Cueing (`WatchCueingManager`):** Haptické odpočítavanie dôb na zápästí.
-23. 🌐 **Web Companion (`web/` & `ellegnote-web/`):** Webový prístup k zostavám pre partnerov s Androidom alebo PC.
+23. 🌐 **Web Companion (`web/` & `encore-web/`):** Webový prístup k zostavám pre partnerov s Androidom alebo PC.
 
 ---
 
@@ -239,7 +239,7 @@ Nápady na rozšírenie nastavení a ďalšie nástroje pripravené na realizác
 > **Detailná špecifikácia a Rive návod:** [docs/HOME_RADIAL_HUB_AND_RIVE_SPECIFICATION.md](file:///Users/jakub/Documents/New%20project/docs/HOME_RADIAL_HUB_AND_RIVE_SPECIFICATION.md)
 
 * **Interaktívne Hero Logo (Radial Satellite Menu):**
-  * Namiesto otvárania modálneho sheetu sa po kliknutí na stredové logo Ellegnote logo zväčší (scale 1.18×) a dookola neho sa orbitálne rozvinú 4 satelitné akcie:
+  * Namiesto otvárania modálneho sheetu sa po kliknutí na stredové logo Encore logo zväčší (scale 1.18×) a dookola neho sa orbitálne rozvinú 4 satelitné akcie:
     1. **Nová zostava** (Hore-Vľavo)
     2. **Mirror / Čisté Zrkadlo** (Hore-Vpravo)
     3. **Súťažný organizér kôl** (Dole-Vľavo)

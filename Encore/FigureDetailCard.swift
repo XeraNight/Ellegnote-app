@@ -64,11 +64,20 @@ struct FigureDetailCard: View {
                                 }
                             }
                             
-                            if let videoPath = node.videoPath,
-                               let _ = resolveVideoURL(path: videoPath) {
-                                
+                            if let mediaPath = node.videoPath {
                                 VStack(spacing: 12) {
-                                    if let player = player {
+                                    if MediaResolver.isImagePath(path: mediaPath),
+                                       let uiImage = MediaResolver.resolveImage(path: mediaPath) {
+                                        Image(uiImage: uiImage)
+                                            .resizable()
+                                            .scaledToFit()
+                                            .frame(maxHeight: 220)
+                                            .cornerRadius(16)
+                                            .overlay(
+                                                RoundedRectangle(cornerRadius: 16)
+                                                    .stroke(Color.gold400.opacity(0.3), lineWidth: 1)
+                                            )
+                                    } else if let player = player {
                                         VideoPlayer(player: player)
                                             .frame(height: 220)
                                             .cornerRadius(16)
@@ -76,43 +85,50 @@ struct FigureDetailCard: View {
                                                 RoundedRectangle(cornerRadius: 16)
                                                     .stroke(Color.gold400.opacity(0.25), lineWidth: 1)
                                             )
+                                    } else {
+                                        MediaThumbnailView(path: mediaPath, cornerRadius: 16)
+                                            .frame(height: 220)
                                     }
                                     
                                     // Playback Speed Controls & Actions
                                     HStack(spacing: 8) {
-                                        Text("Rýchlosť:")
-                                            .font(.system(size: 12, weight: .bold, design: .serif))
-                                            .foregroundColor(.themeDark)
-                                        
-                                        ForEach([0.5, 0.75, 1.0, 1.5], id: \.self) { speed in
-                                            Button(action: { playbackRate = Float(speed) }) {
-                                                Text(String(format: "%.2fx", speed))
-                                                    .font(.system(size: 11, weight: .black))
-                                                    .foregroundColor(playbackRate == Float(speed) ? .white : .themeDark)
+                                        if !MediaResolver.isImagePath(path: mediaPath) {
+                                            Text("Rýchlosť:")
+                                                .font(.system(size: 12, weight: .bold, design: .serif))
+                                                .foregroundColor(.themeDark)
+                                            
+                                            ForEach([0.5, 0.75, 1.0, 1.5], id: \.self) { speed in
+                                                Button(action: { playbackRate = Float(speed) }) {
+                                                    Text(String(format: "%.2fx", speed))
+                                                        .font(.system(size: 11, weight: .black))
+                                                        .foregroundColor(playbackRate == Float(speed) ? .white : .themeDark)
+                                                }
+                                                .buttonStyle(playbackRate == Float(speed)
+                                                    ? .neubrutalist(accentColor: Color.themeAccent, cornerRadius: 8)
+                                                    : .neubrutalistSecondary(cornerRadius: 8)
+                                                )
                                             }
-                                            .buttonStyle(playbackRate == Float(speed)
-                                                ? .neubrutalist(accentColor: Color.themeAccent, cornerRadius: 8)
-                                                : .neubrutalistSecondary(cornerRadius: 8)
-                                            )
                                         }
                                         
                                         Spacer()
                                         
-                                        // Duel button if target exists or multiple videos exist
-                                        if node.activeTargetVideoPath != nil || node.mediaVault.count > 1 {
-                                            Button {
-                                                showDuelComparison = true
-                                            } label: {
+                                        // Duel button
+                                        Button {
+                                            showDuelComparison = true
+                                        } label: {
+                                            HStack(spacing: 4) {
                                                 Image(systemName: "rectangle.split.2x1.fill")
-                                                    .font(.system(size: 16, weight: .bold))
-                                                    .foregroundColor(.white)
-                                                    .padding(6)
-                                                    .background(Color.themeAccent)
-                                                    .cornerRadius(8)
+                                                Text("Duel")
+                                                    .font(.system(size: 12, weight: .bold))
                                             }
+                                            .foregroundColor(.white)
+                                            .padding(.horizontal, 10)
+                                            .padding(.vertical, 6)
+                                            .background(Color.themeAccent)
+                                            .cornerRadius(8)
                                         }
                                         
-                                        // Delete Video Option
+                                        // Delete Media Option
                                         Button(action: deleteVideo) {
                                             Image(systemName: "trash.circle.fill")
                                                 .font(.system(size: 22))

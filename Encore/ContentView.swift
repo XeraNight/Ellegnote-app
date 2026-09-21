@@ -327,6 +327,7 @@ struct ContentView: View {
             showNewRoutineCategorySheet = true
         case .mirror:
             showDanceMirrorModal = true
+            AnalyticsManager.shared.mirrorOpened(source: "radial_hub")
         case .organizer:
             showCompetitionOrganizerSheet = true
         case .speedTrainer:
@@ -1205,7 +1206,7 @@ struct ContentView: View {
     private var manualCodeImportSheet: some View {
         NavigationStack {
             ZStack {
-                Color.themeBg.ignoresSafeArea()
+                Color.obsidian800.ignoresSafeArea()
                 VStack(spacing: 20) {
                     Text("Vloženie kódu zostavy")
                         .font(.system(size: 18, weight: .bold, design: .serif))
@@ -1248,7 +1249,7 @@ struct ContentView: View {
                 .toolbar {
                     ToolbarItem(placement: .cancellationAction) {
                         Button("Zrušiť") { showManualCodeSheet = false }
-                            .foregroundColor(.themeDark)
+                            .foregroundColor(.gold400)
                     }
                 }
             }
@@ -1743,9 +1744,10 @@ struct CompareHubView: View {
                 set: { if !$0 { activeSlotForPicker = nil } }
             )) {
                 if let slot = activeSlotForPicker {
-                    VideoSlotPickerSheet(
-                        slotTitle: slot == 1 ? "Moje video (A)" : "Vzor / Idol (B)",
-                        onSelectVideo: { path in
+                    UniversalMediaPickerSheet(
+                        slotTitle: slot == 1 ? "Moje video / fotka (A)" : "Vzor / Idol (B)",
+                        currentPath: slot == 1 ? pathA : pathB,
+                        onSelectMedia: { path in
                             if slot == 1 {
                                 pathA = path
                             } else {
@@ -1753,9 +1755,14 @@ struct CompareHubView: View {
                             }
                             activeSlotForPicker = nil
                         },
-                        allVideos: allVideos,
-                        allNotes: allNotes,
-                        allDances: allDances
+                        onClearMedia: {
+                            if slot == 1 {
+                                pathA = nil
+                            } else {
+                                pathB = nil
+                            }
+                            activeSlotForPicker = nil
+                        }
                     )
                 }
             }
@@ -1768,10 +1775,22 @@ struct CompareHubView: View {
                 .font(.system(size: 11, weight: .black))
                 .foregroundColor(accentColor)
             
-            if let path = path, let url = MediaResolver.resolveVideoURL(path: path) {
-                LoopingVideoPlayer(videoURL: url, rate: 1.0)
-                    .frame(height: 120)
-                    .cornerRadius(12)
+            if let path = path {
+                if MediaResolver.isImagePath(path: path), let img = MediaResolver.resolveImage(path: path) {
+                    Image(uiImage: img)
+                        .resizable()
+                        .scaledToFill()
+                        .frame(height: 120)
+                        .clipped()
+                        .cornerRadius(12)
+                } else if let url = MediaResolver.resolveVideoURL(path: path) {
+                    LoopingVideoPlayer(videoURL: url, rate: 1.0)
+                        .frame(height: 120)
+                        .cornerRadius(12)
+                } else {
+                    MediaThumbnailView(path: path, placeholderIcon: "photo", cornerRadius: 12)
+                        .frame(height: 120)
+                }
                 
                 HStack(spacing: 8) {
                     Button(action: onSelect) {
@@ -1792,11 +1811,11 @@ struct CompareHubView: View {
             } else {
                 Button(action: onSelect) {
                     VStack(spacing: 8) {
-                        Image(systemName: "video.badge.plus")
+                        Image(systemName: "plus.circle.fill")
                             .font(.system(size: 24))
                             .foregroundColor(accentColor)
                         
-                        Text("Zvoliť video")
+                        Text("Zvoliť video / foto")
                             .font(.system(size: 12, weight: .bold))
                             .foregroundColor(.white)
                         
@@ -1820,186 +1839,6 @@ struct CompareHubView: View {
     }
 }
 
-// MARK: - Video Slot Picker Sheet
-struct VideoSlotPickerSheet: View {
-    @Environment(\.dismiss) private var dismiss
-    @Environment(\.modelContext) private var modelContext
-    let slotTitle: String
-    let onSelectVideo: (String) -> Void
-    
-    let allVideos: [VideoMediaEntry]
-    let allNotes: [InstantNote]
-    let allDances: [Dance]
-    
-    @State private var selectedPhotoItem: PhotosPickerItem? = nil
-    @State private var showCameraModal: Bool = false
-    
-    var availableVideoPaths: [(title: String, path: String, role: String)] {
-        var items: [(String, String, String)] = []
-        for v in allVideos {
-            items.append((v.title.isEmpty ? "Video záznam" : v.title, v.filePath, v.role.displayName))
-        }
-        for n in allNotes where n.videoPath != nil {
-            if let p = n.videoPath {
-                items.append((n.text.isEmpty ? "Rýchla poznámka" : n.text, p, "Poznámka"))
-            }
-        }
-        for d in allDances where d.videoPath != nil {
-            if let p = d.videoPath {
-                items.append(("Vzor pre \(d.name)", p, "Vzor tanca"))
-            }
-        }
-        return items
-    }
-    
-    var body: some View {
-        NavigationStack {
-            ZStack {
-                EllegancePageBackground()
-                
-                GeometryReader { geo in
-                    let autoSidePadding = max(geo.size.width * 0.08, 20)
-                    
-                    ScrollView {
-                        VStack(alignment: .leading, spacing: 20) {
-                            
-                            // Top Quick Actions (Record or Photos)
-                            HStack(spacing: 12) {
-                                Button {
-                                    showCameraModal = true
-                                } label: {
-                                    HStack(spacing: 8) {
-                                        Image(systemName: "video.badge.plus.fill")
-                                            .font(.system(size: 14))
-                                        Text("Natočiť kamerou")
-                                            .font(.system(size: 13, weight: .bold))
-                                    }
-                                    .foregroundColor(Color.obsidian900)
-                                    .frame(maxWidth: .infinity)
-                                    .padding(.vertical, 12)
-                                    .background(LinearGradient(colors: [Color.gold500, Color.gold400], startPoint: .leading, endPoint: .trailing))
-                                    .cornerRadius(12)
-                                }
-                                .buttonStyle(.plain)
-                                
-                                PhotosPicker(selection: $selectedPhotoItem, matching: .videos) {
-                                    HStack(spacing: 8) {
-                                        Image(systemName: "photo.on.rectangle.angled")
-                                            .font(.system(size: 14))
-                                        Text("Vybrať z galérie")
-                                            .font(.system(size: 13, weight: .bold))
-                                    }
-                                    .foregroundColor(.white)
-                                    .frame(maxWidth: .infinity)
-                                    .padding(.vertical, 12)
-                                    .background(Color.white.opacity(0.12))
-                                    .cornerRadius(12)
-                                    .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.white.opacity(0.15), lineWidth: 1))
-                                }
-                                .buttonStyle(.plain)
-                            }
-                            .padding(.top, 16)
-                            
-                            // Video Vault List
-                            VStack(alignment: .leading, spacing: 12) {
-                                Text("ULOŽENÉ VIDEÁ V APLIKÁCII (\(availableVideoPaths.count))")
-                                    .font(.system(size: 11, weight: .black))
-                                    .foregroundColor(Color.white.opacity(0.45))
-                                    .tracking(1.2)
-                                
-                                if availableVideoPaths.isEmpty {
-                                    VStack(spacing: 10) {
-                                        Image(systemName: "video.slash")
-                                            .font(.system(size: 28))
-                                            .foregroundColor(Color.white.opacity(0.3))
-                                        Text("Nemáte žiadne uložené videá")
-                                            .font(.system(size: 13))
-                                            .foregroundColor(Color.white.opacity(0.5))
-                                    }
-                                    .frame(maxWidth: .infinity)
-                                    .padding(.vertical, 30)
-                                } else {
-                                    ForEach(availableVideoPaths, id: \.path) { item in
-                                        Button {
-                                            onSelectVideo(item.path)
-                                            dismiss()
-                                        } label: {
-                                            HStack(spacing: 12) {
-                                                ZStack {
-                                                    Circle()
-                                                        .fill(Color.gold500.opacity(0.15))
-                                                        .frame(width: 38, height: 38)
-                                                    Image(systemName: "play.circle.fill")
-                                                        .font(.system(size: 18))
-                                                        .foregroundColor(Color.gold400)
-                                                }
-                                                
-                                                VStack(alignment: .leading, spacing: 2) {
-                                                    Text(item.title)
-                                                        .font(.system(size: 14, weight: .bold))
-                                                        .foregroundColor(.white)
-                                                        .lineLimit(1)
-                                                    
-                                                    Text(item.role)
-                                                        .font(.system(size: 11))
-                                                        .foregroundColor(Color.gold300.opacity(0.8))
-                                                }
-                                                
-                                                Spacer()
-                                                
-                                                Text("Vybrať")
-                                                    .font(.system(size: 12, weight: .bold))
-                                                    .foregroundColor(Color.gold400)
-                                                    .padding(.horizontal, 10)
-                                                    .padding(.vertical, 4)
-                                                    .background(Color.gold500.opacity(0.12))
-                                                    .cornerRadius(6)
-                                            }
-                                            .padding(12)
-                                            .background(Color.themeCard)
-                                            .cornerRadius(12)
-                                            .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.white.opacity(0.08), lineWidth: 1))
-                                        }
-                                        .buttonStyle(.plain)
-                                    }
-                                }
-                            }
-                        }
-                        .padding(.horizontal, autoSidePadding)
-                        .padding(.bottom, 30)
-                    }
-                }
-            }
-            .navigationTitle("Vybrať pre \(slotTitle)")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Zrušiť") { dismiss() }
-                        .foregroundColor(Color.gold400)
-                }
-            }
-            .fullScreenCover(isPresented: $showCameraModal) {
-                DanceCameraView { localPath in
-                    onSelectVideo(localPath)
-                    dismiss()
-                }
-                .ignoresSafeArea()
-            }
-            .onChange(of: selectedPhotoItem) { _, newItem in
-                Task {
-                    if let data = try? await newItem?.loadTransferable(type: Data.self) {
-                        if let filename = try? MediaStorageManager.store(data: data, prefix: "vault_vid", fileExtension: "mp4") {
-                            await MainActor.run {
-                                onSelectVideo(filename)
-                                dismiss()
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
 
 // MARK: - All Routines Sheet View
 struct AllRoutinesSheetView: View {
@@ -2473,7 +2312,7 @@ struct DanceDetailView: View {
         .sheet(isPresented: $showCreateRoutineSheet) {
             NavigationStack {
                 ZStack {
-                    Color.themeBg.ignoresSafeArea()
+                    Color.obsidian800.ignoresSafeArea()
                     VStack(spacing: 20) {
                         VStack(alignment: .leading, spacing: 8) {
                             Text("Názov zostavy")
@@ -2516,7 +2355,7 @@ struct DanceDetailView: View {
                 .toolbar {
                     ToolbarItem(placement: .cancellationAction) {
                         Button("Zrušiť") { showCreateRoutineSheet = false }
-                            .foregroundColor(.themeDark)
+                            .foregroundColor(.gold400)
                     }
                     
                     ToolbarItemGroup(placement: .keyboard) {
@@ -2532,7 +2371,7 @@ struct DanceDetailView: View {
         .sheet(isPresented: $showAddCustomFigure) {
             NavigationStack {
                 ZStack {
-                    Color.themeBg.ignoresSafeArea()
+                    Color.obsidian800.ignoresSafeArea()
                     VStack(spacing: 20) {
                         VStack(alignment: .leading, spacing: 14) {
                             VStack(alignment: .leading, spacing: 6) {

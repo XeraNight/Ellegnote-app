@@ -1,4 +1,4 @@
--- Ellegnote Supabase security hardening
+-- Encore Supabase security hardening
 -- Run this in Supabase Dashboard > SQL Editor.
 --
 -- This is the app-compatible lockdown: it enables RLS and blocks anonymous public
@@ -24,84 +24,84 @@ revoke all on table public.routines from anon;
 revoke all on table public.figure_library_items from anon;
 revoke all on table public.canvas_nodes from anon;
 
--- Drop only Ellegnote policies managed by this file, so re-running is safe.
-drop policy if exists "ellegnote_authenticated_routines_select" on public.routines;
-drop policy if exists "ellegnote_authenticated_routines_insert" on public.routines;
-drop policy if exists "ellegnote_authenticated_routines_update" on public.routines;
-drop policy if exists "ellegnote_authenticated_routines_delete" on public.routines;
+-- Drop only Encore policies managed by this file, so re-running is safe.
+drop policy if exists "encore_authenticated_routines_select" on public.routines;
+drop policy if exists "encore_authenticated_routines_insert" on public.routines;
+drop policy if exists "encore_authenticated_routines_update" on public.routines;
+drop policy if exists "encore_authenticated_routines_delete" on public.routines;
 
-drop policy if exists "ellegnote_authenticated_figures_select" on public.figure_library_items;
-drop policy if exists "ellegnote_authenticated_figures_insert" on public.figure_library_items;
-drop policy if exists "ellegnote_authenticated_figures_update" on public.figure_library_items;
-drop policy if exists "ellegnote_authenticated_figures_delete" on public.figure_library_items;
+drop policy if exists "encore_authenticated_figures_select" on public.figure_library_items;
+drop policy if exists "encore_authenticated_figures_insert" on public.figure_library_items;
+drop policy if exists "encore_authenticated_figures_update" on public.figure_library_items;
+drop policy if exists "encore_authenticated_figures_delete" on public.figure_library_items;
 
-drop policy if exists "ellegnote_authenticated_canvas_select" on public.canvas_nodes;
-drop policy if exists "ellegnote_authenticated_canvas_insert" on public.canvas_nodes;
-drop policy if exists "ellegnote_authenticated_canvas_update" on public.canvas_nodes;
-drop policy if exists "ellegnote_authenticated_canvas_delete" on public.canvas_nodes;
+drop policy if exists "encore_authenticated_canvas_select" on public.canvas_nodes;
+drop policy if exists "encore_authenticated_canvas_insert" on public.canvas_nodes;
+drop policy if exists "encore_authenticated_canvas_update" on public.canvas_nodes;
+drop policy if exists "encore_authenticated_canvas_delete" on public.canvas_nodes;
 
 -- App-compatible policies. These remove anonymous public access, but signed-in
 -- users can still sync. This keeps the current app functional because the Swift
 -- rows do not yet include user_id/owner_id columns.
-create policy "ellegnote_authenticated_routines_select"
+create policy "encore_authenticated_routines_select"
 on public.routines for select
 to authenticated
 using (true);
 
-create policy "ellegnote_authenticated_routines_insert"
+create policy "encore_authenticated_routines_insert"
 on public.routines for insert
 to authenticated
 with check (true);
 
-create policy "ellegnote_authenticated_routines_update"
+create policy "encore_authenticated_routines_update"
 on public.routines for update
 to authenticated
 using (true)
 with check (true);
 
-create policy "ellegnote_authenticated_routines_delete"
+create policy "encore_authenticated_routines_delete"
 on public.routines for delete
 to authenticated
 using (true);
 
-create policy "ellegnote_authenticated_figures_select"
+create policy "encore_authenticated_figures_select"
 on public.figure_library_items for select
 to authenticated
 using (true);
 
-create policy "ellegnote_authenticated_figures_insert"
+create policy "encore_authenticated_figures_insert"
 on public.figure_library_items for insert
 to authenticated
 with check (true);
 
-create policy "ellegnote_authenticated_figures_update"
+create policy "encore_authenticated_figures_update"
 on public.figure_library_items for update
 to authenticated
 using (true)
 with check (true);
 
-create policy "ellegnote_authenticated_figures_delete"
+create policy "encore_authenticated_figures_delete"
 on public.figure_library_items for delete
 to authenticated
 using (true);
 
-create policy "ellegnote_authenticated_canvas_select"
+create policy "encore_authenticated_canvas_select"
 on public.canvas_nodes for select
 to authenticated
 using (true);
 
-create policy "ellegnote_authenticated_canvas_insert"
+create policy "encore_authenticated_canvas_insert"
 on public.canvas_nodes for insert
 to authenticated
 with check (true);
 
-create policy "ellegnote_authenticated_canvas_update"
+create policy "encore_authenticated_canvas_update"
 on public.canvas_nodes for update
 to authenticated
 using (true)
 with check (true);
 
-create policy "ellegnote_authenticated_canvas_delete"
+create policy "encore_authenticated_canvas_delete"
 on public.canvas_nodes for delete
 to authenticated
 using (true);

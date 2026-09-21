@@ -22,7 +22,17 @@ extension Color {
     static let themeAccent = Color(red: 212/255, green: 175/255, blue: 55/255)       // #D4AF37 Champagne Gold
     static let themeBorder = Color(red: 255/255, green: 224/255, blue: 136/255).opacity(0.20) // Gold 400 Bevel
     static let themeTextSecondary = Color.white.opacity(0.60)                          // Muted Secondary Text
+    static let textSecondary = Color.white.opacity(0.60)                               // Muted Secondary Text
+    static let textPrimary = Color.white                                               // Primary Luminous Text
+    static let obsidian950 = Color(red: 7/255, green: 7/255, blue: 9/255)              // #070709 Deep Obsidian Accent
     static let themeBgCard = Color(red: 18/255, green: 18/255, blue: 22/255)
+    
+    // MARK: - Gradient Presets
+    static let goldLinearGradient = LinearGradient(
+        colors: [Color.gold400, Color.gold500],
+        startPoint: .topLeading,
+        endPoint: .bottomTrailing
+    )
     
     // MARK: - Discipline & Status Vibrance
     static let standardBlue = Color(red: 59/255, green: 130/255, blue: 246/255)      // #3B82F6 Vibrant Royal Blue

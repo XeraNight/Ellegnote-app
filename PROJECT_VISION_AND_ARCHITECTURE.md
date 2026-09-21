@@ -1,9 +1,9 @@
-# 💃 ELLEGNOTE — Kompletná Vízia, Architektúra a Detailný Katalóg Kódu
+# 💃 ENCORE — Kompletná Vízia, Architektúra a Detailný Katalóg Kódu
 
 > **Verzia dokumentu:** 2.0 (Deep Codebase Scan)  
 > **Dátum:** August 2026  
 > **Autor:** Antigravity AI & Jakub  
-> **Cieľ:** Jediný referenčný zdroj pravdy (Single Source of Truth) pre celú architektúru, komponenty, dátové toky, synchronizáciu a multimédiá v ekosystéme Ellegnote.
+> **Cieľ:** Jediný referenčný zdroj pravdy (Single Source of Truth) pre celú architektúru, komponenty, dátové toky, synchronizáciu a multimédiá v ekosystéme Encore.
 
 ---
 
@@ -32,7 +32,7 @@ Tanečné páry a tréneri na individuálnych lekciách spoločenských tancov (
 - **Odpojené médiá:** Tréningové videá a hlasové pokyny trénera končia v galérii fotiek medzi stovkami iných súborov bez väzby na konkrétnu figúru či prechod.
 - **Asynchrónnosť partnerov:** Partner a partnerka často trénujú oddelene alebo používajú rôzne platformy (iOS vs. Android), čo spôsobuje neaktuálnosť zostáv.
 
-### Riešenie: Ellegnote
+### Riešenie: Encore
 1. **2D Vizuálny Choreografický Canvas (Tancodrom):** Nelineárne rozloženie figúr v priestore s prepojeniami, rytmickým počítaním (Beats Timeline), Cubic Bezier krivkami a poznámkami k prechodom.
 2. **1-Tap Quick Capture (Instant Notes):** Rýchle zaznamenanie 15s videa alebo hlasového pokynu trénera s okamžitým prepisom cez Apple Speech Framework / Dictation.
 3. **Supabase Realtime Sync & Presence:** Okamžitý prenos zmien a živá vizualizácia partnerových kurzorov na canvase cez WebSockets (Broadcast + Postgres Changes).
@@ -45,7 +45,7 @@ Tanečné páry a tréneri na individuálnych lekciách spoločenských tancov (
 ```mermaid
 graph TD
     subgraph iOS_App [iOS Native Application - SwiftData & SwiftUI]
-        App[EllegnoteApp] --> MainTab[MainTabView]
+        App[EncoreApp] --> MainTab[MainTabView]
         MainTab --> Splash[AppSplashView]
         MainTab --> Home[ContentView]
         MainTab --> Canvas[RoutineCanvasView]
@@ -76,7 +76,7 @@ graph TD
     end
 
     subgraph Web_Companion [Web Companion - Next.js / React]
-        NextApp[ellegnote-web / Next.js Web]
+        NextApp[encore-web / Next.js Web]
     end
 
     Home <--> SD
@@ -117,11 +117,11 @@ graph TD
   - `removeFile(named:)`: Bezpečné vymazanie súboru bez hádzania výnimiek.
   - `totalSize(for:)`: Výpočet celkovej veľkosti zoznamu multimédií v bajtoch (používa sa v profile).
 
-#### `Ellegnote/Secrets.xcconfig` & `Secrets.xcconfig.template`
+#### `Encore/Secrets.xcconfig` & `Secrets.xcconfig.template`
 - **Účel:** Bezpečná konfigurácia pre build time.
 - **Kľúčové premenné:** `SUPABASE_URL`, `SUPABASE_ANON_KEY`. Zabraňuje úniku API kľúčov do git repozitára.
 
-#### `Ellegnote/Info.plist` & `Ellegnote.entitlements`
+#### `Encore/Info.plist` & `Encore.entitlements`
 - **Účel:** Systémové povolenia a oprávnenia iOS.
 - **Kľúčové položky:** `NSCameraUsageDescription`, `NSMicrophoneUsageDescription`, `NSSpeechRecognitionUsageDescription`, `NSPhotoLibraryUsageDescription`, podpora Live Activities (`NSSupportsLiveActivities = YES`).
 
@@ -129,7 +129,7 @@ graph TD
 
 ### 3.2 Dátová Vrstva, Modely & Úložisko
 
-#### `Ellegnote/Models.swift`
+#### `Encore/Models.swift`
 - **Účel:** Definuje kompletnú doménovú schému SwiftData a počiatočné dáta (seeding).
 - **Dátové entity (`@Model`):**
   1. `Dance`: Reprezentuje tanečnú disciplínu (Waltz, Tango, Samba, Cha-Cha...) s kategóriou (Standard/Latin), tempom (MPM/BPM), metodickým popisom, fotkou a videom.
@@ -139,13 +139,13 @@ graph TD
   5. `InstantNote`: Rýchla poznámka v schránke (vytvorená cez `CaptureModeView`), ktorá obsahuje text a voliteľné video/obrázok pripravené na neskoršie priradenie k figúre.
 - **Predvolený Seeding:** Obsahuje kompletnú databázu 100+ oficiálnych medzinárodných figúr pre 10 tancov (Standard & Latin) s presnou rytmizáciou.
 
-#### `Ellegnote/MediaResolver.swift`
+#### `Encore/MediaResolver.swift`
 - **Účel:** Inteligentný hybridný resolver obrázkov a videí (Local Cache First -> Remote Supabase Fallback).
 - **Kľúčové funkcie:**
   - `resolveVideoURL(path:)`: Ak je video lokálne, vráti lokálne `file://` URL. Ak nie, vygeneruje Supabase Storage verejnú URL a na pozadí spustí sťahovanie do lokálneho sandboxu.
   - `resolveImage(path:)`: Používa dvojúrovňovú vyrovnávaciu pamäť (`NSCache` v RAM + lokálny disk). Automaticky optimalizuje a downscaluje obrázky na max 1400px pomocou `preparingForDisplay()`, aby nedochádzalo k preťaženiu pamäte GPU.
 
-#### `Ellegnote/KeychainHelper.swift`
+#### `Encore/KeychainHelper.swift`
 - **Účel:** Bezpečné ukladanie citlivých prihlasovacích údajov do hardvérového iOS Keychain.
 - **Kľúčové funkcie:** `saveCredentials()`, `readCredentials()`, `deleteCredentials()`. Používa `kSecAttrAccessibleWhenUnlockedThisDeviceOnly` na ochranu údajov pred neoprávneným prístupom a umožňuje biometrické prihlásenie cez Face ID.
 
@@ -153,10 +153,10 @@ graph TD
 
 ### 3.3 Cloud, Autentifikácia & Realtime Synchronizácia
 
-#### `Ellegnote/SupabaseConfig.swift`
+#### `Encore/SupabaseConfig.swift`
 - **Účel:** Bezpečné dynamické načítanie `SUPABASE_URL` a `SUPABASE_ANON_KEY` z runtime `Info.plist` (ktoré ich preberá z `Secrets.xcconfig`).
 
-#### `Ellegnote/AuthManager.swift`
+#### `Encore/AuthManager.swift`
 - **Účel:** Reaktivný manažér používateľských účtov a relácií (Singleton `@MainActor`).
 - **Kľúčové funkcie:**
   - `authStateChanges`: Počúva zmeny stavu autentifikácie bez blokovania UI vlákna.
@@ -164,19 +164,19 @@ graph TD
   - `authenticateWithBiometrics()`: Autentifikácia cez LocalAuthentication (Face ID / Touch ID) s automatickým fallbackom na uložené Keychain heslo.
   - `handleDeepLink(url:)`: Spracovanie potvrdzovacích e-mailových odkazov.
 
-#### `Ellegnote/AuthSheetView.swift`
+#### `Encore/AuthSheetView.swift`
 - **Účel:** Vizuálny dialóg na prihlásenie a registráciu v dizajnovom štýle Warm Cream & Neubrutalism.
 - **Funkcie:** Prepínanie medzi prihlásením a registráciou, validácia vstupov, tlačidlo Face ID s haptickou odozvou.
 
-#### `Ellegnote/SupabaseSyncManager.swift`
+#### `Encore/SupabaseSyncManager.swift`
 - **Účel:** Obojsmerná synchronizácia dát na úrovni databázy a súborového úložiska.
 - **Kľúčové komponenty:**
   - `@globalActor actor SyncActor`: Serializuje sieťové požiadavky na databázu mimo hlavného vlákna.
   - `RoutineSyncDebouncer`: Združuje rýchle zmeny (napr. ťahanie figúry) a odosiela finálny stav do Supabase po 700ms nečinnosti, čím šetrí sieťové prenosy a kvóty.
   - `syncRoutine()`: Atomický upsert zostavy a jej uzlov s inteligentným mazaním osirotených uzlov.
-  - `uploadFileAsync()`: Upload lokálne natočeného videa alebo fotky do Supabase Storage bucketu `ellegnote-media`.
+  - `uploadFileAsync()`: Upload lokálne natočeného videa alebo fotky do Supabase Storage bucketu `encore-media`.
 
-#### `Ellegnote/CanvasRealtimeManager.swift`
+#### `Encore/CanvasRealtimeManager.swift`
 - **Účel:** Nízko-latentná WebSocket synchronizácia v reálnom čase (Broadcast + Presence + Postgres Changes).
 - **Kľúčové funkcie:**
   - **Broadcast (`node_moved`):** Okamžitý prenos pozície figúry pri ťahaní prstom (latencia < 50ms, nezaťažuje SQL databázu).
@@ -185,39 +185,39 @@ graph TD
   - **Postgres Changes:** Záložný kanál počúvajúci priame zmeny v tabuľke `canvas_nodes`.
   - **Heartbeat & Auto-Reconnect:** Každých 8 sekúnd overuje stav WebSocket kanála a pri obnove spojenia automaticky vyvolá refresh dát.
 
-#### `Ellegnote/SupabaseSecurityFix.sql`
+#### `Encore/SupabaseSecurityFix.sql`
 - **Účel:** SQL migrácia pre Supabase databázu. Nastavuje `REPLICA IDENTITY FULL` pre tabuľku `canvas_nodes`, zapína RLS (Row Level Security) politiky a publikuje tabuľky do `supabase_realtime`.
 
 ---
 
 ### 3.4 Jadro UI, Navigácia & Dizajnový Systém
 
-#### `Ellegnote/EllegnoteApp.swift`
+#### `Encore/EncoreApp.swift`
 - **Účel:** Vstupný bod iOS aplikácie (`@main`).
 - **Funkcie:**
   - Inicializuje SwiftData `ModelContainer` s automatickým volaním `DatabaseRecoveryManager` pri chybe.
   - Spúšťa seeding predvolených tancov a figúr na skutočnom pozadí (`Task.detached(priority: .background)`), čím garantuje 0ms blokovanie prvého snímku.
   - Obsahuje obsluhu deep linkov pre `AuthManager`.
 
-#### `Ellegnote/MainTabView.swift`
+#### `Encore/MainTabView.swift`
 - **Účel:** Hlavný kontajner aplikácie s horizontálnym stránkovaním a plávajúcim dokom.
 - **Funkcie:**
   - Používa natívny SwiftUI `ScrollView(.horizontal)` s `.scrollTargetBehavior(.paging)` namiesto `TabView(.page)` pre stopercentnú kontrolu nad zamykaním gest.
   - **AppSplashView Overlay:** Zobrazuje uvítaciu obrazovku a plynule zakrýva načítanie SwiftData.
   - **NativeLiquidGlassDock:** Plávajúci dock s iOS Liquid Glass dizajnom (Home, Knižnica, Profil + stredové tlačidlo pre rýchle video).
 
-#### `Ellegnote/AppSplashView.swift`
+#### `Encore/AppSplashView.swift`
 - **Účel:** Elegantná úvodná obrazovka s animovaným tanečným logom, rotujúcim zlatým gradientom a personalizovaným privítaním používateľa. Po ~1.1s sa plynule odanimuje cez opacity.
 
-#### `Ellegnote/NavDepth.swift`
+#### `Encore/NavDepth.swift`
 - **Účel:** Globálny stavový manažér navigačnej hĺbky (`@MainActor NavDepth.shared`).
 - **Funkcie:** Keď používateľ vstúpi na `RoutineCanvasView`, `push()` nastaví `isLocked = true`, čo automaticky skryje plávajúci dock a zamkne gestá horizontálneho stránkovania.
 
-#### `Ellegnote/SwipeBackFix.swift`
+#### `Encore/SwipeBackFix.swift`
 - **Účel:** Rozšírenie `UINavigationController` s implementáciou `UIGestureRecognizerDelegate`.
 - **Funkcie:** Deaktivuje systémové swipe-back gesto na hrane obrazovky počas práce na canvase, aby nedochádzalo ku kolízii s posúvaním tancodromu.
 
-#### `Ellegnote/Colors.swift`
+#### `Encore/Colors.swift`
 - **Účel:** Kompletná farebná paleta aplikácie:
   - `themeBg` (#F6F2E9 - Warm Cream)
   - `themeCard` (#FFFFFF - Pure White)
@@ -229,21 +229,21 @@ graph TD
   - `latinRed` (#DC143C - Crimson Red pre varovania a nahrávanie)
   - `amberGold` (#DCA51E - Warm Gold)
 
-#### `Ellegnote/NeubrutalistModifiers.swift`
+#### `Encore/NeubrutalistModifiers.swift`
 - **Účel:** Knižnica komponentov a vizuálnych štýlov:
   - `NeubrutalistCardModifier`: Karty s pevným espresso okrajom a ostrým tieňom.
   - `NeubrutalistButtonStyle`: Tlačidlá s reaktívnym fyzikálnym stlačením (posun tieňa).
   - `CreativeCreamButtonStyle`: Prémiové dotykové tlačidlá s haptickou odozvou.
   - `CreativePillButtonStyle`: Plávajúce kapsulové akčné prvky.
 
-#### `Ellegnote/AppleTypewriterTextView.swift`
+#### `Encore/AppleTypewriterTextView.swift`
 - **Účel:** Textové pole v štýle Apple Intelligence so svietiacim gradientným okrajom a zvukovým vlnovým ekvalizérom počas diktovania hlasových poznámok trénera.
 
 ---
 
 ### 3.5 Hlavné Obrazovky & Funkcionality
 
-#### `Ellegnote/ContentView.swift`
+#### `Encore/ContentView.swift`
 - **Účel:** Domovská obrazovka so zoznamom choreografií a kategórií tancov.
 - **Funkcie:**
   - Prehľad vytvorených zostáv s indikátormi počtu figúr a dátumu úpravy.
@@ -251,7 +251,7 @@ graph TD
   - Integrácia importu zostáv cez QR kód (`handleScannedCode`) alebo textový JSON reťazec.
   - Detail jednotlivých tancov s možnosťou úpravy tempa, popisu a ukážkových médií (`DanceCategoryView`, `DanceDetailView`).
 
-#### `Ellegnote/RoutineCanvasView.swift`
+#### `Encore/RoutineCanvasView.swift`
 - **Účel:** Najdôležitejšia a najkomplexnejšia obrazovka aplikácie — 2D Vizuálny Choreografický Canvas (Tancodrom).
 - **Architektúra & Komponenty:**
   - `CanvasGestureView`: Natívny UIKit `UIViewRepresentable` koordinujúci 2-prstový Pan & Pinch zoom bez sekania SwiftUI.
@@ -265,14 +265,14 @@ graph TD
   - `PartnerCursorView`: Živé zobrazenie kurzora a mena pripojeného partnera.
   - `Live Activity Integration`: Automatické spúšťanie a aktualizácia Dynamic Islandu podľa aktuálne cvičenej figúry.
 
-#### `Ellegnote/GlobalLibraryView.swift`
+#### `Encore/GlobalLibraryView.swift`
 - **Účel:** Globálna encyklopédia tanečných figúr.
 - **Funkcie:**
   - Vyhľadávanie v reálnom čase a horizontálny filter podľa tancov.
   - Možnosť pridávať vlastné figúry s rytmizáciou a popisom techniky.
   - `LibraryFigureDetailSheet`: Detail figúry s možnosťou priradenia fotky z galérie (`PhotosPicker`), nahrávania videa cez kameru a importu z rýchlej schránky (`InstantNotesInboxSection`).
 
-#### `Ellegnote/ProfileView.swift`
+#### `Encore/ProfileView.swift`
 - **Účel:** Profil tanečníka, štatistiky tréningu, predvoľby a údržba dát.
 - **Funkcie:**
   - Výpočet štatistík (počet zostáv, videí, hlasových poznámok, najviac trénovaný tanec, obsadené úložisko na disku).
@@ -280,7 +280,7 @@ graph TD
   - Údržbové akcie: Obnovenie oficiálnej knižnice figúr, export všetkých zostáv do JSON, vyčistenie videí a poznámok.
   - Správa tanečného účtu a synchronizácie.
 
-#### `Ellegnote/CaptureModeView.swift`
+#### `Encore/CaptureModeView.swift`
 - **Účel:** Rýchly 1-Tap záznamník (Instant Capture) prístupný priamo zo stredového tlačidla plávajúceho doku.
 - **Funkcie:** Umožňuje do 3 sekúnd nahrať krátke tréningové video alebo nadiktovať hlasový pokyn trénera a uložiť ho do schránky `InstantNote` pre neskoršie zaradenie do choreografie na canvase.
 
@@ -288,7 +288,7 @@ graph TD
 
 ### 3.6 Audio, Kamera, Rozpoznávanie Reči & QR
 
-#### `Ellegnote/AudioSessionCoordinator.swift`
+#### `Encore/AudioSessionCoordinator.swift`
 - **Účel:** Globálny centrálny arbiter (`actor`) pre celú zvukovú vrstvu aplikácie.
 - **Riešený problém:** Zabraňuje konfliktom o singleton `AVAudioSession` medzi nahrávaním videa (kamera), prehrávaním videa (AVPlayer) a rozpoznávaním reči (Speech Recognizer).
 - **Správa klientov:**
@@ -296,7 +296,7 @@ graph TD
   - `.player`: Nastavuje kategóriu `.playback`, mód `.moviePlayback`.
   - `.speech`: Nastavuje kategóriu `.record`, mód `.measurement`, options `[.duckOthers]`.
 
-#### `Ellegnote/FigureDetailCard.swift` (Kamera & Audio Podsystémy)
+#### `Encore/FigureDetailCard.swift` (Kamera & Audio Podsystémy)
 - **Komponenty v súbore:**
   - `FigureDetailCard`: Karta detailu figúry s videom, poznámkami, diktovaním a schránkou.
   - `VideoRecorderView` (`UIViewControllerRepresentable`): Natívny Apple štandard cez `UIImagePickerController(sourceType: .camera)`. 
@@ -306,7 +306,7 @@ graph TD
   - `LoopingPlayerUIView` & `LoopingVideoPlayer`: Hardvérovo akcelerovaný bezstratový prehrávač videa pomocou `AVPlayerLooper` a `AVQueuePlayer` s ovládaním rýchlosti (0.5x až 1.5x) a automatickou registráciou cez `AudioSessionCoordinator`.
   - `SpeechRecognizerHelper`: Manažér pre rečové rozpoznávanie cez `SFSpeechRecognizer` (lokalizácia `sk-SK` a fallback) s reaktívnym prepisom hovoreného slova do textu a bezpečnou aktiváciou kategórie `.speech`.
 
-#### `Ellegnote/QRGenerator.swift` & `Ellegnote/QRScannerView.swift`
+#### `Encore/QRGenerator.swift` & `Encore/QRScannerView.swift`
 - **Účel:** Offline prenos a zdieľanie choreografií medzi zariadeniami.
 - **Funkcie:**
   - `QRGenerator`: Komprimuje kompletnú choreografiu (uzly, súradnice, rytmus, poznámky) do minifikovaného JSON reťazca a generuje vektorový QR kód cez CoreImage filter `CIQRCodeGenerator`.
@@ -316,32 +316,32 @@ graph TD
 
 ### 3.7 iOS Widget & Live Activity (Dynamic Island)
 
-#### `Ellegnote/EllegnoteAttributes.swift` & `EllegnoteWigdet/EllegnoteAttributes.swift`
+#### `Encore/EncoreAttributes.swift` & `EncoreWigdet/EncoreAttributes.swift`
 - **Účel:** Dátový kontrakt pre Apple ActivityKit.
 - **Štruktúra:**
   - Statické atribúty: `routineName`, `danceName`.
   - Dynamický stav (`ContentState`): `currentFigureName`, `nextFigureName`, `currentFigureIndex`, `totalFigures`, `lastUpdated`.
 
-#### `Ellegnote/EllegnoteWidget.swift` & `EllegnoteWigdet/EllegnoteWidget.swift`
+#### `Encore/EncoreWidget.swift` & `EncoreWigdet/EncoreWidget.swift`
 - **Účel:** Vizuálna implementácia Live Activity pre Lock Screen a Dynamic Island na iPhone 14 Pro a novších.
 - **Režimy Dynamic Islandu:**
   - **Expanded:** Zobrazuje názov tanca, názov aktuálnej figúry, nasledujúcu figúru so šípkou, počítadlo figúr a živý tréningový časovač.
   - **Compact Leading & Trailing:** Ikona tanca + skratka (napr. WAL) naľavo, index figúry napravo.
   - **Minimal:** Samostatná tanečná ikona.
 
-#### `EllegnoteWigdet/AppIntent.swift`
+#### `EncoreWigdet/AppIntent.swift`
 - **Účel:** Konfiguračný intent pre budúce interaktívne widgety na ploche iOS.
 
 ---
 
 ### 3.8 Webová Aplikácia (Next.js & Vite Android Companion)
 
-#### `ellegnote-web/src/App.jsx` & `ellegnote-web/src/supabase.js`
+#### `encore-web/src/App.jsx` & `encore-web/src/supabase.js`
 - **Účel:** Rýchly React/Vite webový klient optimalizovaný pre Android partnerov.
 - **Funkcie:** Pripojenie na rovnaký Supabase projekt, autentifikácia, načítanie `canvas_nodes`, podpora Realtime zmien a zobrazenie prítomnosti používateľov.
 
 #### `web/src/app/` (Next.js 15 App Router Companion)
-- **Účel:** Plnohodnotná webová verzia Ellegnote s Next.js server actions, TypeScriptom a Tailwind CSS:
+- **Účel:** Plnohodnotná webová verzia Encore s Next.js server actions, TypeScriptom a Tailwind CSS:
   - `web/src/app/page.tsx`: Landing page s prihlásením.
   - `web/src/app/dashboard/DashboardClient.tsx`: Webový dashboard so zoznamom zostáv a figúr.
   - `web/src/lib/supabase/`: Serverový a klientsky Supabase wrapper s SSR podporou.
@@ -406,7 +406,7 @@ Tento audit detailne sumarizuje 30 reálnych situácií, ktoré môžu pri použ
 | 20 | **Auth & Expirácia tokenu** | JWT token expiroval počas noci a používateľ ráno otvorí aplikáciu offline. | Tiché obnovenie relácie zlyhá bez internetu. | Uchovávať lokálne prihlásený stav v Keychain a obnoviť token hneď po nadviazaní spojenia. |
 | 21 | **Auth & Zmena hesla** | Používateľ zmení heslo cez web a v iOS aplikácii má uložené staré heslo v Face ID Keychain. | Face ID zlyhá pri overení voči Supabase Auth. | Detegovať `invalid_credentials` a automaticky vymazať neplatné Keychain heslo s výzvou na zadanie nového. |
 | 22 | **QR & Veľkosť dát** | Zostava má 40 figúr a dlhé technické poznámky (veľkosť JSON > 3 KB). | Vygenerovaný QR kód má príliš vysokú hustotu bodov a starší iPhone ho nevie zaostriť. | Komprimovať JSON pomocou Deflate/Gzip pred kódovaním do QR. |
-| 23 | **QR & Neplatný formát** | Používateľ naskenuje QR kód reštauračného menu namiesto Ellegnote zostavy. | `JSONDecoder` vyhodí chybu pri dekódovaní. | Validácia schémy s prefixom `ellegnote://routine` a používateľsky prívetivá chybová hláška. |
+| 23 | **QR & Neplatný formát** | Používateľ naskenuje QR kód reštauračného menu namiesto Encore zostavy. | `JSONDecoder` vyhodí chybu pri dekódovaní. | Validácia schémy s prefixom `encore://routine` a používateľsky prívetivá chybová hláška. |
 | 24 | **Live Activity & Výpadok** | Dynamic Island beží na pozadí a aplikácia je uspaná systémom pre nedostatok RAM. | Dynamic Island zamrzne na poslednej figúre. | Nastaviť `staleDate` a ukončiť Live Activity pri `sceneDidEnterBackground` ak tréning skončil. |
 | 25 | **Prehrávač & Formát** | Import poškodeného alebo nepodporovaného video kodeku (napr. staré AVI/WMV). | `AVPlayer` zlyhá so statusom `.failed`. | Validácia formátu a zobrazenie chybovej karty namiesto čierneho obdĺžnika. |
 | 26 | **Prehrávač & Slučka** | Prehrávanie ultrakrátkeho 0.4s videa v nekonečnej slučke (`AVPlayerLooper`). | Vysoká záťaž CPU pri neustálom seekovaní. | Obmedziť minimálnu dĺžku videa alebo nastaviť pauzu medzi slučkami. |
@@ -416,5 +416,5 @@ Tento audit detailne sumarizuje 30 reálnych situácií, ktoré môžu pri použ
 | 30 | **Duplicitný import** | Používateľ 3-krát po sebe importuje tú istú zostavu z QR kódu. | Vytvoria sa 3 identické zostavy s rovnakým názvom. | Detegovať existujúci `routine.id` a opýtať sa: "Nahradiť existujúcu alebo vytvoriť kópiu?". |
 
 ---
-*Dokumentácia a audit sú aktualizované pre produkčný vývoj Ellegnote iOS.*
+*Dokumentácia a audit sú aktualizované pre produkčný vývoj Encore iOS.*
 

@@ -1,0 +1,198 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { createClient } from '@supabase/supabase-js'
+import { PKPass } from 'passkit-generator'
+import fs from 'fs'
+import path from 'path'
+
+export const runtime = 'nodejs'
+export const dynamic = 'force-dynamic'
+
+// MARK: - Apple Wallet Native .pkpass Generator Endpoint
+// Generates a cryptographically signed Apple Wallet pass bundle (.pkpass)
+// barcode = https://encore-app.vercel.app/add/[invite_code]
+export async function GET(request: NextRequest) {
+  try {
+    const authHeader = request.headers.get('Authorization')
+    const token = authHeader?.replace(/^Bearer\s+/i, '') || new URL(request.url).searchParams.get('token')
+
+    if (!token) {
+      return NextResponse.json(
+        { error: 'unauthorized', message: 'Vyžaduje sa prihlásenie (Supabase JWT token).' },
+        { status: 401 }
+      )
+    }
+
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://iukblwlttvrcdclmlyxu.supabase.co'
+    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
+    const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+      global: {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      }
+    })
+
+    // Verify authenticated user
+    const { data: userData, error: userError } = await supabase.auth.getUser(token)
+    if (userError || !userData?.user) {
+      return NextResponse.json(
+        { error: 'invalid_token', message: 'Neplatné alebo expirované prihlásenie.' },
+        { status: 401 }
+      )
+    }
+
+    const user = userData.user
+
+    // Fetch user profile & invite code
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('id, name, invite_code, club')
+      .eq('id', user.id)
+      .single()
+
+    const userName = profile?.name || user.user_metadata?.full_name || 'Tanečník'
+    const userClub = profile?.club || user.user_metadata?.club || 'Encore Dance Club'
+    const inviteCode = profile?.invite_code || user.id.substring(0, 8).toUpperCase()
+    const domain = process.env.NEXT_PUBLIC_APP_DOMAIN || 'encore-app.vercel.app'
+    const qrInviteUrl = `https://${domain}/add/${inviteCode}`
+
+    const passCertB64 = process.env.APPLE_PASS_CERT_BASE64
+    const passKeyB64 = process.env.APPLE_PASS_KEY_BASE64
+    const wwdrCertB64 = process.env.APPLE_WWDR_CERT_BASE64
+    const passTypeIdentifier = process.env.APPLE_PASS_TYPE_IDENTIFIER || 'pass.com.jakub.encore'
+    const teamIdentifier = process.env.APPLE_TEAM_IDENTIFIER || '2MD5BS4DLM'
+
+    // If Apple certificates are not yet configured in environment variables, return clear diagnostic
+    if (!passCertB64 || !passKeyB64 || !wwdrCertB64) {
+      return NextResponse.json(
+        {
+          error: 'certificates_missing',
+          message: 'Apple PassKit certifikáty zatiaľ nie sú nahrané v prostredí Vercel. Karta sa vygeneruje po nahraní Base64 certifikátov.',
+          passTypeIdentifier,
+          teamIdentifier,
+          invite_code: inviteCode,
+          qr_url: qrInviteUrl,
+          user: {
+            id: user.id,
+            name: userName,
+            club: userClub
+          }
+        },
+        { status: 503 }
+      )
+    }
+
+    // Decode PEM certificates
+    const signerCert = Buffer.from(passCertB64, 'base64').toString('utf-8')
+    const signerKey = Buffer.from(passKeyB64, 'base64').toString('utf-8')
+    const wwdr = Buffer.from(wwdrCertB64, 'base64').toString('utf-8')
+    const signerKeyPassphrase = process.env.APPLE_PASS_PASSPHRASE || undefined
+
+    // Instantiate PKPass generator
+    const pass = new PKPass(
+      {},
+      {
+        signerCert,
+        signerKey,
+        signerKeyPassphrase,
+        wwdr
+      },
+      {
+        passTypeIdentifier,
+        teamIdentifier,
+        organizationName: 'Encore Dance',
+        description: 'Encore Ballroom & Latin Member Pass',
+        serialNumber: `ENC-${inviteCode}`,
+        foregroundColor: 'rgb(255, 230, 153)', // Champagne Gold
+        backgroundColor: 'rgb(102, 3, 18)',    // Deep Carmine Wine
+        labelColor: 'rgb(212, 175, 55)',        // Rich Gold
+        logoText: 'ENCORE'
+      }
+    )
+
+    pass.type = 'generic'
+
+    // QR Barcode (Scannable with native iOS Camera)
+    pass.setBarcodes({
+      format: 'PKBarcodeFormatQR',
+      message: qrInviteUrl,
+      messageEncoding: 'iso-8859-1',
+      altText: `POZVÁNKA KÓD: ${inviteCode}`
+    })
+
+    // Primary field: Dancer name
+    pass.primaryFields.push({
+      key: 'member',
+      label: 'TANEČNÍK',
+      value: userName
+    })
+
+    // Secondary field: Dance Club
+    pass.secondaryFields.push({
+      key: 'club',
+      label: 'TANEČNÝ KLUB',
+      value: userClub
+    })
+
+    // Auxiliary field: Invite code
+    pass.auxiliaryFields.push({
+      key: 'inviteCode',
+      label: 'KÓD POZVÁNKY',
+      value: inviteCode
+    })
+
+    // Back fields: App info & website
+    pass.backFields.push(
+      {
+        key: 'about',
+        label: 'O aplikácii Encore',
+        value: 'Encore je prémiový tréningový nástroj a komunita pre štandardné a latinskoamerické tance.'
+      },
+      {
+        key: 'invite_url',
+        label: 'Odkaz na priateľstvo',
+        value: qrInviteUrl
+      },
+      {
+        key: 'website',
+        label: 'Webstránka',
+        value: `https://${domain}`
+      }
+    )
+
+    // Load icon and logo images from public folder
+    const publicDir = path.join(process.cwd(), 'public')
+    const logoPath = path.join(publicDir, 'encore_logo.png')
+    const iconPath = path.join(publicDir, 'logo.png')
+
+    if (fs.existsSync(logoPath)) {
+      const logoBuf = fs.readFileSync(logoPath)
+      pass.addBuffer('logo.png', logoBuf)
+      pass.addBuffer('logo@2x.png', logoBuf)
+    }
+
+    if (fs.existsSync(iconPath)) {
+      const iconBuf = fs.readFileSync(iconPath)
+      pass.addBuffer('icon.png', iconBuf)
+      pass.addBuffer('icon@2x.png', iconBuf)
+    }
+
+    // Generate signed .pkpass binary buffer
+    const passBuffer = await pass.getAsBuffer()
+
+    return new NextResponse(passBuffer as unknown as BodyInit, {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/vnd.apple.pkpass',
+        'Content-Disposition': `attachment; filename="encore-${inviteCode}.pkpass"`,
+        'Cache-Control': 'no-cache, no-store, must-revalidate'
+      }
+    })
+  } catch (error: any) {
+    console.error('Apple Wallet pass generation error:', error)
+    return NextResponse.json(
+      { error: 'pass_generation_failed', message: error.message || 'Nepodarilo sa vygenerovať Apple Wallet preukaz.' },
+      { status: 500 }
+    )
+  }
+}

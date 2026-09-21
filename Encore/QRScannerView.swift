@@ -71,7 +71,7 @@ private class QRScannerViewController: UIViewController, AVCaptureMetadataOutput
     
     private var captureSession: AVCaptureSession?
     private var previewLayer: AVCaptureVideoPreviewLayer?
-    private let sessionQueue = DispatchQueue(label: "com.ellegnote.qrScanner.session", qos: .userInitiated)
+    private let sessionQueue = DispatchQueue(label: "com.encore.qrScanner.session", qos: .userInitiated)
     
     override func viewDidLoad() {
         super.viewDidLoad()

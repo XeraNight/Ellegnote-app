@@ -146,8 +146,9 @@ struct CameraGridAndLevelOverlay: View {
     }
 }
 
-// MARK: - Quick Save Details & Tagging Sheet (Funkcia 10 & 8)
+// MARK: - Quick Save Details & Tagging Sheet (Funkcia 10 & Waze-Inspired UI)
 struct QuickSaveVideoSheet: View {
+    @Environment(\.dismiss) private var dismiss
     let videoURL: URL
     let onTrimRequest: () -> Void
     let onSaveCompleted: (URL) -> Void
@@ -161,139 +162,226 @@ struct QuickSaveVideoSheet: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                Color.themeBg.ignoresSafeArea()
+                Color.black.ignoresSafeArea()
                 
                 ScrollView {
-                    VStack(alignment: .leading, spacing: 20) {
-                        // Quick Trim Action Bar (Funkcia 8)
+                    VStack(alignment: .leading, spacing: 22) {
+                        // Quick Trim Action Bar (Funkcia 8: Waze-Style Action Card)
                         Button {
+                            HapticFeedback.light()
                             onTrimRequest()
                         } label: {
-                            HStack {
-                                Image(systemName: "scissors")
-                                    .font(.system(size: 16, weight: .bold))
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text("Orezať začiatok a koniec")
-                                        .font(.system(size: 14, weight: .bold))
-                                    Text("Odstrániť príchod k partnerke a odchod")
-                                        .font(.system(size: 11))
-                                        .foregroundColor(.themeTextSecondary)
+                            HStack(spacing: 14) {
+                                ZStack {
+                                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                        .fill(Color.amberGold.opacity(0.18))
+                                        .frame(width: 44, height: 44)
+                                    Image(systemName: "scissors")
+                                        .font(.system(size: 18, weight: .bold))
+                                        .foregroundColor(Color.amberGold)
                                 }
+                                
+                                VStack(alignment: .leading, spacing: 3) {
+                                    Text("Orezať začiatok a koniec")
+                                        .font(.system(size: 15, weight: .bold, design: .rounded))
+                                        .foregroundColor(.white)
+                                    Text("Odstrániť príchod k partnerke a odchod")
+                                        .font(.system(size: 12, weight: .medium, design: .rounded))
+                                        .foregroundColor(.white.opacity(0.60))
+                                }
+                                
                                 Spacer()
+                                
                                 Image(systemName: "chevron.right")
-                                    .font(.system(size: 12, weight: .bold))
-                                    .foregroundColor(.themeTextSecondary)
+                                    .font(.system(size: 13, weight: .bold))
+                                    .foregroundColor(.white.opacity(0.35))
                             }
                             .padding(14)
-                            .background(Color.white)
-                            .neubrutalistCard(cornerRadius: 14, shadowOffset: 2)
+                            .background(Color(white: 0.12))
+                            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                    .stroke(Color.white.opacity(0.12), lineWidth: 1)
+                            )
                         }
                         .buttonStyle(.plain)
                         
-                        // Role Selector
-                        VStack(alignment: .leading, spacing: 8) {
+                        // Role Selector (Waze-style 3 Segment Cards)
+                        VStack(alignment: .leading, spacing: 10) {
                             Text("ROLA ZÁZNAMU")
-                                .font(.system(size: 11, weight: .black))
-                                .foregroundColor(.themeTextSecondary)
+                                .font(.system(size: 11, weight: .black, design: .rounded))
+                                .foregroundColor(Color.amberGold)
+                                .tracking(1.2)
                             
-                            HStack(spacing: 8) {
-                                roleButton(role: .myTake, title: "Moje video", icon: "person.fill", color: .latinRed)
-                                roleButton(role: .targetIdol, title: "Vzor / Idol", icon: "star.fill", color: .themeAccent)
-                                roleButton(role: .coach, title: "Tréner", icon: "figure.walk", color: .standardBlue)
+                            HStack(spacing: 10) {
+                                roleButton(role: .myTake, title: "Moje video", icon: "person.fill", accentColor: Color(red: 0.95, green: 0.22, blue: 0.40))
+                                roleButton(role: .targetIdol, title: "Vzor / Idol", icon: "star.fill", accentColor: Color.amberGold)
+                                roleButton(role: .coach, title: "Tréner", icon: "figure.walk", accentColor: Color(red: 0.22, green: 0.55, blue: 0.96))
                             }
                         }
                         
-                        // Quick Tag Chips (Funkcia 10)
-                        VStack(alignment: .leading, spacing: 8) {
+                        // Quick Tag Chips (Waze-style filter pills)
+                        VStack(alignment: .leading, spacing: 10) {
                             Text("RÝCHLE ŠTÍTKY")
-                                .font(.system(size: 11, weight: .black))
-                                .foregroundColor(.themeTextSecondary)
+                                .font(.system(size: 11, weight: .black, design: .rounded))
+                                .foregroundColor(Color.amberGold)
+                                .tracking(1.2)
                             
                             FlowLayout(spacing: 8) {
                                 ForEach(availableTags, id: \.self) { tag in
+                                    let isSelected = selectedTags.contains(tag)
                                     Button {
-                                        if selectedTags.contains(tag) {
+                                        HapticFeedback.light()
+                                        if isSelected {
                                             selectedTags.remove(tag)
                                         } else {
                                             selectedTags.insert(tag)
                                         }
                                     } label: {
                                         Text(tag)
-                                            .font(.system(size: 12, weight: .bold))
-                                            .padding(.horizontal, 12)
-                                            .padding(.vertical, 7)
-                                            .background(selectedTags.contains(tag) ? Color.themeAccent : Color.white)
-                                            .foregroundColor(selectedTags.contains(tag) ? .white : .themeDark)
-                                            .cornerRadius(12)
-                                            .overlay(
-                                                RoundedRectangle(cornerRadius: 12)
-                                                    .stroke(Color.themeBorder, lineWidth: 1.5)
+                                            .font(.system(size: 13, weight: isSelected ? .heavy : .semibold, design: .rounded))
+                                            .padding(.horizontal, 14)
+                                            .padding(.vertical, 8)
+                                            .background(
+                                                isSelected
+                                                    ? Color.amberGold
+                                                    : Color(white: 0.14)
                                             )
+                                            .foregroundColor(isSelected ? .black : .white)
+                                            .clipShape(Capsule())
+                                            .overlay(
+                                                Capsule()
+                                                    .stroke(isSelected ? Color.amberGold : Color.white.opacity(0.14), lineWidth: 1)
+                                            )
+                                            .shadow(color: isSelected ? Color.amberGold.opacity(0.3) : Color.clear, radius: 6, y: 2)
                                     }
                                     .buttonStyle(.plain)
                                 }
                             }
                         }
                         
-                        // Title Input
-                        VStack(alignment: .leading, spacing: 6) {
+                        // Title Input (Waze-style Clean Input Card)
+                        VStack(alignment: .leading, spacing: 8) {
                             Text("NÁZOV")
-                                .font(.system(size: 11, weight: .black))
-                                .foregroundColor(.themeTextSecondary)
+                                .font(.system(size: 11, weight: .black, design: .rounded))
+                                .foregroundColor(Color.amberGold)
+                                .tracking(1.2)
                             
-                            TextField("Zadaj názov videa...", text: $videoTitle)
-                                .padding(12)
-                                .background(Color.white)
-                                .cornerRadius(12)
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 12)
-                                        .stroke(Color.themeBorder, lineWidth: 1.5)
-                                )
+                            HStack(spacing: 12) {
+                                ZStack {
+                                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                        .fill(Color.white.opacity(0.10))
+                                        .frame(width: 36, height: 36)
+                                    Image(systemName: "pencil.line")
+                                        .font(.system(size: 15, weight: .bold))
+                                        .foregroundColor(Color.amberGold)
+                                }
+                                
+                                TextField("", text: $videoTitle, prompt: Text("Zadaj názov videa...").foregroundColor(Color.white.opacity(0.45)))
+                                    .font(.system(size: 15, weight: .semibold, design: .rounded))
+                                    .foregroundColor(.white)
+                                    .accentColor(Color.amberGold)
+                            }
+                            .padding(12)
+                            .background(Color(white: 0.12))
+                            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                    .stroke(Color.white.opacity(0.15), lineWidth: 1)
+                            )
                         }
                         
-                        // Save Button
+                        // Save Button (Waze-style Big Rounded CTA)
                         Button {
+                            HapticFeedback.medium()
                             onSaveCompleted(videoURL)
                         } label: {
-                            HStack {
+                            HStack(spacing: 10) {
                                 Image(systemName: "checkmark.circle.fill")
+                                    .font(.system(size: 18, weight: .bold))
                                 Text("Uložiť do inventára")
-                                    .font(.system(size: 16, weight: .bold))
+                                    .font(.system(size: 16, weight: .black, design: .rounded))
                             }
-                            .foregroundColor(.white)
+                            .foregroundColor(.black)
                             .frame(maxWidth: .infinity)
-                            .padding(.vertical, 15)
+                            .padding(.vertical, 16)
+                            .background(
+                                LinearGradient(
+                                    colors: [Color.amberGold, Color(red: 0.95, green: 0.72, blue: 0.0)],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
+                            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                                    .stroke(Color.amberGold, lineWidth: 1)
+                            )
+                            .shadow(color: Color.amberGold.opacity(0.45), radius: 12, y: 4)
                         }
-                        .buttonStyle(.neubrutalist(accentColor: Color.themeAccent, cornerRadius: 16))
-                        .padding(.top, 8)
+                        .buttonStyle(.plain)
+                        .padding(.top, 10)
                     }
                     .padding(20)
                 }
             }
             .navigationTitle("Detaily nového videa")
             .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(LuxuryTheme.obsidian900, for: .navigationBar)
+            .toolbarBackground(.visible, for: .navigationBar)
+            .toolbarColorScheme(.dark, for: .navigationBar)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button {
+                        HapticFeedback.light()
+                        dismiss()
+                    } label: {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 14, weight: .bold))
+                            .foregroundColor(.white.opacity(0.85))
+                            .frame(width: 32, height: 32)
+                            .background(Color.white.opacity(0.12))
+                            .clipShape(Circle())
+                    }
+                }
+            }
         }
     }
     
-    private func roleButton(role: VideoMediaRole, title: String, icon: String, color: Color) -> some View {
-        Button {
+    private func roleButton(role: VideoMediaRole, title: String, icon: String, accentColor: Color) -> some View {
+        let isSelected = (selectedRole == role)
+        
+        return Button {
+            HapticFeedback.light()
             selectedRole = role
         } label: {
-            VStack(spacing: 4) {
-                Image(systemName: icon)
-                    .font(.system(size: 14, weight: .bold))
+            VStack(spacing: 8) {
+                ZStack {
+                    Circle()
+                        .fill(isSelected ? (role == .targetIdol ? Color.black.opacity(0.25) : Color.white.opacity(0.25)) : accentColor.opacity(0.18))
+                        .frame(width: 36, height: 36)
+                    Image(systemName: icon)
+                        .font(.system(size: 15, weight: .bold))
+                        .foregroundColor(isSelected ? (role == .targetIdol ? .black : .white) : accentColor)
+                }
+                
                 Text(title)
-                    .font(.system(size: 11, weight: .bold))
+                    .font(.system(size: 12, weight: isSelected ? .heavy : .bold, design: .rounded))
+                    .foregroundColor(isSelected ? (role == .targetIdol ? .black : .white) : .white)
             }
-            .foregroundColor(selectedRole == role ? .white : .themeDark)
             .frame(maxWidth: .infinity)
-            .padding(.vertical, 10)
-            .background(selectedRole == role ? color : Color.white)
-            .cornerRadius(12)
-            .overlay(
-                RoundedRectangle(cornerRadius: 12)
-                    .stroke(Color.themeBorder, lineWidth: 1.5)
+            .padding(.vertical, 14)
+            .background(
+                isSelected
+                    ? accentColor
+                    : Color(white: 0.12)
             )
+            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .stroke(isSelected ? accentColor : Color.white.opacity(0.12), lineWidth: 1)
+            )
+            .shadow(color: isSelected ? accentColor.opacity(0.35) : Color.clear, radius: 8, y: 3)
         }
         .buttonStyle(.plain)
     }

@@ -1,10 +1,10 @@
 # ============================================================
-# Ellegnote iOS — .gitignore
+# Encore iOS — .gitignore
 # ============================================================
 
 # ── Supabase secrets (NEVER commit) ─────────────────────────
-Ellegnote/SupabaseConfig.swift
-Ellegnote/Secrets.xcconfig
+Encore/SupabaseConfig.swift
+Encore/Secrets.xcconfig
 
 # ── Web app secrets & build output (NEVER commit) ────────────
 web/.env.local
@@ -62,3 +62,4 @@ fastlane/test_output
 .agents/
 .vercel
 .env*
+fixtures/*raw*.html

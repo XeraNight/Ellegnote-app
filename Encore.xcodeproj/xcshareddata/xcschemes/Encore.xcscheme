@@ -16,8 +16,8 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "3BD4422A2FF3134A00C5BCB4"
-               BuildableName = "Ellegnote.app"
-               BlueprintName = "Ellegnote"
+               BuildableName = "Encore.app"
+               BlueprintName = "Encore"
                ReferencedContainer = "container:Encore.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
@@ -46,8 +46,8 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "3BD4422A2FF3134A00C5BCB4"
-            BuildableName = "Ellegnote.app"
-            BlueprintName = "Ellegnote"
+            BuildableName = "Encore.app"
+            BlueprintName = "Encore"
             ReferencedContainer = "container:Encore.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
@@ -63,8 +63,8 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "3BD4422A2FF3134A00C5BCB4"
-            BuildableName = "Ellegnote.app"
-            BlueprintName = "Ellegnote"
+            BuildableName = "Encore.app"
+            BlueprintName = "Encore"
             ReferencedContainer = "container:Encore.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>

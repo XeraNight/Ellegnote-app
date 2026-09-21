@@ -36,7 +36,7 @@ jobs:
 
       - name: Build
         env:
-          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL || 'https://iukblwlttvrcdclmlyxu.supabase.co' }}
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml1a2Jsd2x0dHZyY2RjbG1seXh1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQyMTc5MjYsImV4cCI6MjA5OTc5MzkyNn0.Xq8BKQliVLT7rS2xHn8n_I84tD_rwPSz15AdHp1hcNo' }}
+          NEXT_PUBLIC_SUPABASE_URL: 'https://iukblwlttvrcdclmlyxu.supabase.co'
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml1a2Jsd2x0dHZyY2RjbG1seXh1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQyMTc5MjYsImV4cCI6MjA5OTc5MzkyNn0.Xq8BKQliVLT7rS2xHn8n_I84tD_rwPSz15AdHp1hcNo'
         run: npm run build
 

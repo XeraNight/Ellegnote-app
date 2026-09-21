@@ -14,7 +14,7 @@ import OSLog
 //   Logger.auth.error("Sign-in failed: \(error.localizedDescription, privacy: .public)")
 
 extension Logger {
-    private static let subsystem = "com.ellegnote.app"
+    private static let subsystem = "com.encore.app"
 
     /// Authentication, session management, biometrics, Google Sign-In.
     nonisolated static let auth     = Logger(subsystem: subsystem, category: "auth")

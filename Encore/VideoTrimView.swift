@@ -24,7 +24,7 @@ struct VideoTrimView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                Color.themeBg.ignoresSafeArea()
+                EllegancePageBackground()
                 
                 VStack(spacing: 16) {
                     // Video Preview Player
@@ -33,13 +33,14 @@ struct VideoTrimView: View {
                             VideoTrimPlayerRepresentable(player: player)
                                 .aspectRatio(16/9, contentMode: .fit)
                                 .cornerRadius(16)
-                                .neubrutalistCard(cornerRadius: 16, shadowOffset: 3)
+                                .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.white.opacity(0.15), lineWidth: 1))
+                                .shadow(color: Color.black.opacity(0.6), radius: 12, y: 4)
                         } else {
                             Rectangle()
-                                .fill(Color.black.opacity(0.8))
+                                .fill(Color.obsidian800)
                                 .aspectRatio(16/9, contentMode: .fit)
                                 .cornerRadius(16)
-                                .overlay(ProgressView().tint(.yellow))
+                                .overlay(ProgressView().tint(Color.gold400))
                         }
                         
                         // Play / Pause Overlay Button
@@ -48,7 +49,7 @@ struct VideoTrimView: View {
                         } label: {
                             Image(systemName: isPlaying ? "pause.circle.fill" : "play.circle.fill")
                                 .font(.system(size: 52))
-                                .foregroundColor(.white.opacity(0.85))
+                                .foregroundColor(Color.gold400.opacity(0.9))
                                 .shadow(radius: 8)
                         }
                     }
@@ -60,10 +61,10 @@ struct VideoTrimView: View {
                         VStack(alignment: .leading, spacing: 2) {
                             Text("ZAČIATOK")
                                 .font(.system(size: 10, weight: .black))
-                                .foregroundColor(.themeTextSecondary)
+                                .foregroundColor(Color.white.opacity(0.5))
                             Text(formatTime(startTime))
                                 .font(.system(size: 14, weight: .heavy, design: .monospaced))
-                                .foregroundColor(.latinRed)
+                                .foregroundColor(Color.gold400)
                         }
                         
                         Spacer()
@@ -71,10 +72,10 @@ struct VideoTrimView: View {
                         VStack(spacing: 2) {
                             Text("DĹŽKA VÝBERU")
                                 .font(.system(size: 10, weight: .black))
-                                .foregroundColor(.themeTextSecondary)
+                                .foregroundColor(Color.white.opacity(0.5))
                             Text(formatTime(max(0, endTime - startTime)))
                                 .font(.system(size: 14, weight: .black, design: .monospaced))
-                                .foregroundColor(.themeDark)
+                                .foregroundColor(.white)
                         }
                         
                         Spacer()
@@ -82,10 +83,10 @@ struct VideoTrimView: View {
                         VStack(alignment: .trailing, spacing: 2) {
                             Text("KONIEC")
                                 .font(.system(size: 10, weight: .black))
-                                .foregroundColor(.themeTextSecondary)
+                                .foregroundColor(Color.white.opacity(0.5))
                             Text(formatTime(endTime))
                                 .font(.system(size: 14, weight: .heavy, design: .monospaced))
-                                .foregroundColor(.latinRed)
+                                .foregroundColor(Color.gold400)
                         }
                     }
                     .padding(.horizontal, 24)
@@ -108,14 +109,19 @@ struct VideoTrimView: View {
                         Button("Zrušiť") {
                             dismiss()
                         }
-                        .buttonStyle(.neubrutalistSecondary(cornerRadius: 16))
+                        .font(.system(size: 15, weight: .bold))
+                        .foregroundColor(.white)
+                        .padding(.vertical, 14)
+                        .padding(.horizontal, 24)
+                        .background(Color.white.opacity(0.12))
+                        .cornerRadius(12)
                         
                         Button {
                             exportTrimmedVideo()
                         } label: {
                             HStack(spacing: 8) {
                                 if isExporting {
-                                    ProgressView().tint(.white)
+                                    ProgressView().tint(Color.obsidian900)
                                 } else {
                                     Image(systemName: "scissors")
                                         .font(.system(size: 16, weight: .black))
@@ -123,11 +129,15 @@ struct VideoTrimView: View {
                                         .font(.system(size: 15, weight: .bold))
                                 }
                             }
-                            .foregroundColor(.white)
+                            .foregroundColor(Color.obsidian900)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 14)
+                            .background(
+                                LinearGradient(colors: [Color.gold500, Color.gold400], startPoint: .leading, endPoint: .trailing)
+                            )
+                            .cornerRadius(12)
+                            .shadow(color: Color.gold500.opacity(0.3), radius: 6, y: 3)
                         }
-                        .buttonStyle(.neubrutalist(accentColor: Color.latinRed, cornerRadius: 16))
                         .disabled(isExporting || (endTime - startTime) < 0.2)
                     }
                     .padding(.horizontal, 16)
@@ -139,7 +149,7 @@ struct VideoTrimView: View {
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     Button("Zavrieť") { dismiss() }
-                        .foregroundColor(.themeDark)
+                        .foregroundColor(Color.gold400)
                 }
             }
         }
@@ -161,7 +171,7 @@ struct VideoTrimView: View {
                 HStack(spacing: 0) {
                     if thumbnails.isEmpty {
                         Rectangle()
-                            .fill(Color.black.opacity(0.15))
+                            .fill(Color.obsidian800)
                             .frame(height: 54)
                     } else {
                         ForEach(0..<thumbnails.count, id: \.self) { idx in
@@ -176,7 +186,7 @@ struct VideoTrimView: View {
                 .cornerRadius(8)
                 .overlay(
                     RoundedRectangle(cornerRadius: 8)
-                        .stroke(Color.themeBorder, lineWidth: 2)
+                        .stroke(Color.white.opacity(0.2), lineWidth: 1.5)
                 )
                 
                 // 2. Dimmed regions outside the trimmed range
@@ -186,18 +196,18 @@ struct VideoTrimView: View {
                     
                     // Left Dimmer
                     Rectangle()
-                        .fill(Color.black.opacity(0.6))
+                        .fill(Color.black.opacity(0.65))
                         .frame(width: max(0, leftW), height: 54)
                     
                     // Right Dimmer
                     Rectangle()
-                        .fill(Color.black.opacity(0.6))
+                        .fill(Color.black.opacity(0.65))
                         .frame(width: max(0, rightW), height: 54)
                         .offset(x: totalW - rightW)
                     
                     // Trim Active Box Border
                     Rectangle()
-                        .stroke(Color.latinRed, lineWidth: 3)
+                        .stroke(Color.gold400, lineWidth: 2.5)
                         .frame(width: max(10, ((endTime - startTime) / totalDuration) * totalW), height: 54)
                         .offset(x: leftW)
                     
@@ -217,12 +227,12 @@ struct VideoTrimView: View {
                     
                     // Left Handle
                     Circle()
-                        .fill(Color.latinRed)
+                        .fill(Color.gold400)
                         .frame(width: 22, height: 22)
                         .overlay(
                             Image(systemName: "chevron.left")
                                 .font(.system(size: 10, weight: .black))
-                                .foregroundColor(.white)
+                                .foregroundColor(Color.obsidian900)
                         )
                         .offset(x: max(0, leftX - 11), y: 0)
                         .gesture(
@@ -237,12 +247,12 @@ struct VideoTrimView: View {
                     
                     // Right Handle
                     Circle()
-                        .fill(Color.latinRed)
+                        .fill(Color.gold400)
                         .frame(width: 22, height: 22)
                         .overlay(
                             Image(systemName: "chevron.right")
                                 .font(.system(size: 10, weight: .black))
-                                .foregroundColor(.white)
+                                .foregroundColor(Color.obsidian900)
                         )
                         .offset(x: min(totalW - 22, rightX - 11), y: 0)
                         .gesture(

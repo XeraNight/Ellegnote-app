@@ -1,19 +1,19 @@
-# 🏛️ Ellegnote Brand Identity & Design System Guide
+# 🏛️ Encore Brand Identity & Design System Guide
 ### *Inšpirované estetikou Ellegance.sk, Apple Human Interface Guidelines a Športovým Luxusom*
 
-Tento dokument definuje oficiálnu vizuálnu identitu, farebnú paletu, typografiu a systém UI komponentov (tlačidiel a kariet figúr) pre aplikáciu **Ellegnote**.
+Tento dokument definuje oficiálnu vizuálnu identitu, farebnú paletu, typografiu a systém UI komponentov (tlačidiel a kariet figúr) pre aplikáciu **Encore**.
 
 ---
 
 ## 👑 1. Oficiálne Logo & Emblém (Sculptural Ribbon Mark)
 
-Oficiálnym symbolom Ellegnote je **Sculptural Ribbon Mark (Variant 3B)**:
+Oficiálnym symbolom Encore je **Sculptural Ribbon Mark (Variant 3B)**:
 * **Koncept:** Spojitá 3D/vektorová stuha zo saténového šampanského zlata na hlbokom matnom obsidiáne (`#080808`).
-* **Geometria:** Horná slučka stuhy znázorňuje siluetu štandardného tanečného držania v páre (Standard Dance Frame & Lady's Sway), ktorá plynule prechádza do kaligrafického písmena **„E“** (Ellegnote / Ellegance).
+* **Geometria:** Horná slučka stuhy znázorňuje siluetu štandardného tanečného držania v páre (Standard Dance Frame & Lady's Sway), ktorá plynule prechádza do kaligrafického písmena **„E“** (Encore / Ellegance).
 * **Assety v projekte:**
-  * `Ellegnote/Assets.xcassets/AppIcon.appiconset/` (1024x1024 Universal, Dark Mode, Tinted Mode).
-  * `Ellegnote/Assets.xcassets/EllegnoteLogo.imageset/` (`ellegnote_logo.png`).
-  * `brand_assets/xcode_3d_layers/Ellegnote3D.imagestack/` (4-vrstvový priestorový asset pre Xcode a visionOS).
+  * `Encore/Assets.xcassets/AppIcon.appiconset/` (1024x1024 Universal, Dark Mode, Tinted Mode).
+  * `Encore/Assets.xcassets/EncoreLogo.imageset/` (`encore_logo.png`).
+  * `brand_assets/xcode_3d_layers/Encore3D.imagestack/` (4-vrstvový priestorový asset pre Xcode a visionOS).
 
 ---
 

@@ -1,6 +1,6 @@
 # Supabase Library & Realtime Architektúra: Chat, Canvas a Kolaborácia (Web & iOS)
 
-Tento dokument detailne rozoberá architektúru oficiálnej **Supabase Library** (šablóny a bloky pre Next.js), princíp fungovania **Realtime Chatu**, kolaboratívnych kurzorov a diagramov (**Realtime Flow**), a ich priamu aplikáciu v **Ellegnote** pre Web (Next.js) aj iOS (SwiftUI).
+Tento dokument detailne rozoberá architektúru oficiálnej **Supabase Library** (šablóny a bloky pre Next.js), princíp fungovania **Realtime Chatu**, kolaboratívnych kurzorov a diagramov (**Realtime Flow**), a ich priamu aplikáciu v **Encore** pre Web (Next.js) aj iOS (SwiftUI).
 
 ---
 
@@ -10,7 +10,7 @@ Supabase Library je oficiálna zbierka produkčných komponentov typu „copy-pa
 
 ### Kľúčové architektonické bloky v knižnici:
 
-| Komponent / Blok | Primárna technológia | Účel a správanie | Využitie v Ellegnote |
+| Komponent / Blok | Primárna technológia | Účel a správanie | Využitie v Encore |
 | :--- | :--- | :--- | :--- |
 | **Realtime Chat** | `channel.on('broadcast')` | Blesková výmena správ v reálnom čase bez záťaže DB s voliteľnou perzistenciou cez `onMessage`. | Chat medzi tanečnými partnermi a trénerom v štúdiu/zostave. |
 | **Realtime Cursor** | `channel.track()` + `Broadcast` | Zdieľanie polohy kurzora myši/prsta na plátne s menom používateľa; vyhladzovanie cez `perfect-cursors`. | Zobrazenie polohy prsta partnera na parkete. |
@@ -97,11 +97,11 @@ export function useRealtimeChat({ roomName, username }: UseRealtimeChatProps) {
 }
 ```
 
-### B. Kľúčové princípy pre chat v Ellegnote:
+### B. Kľúčové princípy pre chat v Encore:
 1. **Optimistic UI:** Odosielateľ nečaká na odpoveď zo servera. Správa sa okamžite zobrazí v bubline, čo dáva pocit nulovej latencie.
 2. **Duálna perzistencia (Voliteľné ukladanie do Postgresu):**
    - Správy posielané len cez `Broadcast` žijú iba v pamäti WebSocket spojenia. Ak sa stránka obnoví, vymažú sa.
-   - V Ellegnote použijeme hybridný model:
+   - V Encore použijeme hybridný model:
      - Počas písania a rýchleho odoslania: `Broadcast` zabezpečí okamžité zobrazenie u partnera (<50ms).
      - Callback `onMessage` alebo asynchrónny server action správu zapíše do tabuľky `chat_messages` v Supabase, aby si pár našiel históriu poznámok aj na druhý deň.
 3. **Plynulé rolovanie (`useChatScroll`):**
@@ -136,14 +136,14 @@ Namiesto toho, aby si musel chodiť do externej Supabase konzoly na webe, Platfo
 * **Management API Token (`SUPABASE_MANAGEMENT_API_TOKEN`):** Osobný token má plné práva k projektu. **Nikdy nesmie uniknúť na klienta.**
 * **API Proxy (`/api/supabase-proxy/[...path]`):** Požiadavky z UI dialógu nejdú priamo do Supabase, ale cez zabezpečený serverový endpoint v Next.js, ktorý overí oprávnenie používateľa (napr. len admin/tréner) a až potom prepošle požiadavku s tokenom do Supabase Management API.
 
-### Aplikácia v Ellegnote:
+### Aplikácia v Encore:
 Tento nástroj môžeme využiť v Next.js webovom rozhraní v administrátorskej sekcii (`/dashboard/admin` alebo v trénerskom režime) na monitorovanie databázy choreografií, správu úložiska videí a sledovanie stavu synchronizácie.
 
 ---
 
 ## 5. Výpočtová Matematika Canvasu pre Presúvanie Kariet
 
-Plátno v Ellegnote je virtuálny tanečný parket s rozmermi **3000 x 3000 pt**. Súradnice musia byť matematicky zladené medzi mobilom a počítačom.
+Plátno v Encore je virtuálny tanečný parket s rozmermi **3000 x 3000 pt**. Súradnice musia byť matematicky zladené medzi mobilom a počítačom.
 
 ```
        SÚRADNICOVÉ SÚSTAVY:
@@ -157,7 +157,7 @@ Plátno v Ellegnote je virtuálny tanečný parket s rozmermi **3000 x 3000 pt**
             Scale S (zoom) & Pan Translation (Tx, Ty)
                                     │
        ┌────────────────────────────▼────────────────────────────┐
-       │ 2. WORLD CANVAS SPACE (Tanečná sála Ellegnote):         │
+       │ 2. WORLD CANVAS SPACE (Tanečná sála Encore):         │
        │    Rozmer 3000 x 3000 pt. Stred parketu = (1500, 1500). │
        │    Tu žijú karty figúr: node.x, node.y                  │
        └─────────────────────────────────────────────────────────┘

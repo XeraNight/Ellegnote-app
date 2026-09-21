@@ -48,7 +48,7 @@ struct CompetitionFinalSimulatorView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                Color.themeBg.ignoresSafeArea()
+                EllegancePageBackground()
                 
                 switch phase {
                 case .setup:
@@ -67,7 +67,7 @@ struct CompetitionFinalSimulatorView: View {
                         stopSimulator()
                         dismiss()
                     }
-                    .foregroundColor(.themeDark)
+                    .foregroundColor(.gold400)
                 }
             }
         }
@@ -146,10 +146,11 @@ struct CompetitionFinalSimulatorView: View {
                                     .foregroundColor(.themeTextSecondary)
                             }
                         }
-                        .padding(.vertical, 8)
-                        .padding(.horizontal, 12)
-                        .background(Color.white)
-                        .cornerRadius(10)
+                         .padding(.vertical, 8)
+                         .padding(.horizontal, 12)
+                         .background(Color.themeCard)
+                         .cornerRadius(10)
+                         .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.gold400.opacity(0.18), lineWidth: 1))
                     }
                 }
             }
@@ -197,11 +198,12 @@ struct CompetitionFinalSimulatorView: View {
                 
                 Text(phase == .dancing ? "🔥 NA PARKETE" : "💨 PAUZA NA VÝDYCH")
                     .font(.system(size: 12, weight: .black))
-                    .foregroundColor(phase == .dancing ? .latinRed : .green)
+                    .foregroundColor(phase == .dancing ? .latinRed : .syncEmerald)
                     .padding(.horizontal, 12)
                     .padding(.vertical, 6)
-                    .background(Color.white)
+                    .background(Color.themeCard)
                     .cornerRadius(12)
+                    .overlay(RoundedRectangle(cornerRadius: 12).stroke(phase == .dancing ? Color.latinRed.opacity(0.4) : Color.syncEmerald.opacity(0.4), lineWidth: 1.2))
             }
             .padding(.horizontal, 20)
             .padding(.top, 12)
@@ -222,9 +224,8 @@ struct CompetitionFinalSimulatorView: View {
             // Big Circular Countdown Gauge
             ZStack {
                 Circle()
-                    .stroke(Color.white, lineWidth: 14)
+                    .stroke(Color.white.opacity(0.08), lineWidth: 14)
                     .frame(width: 220, height: 220)
-                    .neubrutalistCard(cornerRadius: 110, shadowOffset: 2)
                 
                 Circle()
                     .trim(from: 0, to: CGFloat(progress))
@@ -269,9 +270,9 @@ struct CompetitionFinalSimulatorView: View {
                                     }
                                 }
                                 .padding(10)
-                                .background(Color.white)
+                                .background(Color.themeCard)
                                 .cornerRadius(10)
-                                .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.themeBorder, lineWidth: 1))
+                                .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.gold400.opacity(0.2), lineWidth: 1))
                             }
                         }
                     }
@@ -288,12 +289,12 @@ struct CompetitionFinalSimulatorView: View {
                     Image(systemName: "forward.fill")
                 }
                 .font(.system(size: 14, weight: .bold))
-                .foregroundColor(.themeDark)
+                .foregroundColor(.amberGold)
                 .padding(.vertical, 12)
                 .padding(.horizontal, 20)
-                .background(Color.white)
+                .background(Color.themeCard)
                 .cornerRadius(14)
-                .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.themeBorder, lineWidth: 1.5))
+                .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.gold400.opacity(0.35), lineWidth: 1.5))
             }
             .padding(.bottom, 16)
         }
@@ -333,21 +334,25 @@ struct CompetitionFinalSimulatorView: View {
                 }
                 .frame(maxWidth: .infinity)
                 .padding(16)
-                .background(Color.white)
-                .neubrutalistCard(cornerRadius: 14, shadowOffset: 2)
+                .background(Color.themeCard)
+                .cornerRadius(14)
+                .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.gold400.opacity(0.20), lineWidth: 1))
+                .shadow(color: Color.black.opacity(0.4), radius: 8, x: 0, y: 3)
                 
                 VStack(spacing: 4) {
-                    Text("ODTANCIVANÝCH")
+                    Text("ODTANCOVANÝCH")
                         .font(.system(size: 10, weight: .black))
                         .foregroundColor(.themeTextSecondary)
                     Text("\(selectedDiscipline.dances.count) tancov")
                         .font(.system(size: 22, weight: .black))
-                        .foregroundColor(.green)
+                        .foregroundColor(.syncEmerald)
                 }
                 .frame(maxWidth: .infinity)
                 .padding(16)
-                .background(Color.white)
-                .neubrutalistCard(cornerRadius: 14, shadowOffset: 2)
+                .background(Color.themeCard)
+                .cornerRadius(14)
+                .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.gold400.opacity(0.20), lineWidth: 1))
+                .shadow(color: Color.black.opacity(0.4), radius: 8, x: 0, y: 3)
             }
             .padding(.horizontal, 20)
             

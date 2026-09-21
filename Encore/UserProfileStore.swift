@@ -14,6 +14,7 @@ final class UserProfileStore: ObservableObject {
     @Published var currentName: String = ""
     @Published var currentClub: String = ""
     @Published var currentAvatarPath: String? = nil
+    @Published var currentInviteCode: String = ""
     @Published var currentLanguage: String = "sk-SK"
     @Published var currentPlaybackRate: Double = 1.0
     
@@ -101,6 +102,40 @@ final class UserProfileStore: ObservableObject {
         } else {
             let legacyRate = defaults.double(forKey: "defaultPlaybackRate")
             currentPlaybackRate = legacyRate > 0 ? legacyRate : 1.0
+        }
+        
+        // 6. Invite Code
+        let savedInvite = defaults.string(forKey: "profileInviteCode_\(uid)")
+        currentInviteCode = savedInvite ?? ""
+        Task {
+            await self.fetchInviteCode()
+        }
+    }
+    
+    /// Fetches the user's official invite code from Supabase
+    func fetchInviteCode() async {
+        let uid = activeUserId
+        guard uid != "guest", let uuid = UUID(uuidString: uid) else { return }
+        
+        do {
+            let client = SupabaseConfig.client
+            struct ProfileInviteData: Decodable {
+                let invite_code: String?
+            }
+            let res: ProfileInviteData = try await client
+                .from("profiles")
+                .select("invite_code")
+                .eq("id", value: uuid)
+                .single()
+                .execute()
+                .value
+            
+            if let code = res.invite_code, !code.isEmpty {
+                self.currentInviteCode = code
+                UserDefaults.standard.set(code, forKey: "profileInviteCode_\(uid)")
+            }
+        } catch {
+            print("Supabase fetchInviteCode notice: \(error.localizedDescription)")
         }
     }
     

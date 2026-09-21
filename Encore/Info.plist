@@ -38,7 +38,6 @@
 			<key>CFBundleURLSchemes</key>
 			<array>
 				<string>encore</string>
-				<string>ellegnote</string>
 			</array>
 		</dict>
 	</array>
@@ -48,10 +47,6 @@
 	<string>390349651729-rbam5nu6pulablrmuolqdf8m0fr6ohak.apps.googleusercontent.com</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
-	<key>NSBluetoothAlwaysUsageDescription</key>
-	<string>Encore využíva Bluetooth na bezdrôtovú komunikáciu, synchronizáciu tréningových senzorov a zdieľanie dát s partnerom.</string>
-	<key>NSBluetoothPeripheralUsageDescription</key>
-	<string>Umožňuje zariadeniu fungovať ako Bluetooth periféria pre lokálny prenos tanečných zostáv a pokynov.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>Encore potrebuje prístup ku kamere na nahrávanie tréningových videí figúr a skenovanie QR kódov zostáv.</string>
 	<key>NSFaceIDUsageDescription</key>
@@ -80,8 +75,6 @@
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>audio</string>
-		<string>bluetooth-central</string>
-		<string>bluetooth-peripheral</string>
 		<string>remote-notification</string>
 	</array>
 	<key>UILaunchScreen</key>

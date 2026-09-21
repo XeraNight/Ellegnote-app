@@ -32,7 +32,7 @@ struct CompetitionOrganizerView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                Color.themeBg.ignoresSafeArea()
+                EllegancePageBackground()
                 
                 ScrollView {
                     VStack(spacing: 20) {
@@ -67,8 +67,10 @@ struct CompetitionOrganizerView: View {
                             }
                         }
                         .padding(18)
-                        .background(Color.white)
-                        .neubrutalistCard(cornerRadius: 16, shadowOffset: 3)
+                        .background(Color.themeCard)
+                        .cornerRadius(16)
+                        .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.gold400.opacity(0.20), lineWidth: 1))
+                        .shadow(color: Color.black.opacity(0.45), radius: 10, x: 0, y: 4)
                         .padding(.horizontal, 16)
                         .padding(.top, 8)
                         
@@ -128,9 +130,9 @@ struct CompetitionOrganizerView: View {
                                     }
                                 }
                                 .padding(14)
-                                .background(Color.white)
+                                .background(Color.themeCard)
                                 .cornerRadius(14)
-                                .overlay(RoundedRectangle(cornerRadius: 14).stroke(round.isQualified ? Color.green.opacity(0.5) : Color.themeBorder, lineWidth: 1.5))
+                                .overlay(RoundedRectangle(cornerRadius: 14).stroke(round.isQualified ? Color.syncEmerald.opacity(0.55) : Color.gold400.opacity(0.18), lineWidth: 1.5))
                             }
                         }
                         .padding(.horizontal, 16)
@@ -145,10 +147,10 @@ struct CompetitionOrganizerView: View {
                                 .scrollContentBackground(.hidden)
                                 .frame(height: 100)
                                 .padding(10)
-                                .background(Color.white)
+                                .background(Color.white.opacity(0.06))
                                 .foregroundColor(.themeDark)
                                 .cornerRadius(12)
-                                .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.themeBorder, lineWidth: 1.5))
+                                .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.gold400.opacity(0.25), lineWidth: 1.5))
                         }
                         .padding(.horizontal, 16)
                     }
@@ -160,20 +162,21 @@ struct CompetitionOrganizerView: View {
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     Button("Hotovo") { dismiss() }
-                        .foregroundColor(.themeDark)
+                        .foregroundColor(.gold400)
                 }
             }
             .sheet(isPresented: $showAddRoundSheet) {
                 NavigationStack {
                     ZStack {
-                        Color.themeBg.ignoresSafeArea()
+                        Color.obsidian800.ignoresSafeArea()
                         
                         VStack(spacing: 16) {
                             TextField("Názov kola (napr. 2. Kolo)", text: $newRoundName)
                                 .padding(12)
-                                .background(Color.white)
+                                .foregroundColor(.white)
+                                .background(Color.white.opacity(0.07))
                                 .cornerRadius(12)
-                                .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.themeBorder, lineWidth: 1))
+                                .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.gold400.opacity(0.30), lineWidth: 1))
                             
                             Button("Pridať kolo") {
                                 if !newRoundName.isEmpty {
@@ -194,6 +197,7 @@ struct CompetitionOrganizerView: View {
                     .toolbar {
                         ToolbarItem(placement: .topBarLeading) {
                             Button("Zrušiť") { showAddRoundSheet = false }
+                                .foregroundColor(.gold400)
                         }
                     }
                 }

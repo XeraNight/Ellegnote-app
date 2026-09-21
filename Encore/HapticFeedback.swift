@@ -47,4 +47,16 @@ public enum HapticFeedback {
         notificationGenerator.notificationOccurred(type)
         notificationGenerator.prepare()
     }
+    
+    public static func success() {
+        notify(.success)
+    }
+    
+    public static func warning() {
+        notify(.warning)
+    }
+    
+    public static func error() {
+        notify(.error)
+    }
 }

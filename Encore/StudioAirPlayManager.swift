@@ -107,7 +107,7 @@ public struct CleanStudioExternalTVView: View {
                         .font(.system(size: 36))
                         .foregroundColor(.amberGold)
                     
-                    Text("ELLEGNOTE • STUDIO AIRPLAY")
+                    Text("ENCORE • STUDIO AIRPLAY")
                         .font(.system(size: 28, weight: .black, design: .serif))
                         .foregroundColor(.white)
                 }

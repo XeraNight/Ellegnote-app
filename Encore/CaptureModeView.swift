@@ -123,6 +123,7 @@ struct CaptureModeView: View {
                             Button(action: {
                                 triggerMirrorAnim = true
                                 HapticFeedback.light()
+                                AnalyticsManager.shared.mirrorOpened(source: "capture_mode")
                                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
                                     showMirror = true
                                     triggerMirrorAnim = false
@@ -258,7 +259,7 @@ struct CaptureModeView: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Zatvoriť") { dismiss() }
-                        .foregroundColor(.themeDark)
+                        .foregroundColor(LuxuryTheme.gold400)
                 }
                 
                 ToolbarItemGroup(placement: .keyboard) {
@@ -266,7 +267,7 @@ struct CaptureModeView: View {
                     Button("Hotovo") {
                         UIApplication.shared.endEditing()
                     }
-                    .foregroundColor(.themeAccent)
+                    .foregroundColor(LuxuryTheme.gold400)
                 }
             }
             .fullScreenCover(isPresented: $showCamera) {
@@ -323,6 +324,16 @@ struct CaptureModeView: View {
             videoPath: capturedVideoPath
         )
         modelContext.insert(note)
+        
+        if let videoPath = capturedVideoPath {
+            let entry = VideoMediaEntry(
+                filePath: videoPath,
+                title: dictatedNote.isEmpty ? "Rýchly záznam" : dictatedNote,
+                role: .myTake
+            )
+            modelContext.insert(entry)
+        }
+        
         try? modelContext.save()
         
         capturedVideoPath = nil

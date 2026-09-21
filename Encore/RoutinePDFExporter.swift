@@ -166,7 +166,7 @@ struct RoutinePDFPreviewSheet: View {
     public var body: some View {
         NavigationStack {
             ZStack {
-                Color.themeBg.ignoresSafeArea()
+                Color.obsidian800.ignoresSafeArea()
                 
                 if let data = pdfData {
                     PDFKitRepresentedView(data: data)
@@ -181,7 +181,7 @@ struct RoutinePDFPreviewSheet: View {
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     Button("Zavrieť") { dismiss() }
-                        .foregroundColor(.themeDark)
+                        .foregroundColor(.gold400)
                 }
                 
                 ToolbarItem(placement: .topBarTrailing) {

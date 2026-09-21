@@ -412,7 +412,7 @@ public struct LuxuryDesignSystemShowcaseView: View {
                     VStack(alignment: .leading, spacing: 24) {
                         // Header Title
                         VStack(alignment: .leading, spacing: 4) {
-                            Text("ELLEGNOTE DESIGN SYSTEM")
+                            Text("ENCORE DESIGN SYSTEM")
                                 .font(.system(size: 11, weight: .black))
                                 .foregroundColor(LuxuryTheme.gold500)
                                 .kerning(1.0)

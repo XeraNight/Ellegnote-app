@@ -17,8 +17,8 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "3B1C9425300D1EDA00DBA704"
-               BuildableName = "EllegnoteWigdetExtension.appex"
-               BlueprintName = "EllegnoteWigdetExtension"
+               BuildableName = "EncoreWigdetExtension.appex"
+               BlueprintName = "EncoreWigdetExtension"
                ReferencedContainer = "container:Encore.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
@@ -31,8 +31,8 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "3BD4422A2FF3134A00C5BCB4"
-               BuildableName = "Ellegnote.app"
-               BlueprintName = "Ellegnote"
+               BuildableName = "Encore.app"
+               BlueprintName = "Encore"
                ReferencedContainer = "container:Encore.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
@@ -64,8 +64,8 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "3B1C9425300D1EDA00DBA704"
-            BuildableName = "EllegnoteWigdetExtension.appex"
-            BlueprintName = "EllegnoteWigdetExtension"
+            BuildableName = "EncoreWigdetExtension.appex"
+            BlueprintName = "EncoreWigdetExtension"
             ReferencedContainer = "container:Encore.xcodeproj">
          </BuildableReference>
       </RemoteRunnable>
@@ -73,8 +73,8 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "3BD4422A2FF3134A00C5BCB4"
-            BuildableName = "Ellegnote.app"
-            BlueprintName = "Ellegnote"
+            BuildableName = "Encore.app"
+            BlueprintName = "Encore"
             ReferencedContainer = "container:Encore.xcodeproj">
          </BuildableReference>
       </MacroExpansion>
@@ -109,8 +109,8 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "3BD4422A2FF3134A00C5BCB4"
-            BuildableName = "Ellegnote.app"
-            BlueprintName = "Ellegnote"
+            BuildableName = "Encore.app"
+            BlueprintName = "Encore"
             ReferencedContainer = "container:Encore.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>

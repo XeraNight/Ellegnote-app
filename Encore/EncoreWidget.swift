@@ -11,8 +11,6 @@ struct EncoreWidgetBundle: WidgetBundle {
     }
 }
 
-typealias EllegnoteWidgetBundle = EncoreWidgetBundle
-
 // MARK: - 1. Live Recording Activity (Dynamic Island & Lock Screen matching Photo 1)
 struct RecordingLiveActivity: Widget {
     var body: some WidgetConfiguration {
@@ -400,5 +398,4 @@ struct EncoreLiveActivity: Widget {
     }
 }
 
-typealias EllegnoteLiveActivity = EncoreLiveActivity
 #endif

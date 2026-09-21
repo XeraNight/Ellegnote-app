@@ -244,7 +244,7 @@ final class AuthManager: ObservableObject {
                     "last_platform": .string("ios"),
                     "client_type": .string("ios_native")
                 ],
-                redirectTo: URL(string: "ellegnote://auth-callback")
+                redirectTo: URL(string: "encore://auth-callback")
             )
             currentUser = response.user
             userEmail = email
@@ -430,6 +430,7 @@ final class AuthManager: ObservableObject {
                 credentials: .init(provider: .apple, idToken: idToken, nonce: nonce)
             )
             applySession(session)
+            AnalyticsManager.shared.signInApple()
             return true
         } catch {
             authErrorMessage = friendlyAuthError(from: error, isSignUp: false)
@@ -446,11 +447,12 @@ final class AuthManager: ObservableObject {
         do {
             let oauthURL = try client.auth.getOAuthSignInURL(
                 provider: .google,
-                redirectTo: URL(string: "ellegnote://auth-callback")
+                redirectTo: URL(string: "encore://auth-callback")
             )
             await MainActor.run {
                 UIApplication.shared.open(oauthURL)
             }
+            AnalyticsManager.shared.signInGoogle()
             return true
         } catch {
             authErrorMessage = "Prihlásenie cez Google zlyhalo: \(error.localizedDescription)"
@@ -487,6 +489,28 @@ final class AuthManager: ObservableObject {
             KeychainHelper.shared.deleteCredentials()
             isBiometricsEnabled = false
         }
+        clearSession()
+    }
+
+    // MARK: - Delete Account (Apple Guideline 5.1.1(v) Compliant)
+    func deleteAccount() async {
+        GIDSignIn.sharedInstance.signOut()
+        userAvatarURL = ""
+        googleSubId = ""
+        
+        if let client {
+            // Attempt server-side RPC account deletion if configured on Supabase
+            do {
+                try await client.rpc("delete_user_account").execute()
+            } catch {
+                Logger.auth.warning("[AuthManager] RPC delete_user_account: \(error.localizedDescription, privacy: .public)")
+            }
+            try? await client.auth.signOut()
+        }
+        
+        // Permanently erase credentials & reset local state
+        KeychainHelper.shared.deleteCredentials()
+        isBiometricsEnabled = false
         clearSession()
     }
 }

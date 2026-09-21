@@ -10,7 +10,7 @@
 		376E76175D01963F05894D54 /* Supabase in Frameworks */ = {isa = PBXBuildFile; productRef = 89EB6A59E6230AE6B59BBCFD /* Supabase */; };
 		3B1C9429300D1EDA00DBA704 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 3B1C9428300D1EDA00DBA704 /* WidgetKit.framework */; };
 		3B1C942B300D1EDA00DBA704 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 3B1C942A300D1EDA00DBA704 /* SwiftUI.framework */; };
-		3B1C9438300D1EDC00DBA704 /* EllegnoteWigdetExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 3B1C9426300D1EDA00DBA704 /* EllegnoteWigdetExtension.appex */; platformFilter = ios; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		3B1C9438300D1EDC00DBA704 /* EncoreWigdetExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 3B1C9426300D1EDA00DBA704 /* EncoreWigdetExtension.appex */; platformFilter = ios; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		3B7A0A643030B64600CFDE7E /* GoogleSignIn in Frameworks */ = {isa = PBXBuildFile; productRef = 3B7A0A633030B64600CFDE7E /* GoogleSignIn */; };
 		3B7A0A663030B64600CFDE7E /* GoogleSignInSwift in Frameworks */ = {isa = PBXBuildFile; productRef = 3B7A0A653030B64600CFDE7E /* GoogleSignInSwift */; };
 		3B87636730095A6E00FE6FE1 /* (null) in Frameworks */ = {isa = PBXBuildFile; };
@@ -23,21 +23,21 @@
 			containerPortal = 3BD442232FF3134A00C5BCB4 /* Project object */;
 			proxyType = 1;
 			remoteGlobalIDString = 3B1C9425300D1EDA00DBA704;
-			remoteInfo = EllegnoteWigdetExtension;
+			remoteInfo = EncoreWigdetExtension;
 		};
 		3BD4423B2FF3134E00C5BCB4 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 3BD442232FF3134A00C5BCB4 /* Project object */;
 			proxyType = 1;
 			remoteGlobalIDString = 3BD4422A2FF3134A00C5BCB4;
-			remoteInfo = Ellegnote;
+			remoteInfo = Encore;
 		};
 		3BD442452FF3134E00C5BCB4 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 3BD442232FF3134A00C5BCB4 /* Project object */;
 			proxyType = 1;
 			remoteGlobalIDString = 3BD4422A2FF3134A00C5BCB4;
-			remoteInfo = Ellegnote;
+			remoteInfo = Encore;
 		};
 /* End PBXContainerItemProxy section */
 
@@ -48,7 +48,7 @@
 			dstPath = "";
 			dstSubfolderSpec = 13;
 			files = (
-				3B1C9438300D1EDC00DBA704 /* EllegnoteWigdetExtension.appex in Embed Foundation Extensions */,
+				3B1C9438300D1EDC00DBA704 /* EncoreWigdetExtension.appex in Embed Foundation Extensions */,
 			);
 			name = "Embed Foundation Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -56,28 +56,28 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
-		3B1C9426300D1EDA00DBA704 /* EllegnoteWigdetExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = EllegnoteWigdetExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		3B1C9426300D1EDA00DBA704 /* EncoreWigdetExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = EncoreWigdetExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		3B1C9428300D1EDA00DBA704 /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
 		3B1C942A300D1EDA00DBA704 /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
-		3BD4422B2FF3134A00C5BCB4 /* Ellegnote.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Ellegnote.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		3BD4423A2FF3134E00C5BCB4 /* EllegnoteTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = EllegnoteTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-		3BD442442FF3134E00C5BCB4 /* EllegnoteUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = EllegnoteUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		3BD4422B2FF3134A00C5BCB4 /* Encore.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Encore.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		3BD4423A2FF3134E00C5BCB4 /* EncoreTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = EncoreTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		3BD442442FF3134E00C5BCB4 /* EncoreUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = EncoreUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		3B1C943C300D1EDC00DBA704 /* Exceptions for "EncoreWigdet" folder in "EllegnoteWigdetExtension" target */ = {
+		3B1C943C300D1EDC00DBA704 /* Exceptions for "EncoreWigdet" folder in "EncoreWigdetExtension" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				Info.plist,
 			);
-			target = 3B1C9425300D1EDA00DBA704 /* EllegnoteWigdetExtension */;
+			target = 3B1C9425300D1EDA00DBA704 /* EncoreWigdetExtension */;
 		};
-		3B9648082FF3225E00FCE5D3 /* Exceptions for "Encore" folder in "Ellegnote" target */ = {
+		3B9648082FF3225E00FCE5D3 /* Exceptions for "Encore" folder in "Encore" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				Info.plist,
 			);
-			target = 3BD4422A2FF3134A00C5BCB4 /* Ellegnote */;
+			target = 3BD4422A2FF3134A00C5BCB4 /* Encore */;
 		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
@@ -85,7 +85,7 @@
 		3B1C942C300D1EDA00DBA704 /* EncoreWigdet */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
-				3B1C943C300D1EDC00DBA704 /* Exceptions for "EncoreWigdet" folder in "EllegnoteWigdetExtension" target */,
+				3B1C943C300D1EDC00DBA704 /* Exceptions for "EncoreWigdet" folder in "EncoreWigdetExtension" target */,
 			);
 			path = EncoreWigdet;
 			sourceTree = "<group>";
@@ -93,7 +93,7 @@
 		3BD4422D2FF3134A00C5BCB4 /* Encore */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
-				3B9648082FF3225E00FCE5D3 /* Exceptions for "Encore" folder in "Ellegnote" target */,
+				3B9648082FF3225E00FCE5D3 /* Exceptions for "Encore" folder in "Encore" target */,
 			);
 			path = Encore;
 			sourceTree = "<group>";
@@ -173,10 +173,10 @@
 		3BD4422C2FF3134A00C5BCB4 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				3BD4422B2FF3134A00C5BCB4 /* Ellegnote.app */,
-				3BD4423A2FF3134E00C5BCB4 /* EllegnoteTests.xctest */,
-				3BD442442FF3134E00C5BCB4 /* EllegnoteUITests.xctest */,
-				3B1C9426300D1EDA00DBA704 /* EllegnoteWigdetExtension.appex */,
+				3BD4422B2FF3134A00C5BCB4 /* Encore.app */,
+				3BD4423A2FF3134E00C5BCB4 /* EncoreTests.xctest */,
+				3BD442442FF3134E00C5BCB4 /* EncoreUITests.xctest */,
+				3B1C9426300D1EDA00DBA704 /* EncoreWigdetExtension.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -184,9 +184,9 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		3B1C9425300D1EDA00DBA704 /* EllegnoteWigdetExtension */ = {
+		3B1C9425300D1EDA00DBA704 /* EncoreWigdetExtension */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 3B1C9439300D1EDC00DBA704 /* Build configuration list for PBXNativeTarget "EllegnoteWigdetExtension" */;
+			buildConfigurationList = 3B1C9439300D1EDC00DBA704 /* Build configuration list for PBXNativeTarget "EncoreWigdetExtension" */;
 			buildPhases = (
 				3B1C9422300D1EDA00DBA704 /* Sources */,
 				3B1C9423300D1EDA00DBA704 /* Frameworks */,
@@ -199,16 +199,16 @@
 			fileSystemSynchronizedGroups = (
 				3B1C942C300D1EDA00DBA704 /* EncoreWigdet */,
 			);
-			name = EllegnoteWigdetExtension;
+			name = EncoreWigdetExtension;
 			packageProductDependencies = (
 			);
-			productName = EllegnoteWigdetExtension;
-			productReference = 3B1C9426300D1EDA00DBA704 /* EllegnoteWigdetExtension.appex */;
+			productName = EncoreWigdetExtension;
+			productReference = 3B1C9426300D1EDA00DBA704 /* EncoreWigdetExtension.appex */;
 			productType = "com.apple.product-type.app-extension";
 		};
-		3BD4422A2FF3134A00C5BCB4 /* Ellegnote */ = {
+		3BD4422A2FF3134A00C5BCB4 /* Encore */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 3BD4424E2FF3134E00C5BCB4 /* Build configuration list for PBXNativeTarget "Ellegnote" */;
+			buildConfigurationList = 3BD4424E2FF3134E00C5BCB4 /* Build configuration list for PBXNativeTarget "Encore" */;
 			buildPhases = (
 				3BD442272FF3134A00C5BCB4 /* Sources */,
 				3BD442282FF3134A00C5BCB4 /* Frameworks */,
@@ -223,19 +223,19 @@
 			fileSystemSynchronizedGroups = (
 				3BD4422D2FF3134A00C5BCB4 /* Encore */,
 			);
-			name = Ellegnote;
+			name = Encore;
 			packageProductDependencies = (
 				89EB6A59E6230AE6B59BBCFD /* Supabase */,
 				3B7A0A633030B64600CFDE7E /* GoogleSignIn */,
 				3B7A0A653030B64600CFDE7E /* GoogleSignInSwift */,
 			);
-			productName = Ellegnote;
-			productReference = 3BD4422B2FF3134A00C5BCB4 /* Ellegnote.app */;
+			productName = Encore;
+			productReference = 3BD4422B2FF3134A00C5BCB4 /* Encore.app */;
 			productType = "com.apple.product-type.application";
 		};
-		3BD442392FF3134E00C5BCB4 /* EllegnoteTests */ = {
+		3BD442392FF3134E00C5BCB4 /* EncoreTests */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 3BD442512FF3134E00C5BCB4 /* Build configuration list for PBXNativeTarget "EllegnoteTests" */;
+			buildConfigurationList = 3BD442512FF3134E00C5BCB4 /* Build configuration list for PBXNativeTarget "EncoreTests" */;
 			buildPhases = (
 				3BD442362FF3134E00C5BCB4 /* Sources */,
 				3BD442372FF3134E00C5BCB4 /* Frameworks */,
@@ -249,17 +249,17 @@
 			fileSystemSynchronizedGroups = (
 				3BD4423D2FF3134E00C5BCB4 /* EncoreTests */,
 			);
-			name = EllegnoteTests;
+			name = EncoreTests;
 			packageProductDependencies = (
 				89EB6A59E6230AE6B59BBCFD /* Supabase */,
 			);
-			productName = EllegnoteTests;
-			productReference = 3BD4423A2FF3134E00C5BCB4 /* EllegnoteTests.xctest */;
+			productName = EncoreTests;
+			productReference = 3BD4423A2FF3134E00C5BCB4 /* EncoreTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
-		3BD442432FF3134E00C5BCB4 /* EllegnoteUITests */ = {
+		3BD442432FF3134E00C5BCB4 /* EncoreUITests */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 3BD442542FF3134E00C5BCB4 /* Build configuration list for PBXNativeTarget "EllegnoteUITests" */;
+			buildConfigurationList = 3BD442542FF3134E00C5BCB4 /* Build configuration list for PBXNativeTarget "EncoreUITests" */;
 			buildPhases = (
 				3BD442402FF3134E00C5BCB4 /* Sources */,
 				3BD442412FF3134E00C5BCB4 /* Frameworks */,
@@ -273,11 +273,11 @@
 			fileSystemSynchronizedGroups = (
 				3BD442472FF3134E00C5BCB4 /* EncoreUITests */,
 			);
-			name = EllegnoteUITests;
+			name = EncoreUITests;
 			packageProductDependencies = (
 			);
-			productName = EllegnoteUITests;
-			productReference = 3BD442442FF3134E00C5BCB4 /* EllegnoteUITests.xctest */;
+			productName = EncoreUITests;
+			productReference = 3BD442442FF3134E00C5BCB4 /* EncoreUITests.xctest */;
 			productType = "com.apple.product-type.bundle.ui-testing";
 		};
 /* End PBXNativeTarget section */
@@ -310,7 +310,7 @@
 					};
 				};
 			};
-			buildConfigurationList = 3BD442262FF3134A00C5BCB4 /* Build configuration list for PBXProject "Ellegnote" */;
+			buildConfigurationList = 3BD442262FF3134A00C5BCB4 /* Build configuration list for PBXProject "Encore" */;
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
@@ -328,10 +328,10 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				3B1C9425300D1EDA00DBA704 /* EllegnoteWigdetExtension */,
-				3BD4422A2FF3134A00C5BCB4 /* Ellegnote */,
-				3BD442392FF3134E00C5BCB4 /* EllegnoteTests */,
-				3BD442432FF3134E00C5BCB4 /* EllegnoteUITests */,
+				3B1C9425300D1EDA00DBA704 /* EncoreWigdetExtension */,
+				3BD4422A2FF3134A00C5BCB4 /* Encore */,
+				3BD442392FF3134E00C5BCB4 /* EncoreTests */,
+				3BD442432FF3134E00C5BCB4 /* EncoreUITests */,
 			);
 		};
 /* End PBXProject section */
@@ -401,17 +401,17 @@
 /* Begin PBXTargetDependency section */
 		3B1C9437300D1EDC00DBA704 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = 3B1C9425300D1EDA00DBA704 /* EllegnoteWigdetExtension */;
+			target = 3B1C9425300D1EDA00DBA704 /* EncoreWigdetExtension */;
 			targetProxy = 3B1C9436300D1EDC00DBA704 /* PBXContainerItemProxy */;
 		};
 		3BD4423C2FF3134E00C5BCB4 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = 3BD4422A2FF3134A00C5BCB4 /* Ellegnote */;
+			target = 3BD4422A2FF3134A00C5BCB4 /* Encore */;
 			targetProxy = 3BD4423B2FF3134E00C5BCB4 /* PBXContainerItemProxy */;
 		};
 		3BD442462FF3134E00C5BCB4 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = 3BD4422A2FF3134A00C5BCB4 /* Ellegnote */;
+			target = 3BD4422A2FF3134A00C5BCB4 /* Encore */;
 			targetProxy = 3BD442452FF3134E00C5BCB4 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
@@ -435,7 +435,7 @@
 					"@executable_path/../../Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.jakub.ellegnote.EllegnoteWigdet;
+				PRODUCT_BUNDLE_IDENTIFIER = com.jakub.encore.EncoreWigdet;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
@@ -469,7 +469,7 @@
 					"@executable_path/../../Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.jakub.ellegnote.EllegnoteWigdet;
+				PRODUCT_BUNDLE_IDENTIFIER = com.jakub.encore.EncoreWigdet;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
@@ -645,7 +645,7 @@
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 26.4;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.jakub.ellegnote;
+				PRODUCT_BUNDLE_IDENTIFIER = com.jakub.encore;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
 				SDKROOT = iphoneos;
@@ -705,7 +705,7 @@
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 26.4;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.jakub.ellegnote;
+				PRODUCT_BUNDLE_IDENTIFIER = com.jakub.encore;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
 				SDKROOT = iphoneos;
@@ -733,7 +733,7 @@
 				IPHONEOS_DEPLOYMENT_TARGET = 26.4;
 				MACOSX_DEPLOYMENT_TARGET = 26.4;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.jakub.ellegnoteTests;
+				PRODUCT_BUNDLE_IDENTIFIER = com.jakub.encoreTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
 				STRING_CATALOG_GENERATE_SYMBOLS = NO;
@@ -745,7 +745,7 @@
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2,7";
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Ellegnote.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Ellegnote";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Encore.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Encore";
 				XROS_DEPLOYMENT_TARGET = 26.4;
 			};
 			name = Debug;
@@ -761,7 +761,7 @@
 				IPHONEOS_DEPLOYMENT_TARGET = 26.4;
 				MACOSX_DEPLOYMENT_TARGET = 26.4;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.jakub.ellegnoteTests;
+				PRODUCT_BUNDLE_IDENTIFIER = com.jakub.encoreTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
 				STRING_CATALOG_GENERATE_SYMBOLS = NO;
@@ -773,7 +773,7 @@
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2,7";
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Ellegnote.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Ellegnote";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Encore.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Encore";
 				XROS_DEPLOYMENT_TARGET = 26.4;
 			};
 			name = Release;
@@ -788,7 +788,7 @@
 				IPHONEOS_DEPLOYMENT_TARGET = 26.4;
 				MACOSX_DEPLOYMENT_TARGET = 26.4;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.jakub.ellegnoteUITests;
+				PRODUCT_BUNDLE_IDENTIFIER = com.jakub.encoreUITests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
 				STRING_CATALOG_GENERATE_SYMBOLS = NO;
@@ -800,7 +800,7 @@
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2,7";
-				TEST_TARGET_NAME = Ellegnote;
+				TEST_TARGET_NAME = Encore;
 				XROS_DEPLOYMENT_TARGET = 26.4;
 			};
 			name = Debug;
@@ -815,7 +815,7 @@
 				IPHONEOS_DEPLOYMENT_TARGET = 26.4;
 				MACOSX_DEPLOYMENT_TARGET = 26.4;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.jakub.ellegnoteUITests;
+				PRODUCT_BUNDLE_IDENTIFIER = com.jakub.encoreUITests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
 				STRING_CATALOG_GENERATE_SYMBOLS = NO;
@@ -827,7 +827,7 @@
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2,7";
-				TEST_TARGET_NAME = Ellegnote;
+				TEST_TARGET_NAME = Encore;
 				XROS_DEPLOYMENT_TARGET = 26.4;
 			};
 			name = Release;
@@ -835,7 +835,7 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		3B1C9439300D1EDC00DBA704 /* Build configuration list for PBXNativeTarget "EllegnoteWigdetExtension" */ = {
+		3B1C9439300D1EDC00DBA704 /* Build configuration list for PBXNativeTarget "EncoreWigdetExtension" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				3B1C943A300D1EDC00DBA704 /* Debug */,
@@ -844,7 +844,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		3BD442262FF3134A00C5BCB4 /* Build configuration list for PBXProject "Ellegnote" */ = {
+		3BD442262FF3134A00C5BCB4 /* Build configuration list for PBXProject "Encore" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				3BD4424C2FF3134E00C5BCB4 /* Debug */,
@@ -853,7 +853,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		3BD4424E2FF3134E00C5BCB4 /* Build configuration list for PBXNativeTarget "Ellegnote" */ = {
+		3BD4424E2FF3134E00C5BCB4 /* Build configuration list for PBXNativeTarget "Encore" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				3BD4424F2FF3134E00C5BCB4 /* Debug */,
@@ -862,7 +862,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		3BD442512FF3134E00C5BCB4 /* Build configuration list for PBXNativeTarget "EllegnoteTests" */ = {
+		3BD442512FF3134E00C5BCB4 /* Build configuration list for PBXNativeTarget "EncoreTests" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				3BD442522FF3134E00C5BCB4 /* Debug */,
@@ -871,7 +871,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		3BD442542FF3134E00C5BCB4 /* Build configuration list for PBXNativeTarget "EllegnoteUITests" */ = {
+		3BD442542FF3134E00C5BCB4 /* Build configuration list for PBXNativeTarget "EncoreUITests" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				3BD442552FF3134E00C5BCB4 /* Debug */,

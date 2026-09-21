@@ -146,7 +146,7 @@ private final class DanceMirrorPreviewUIView: UIView {
 final class DanceMirrorCameraManager: NSObject, ObservableObject, @unchecked Sendable {
     let session = AVCaptureSession()
     private var videoInput: AVCaptureDeviceInput?
-    private let sessionQueue = DispatchQueue(label: "com.ellegnote.mirror.sessionQueue")
+    private let sessionQueue = DispatchQueue(label: "com.encore.mirror.sessionQueue")
     
     @Published var isRunning = false
     @Published var isCameraAvailable = true

@@ -11,8 +11,8 @@ final class DanceCameraManager: NSObject, ObservableObject, @unchecked Sendable,
     private let movieOutput = AVCaptureMovieFileOutput()
     private let audioDataOutput = AVCaptureAudioDataOutput()
     private var videoDeviceInput: AVCaptureDeviceInput?
-    private let sessionQueue = DispatchQueue(label: "com.ellegnote.camera.sessionQueue")
-    private let audioQueue = DispatchQueue(label: "com.ellegnote.camera.audioQueue")
+    private let sessionQueue = DispatchQueue(label: "com.encore.camera.sessionQueue")
+    private let audioQueue = DispatchQueue(label: "com.encore.camera.audioQueue")
     
     // State
     @Published var isRecording: Bool = false

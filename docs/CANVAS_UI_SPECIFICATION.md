@@ -1,6 +1,6 @@
 # Canvas UI & Interaction Architecture Specification
 
-Dokumentácia nového rozhrania Canvasu a rozbočovača zostáv pre aplikáciu **Ellegnote** vyhotovená na základe wireframe náčrtu a spätnej väzby používateľa.
+Dokumentácia nového rozhrania Canvasu a rozbočovača zostáv pre aplikáciu **Encore** vyhotovená na základe wireframe náčrtu a spätnej väzby používateľa.
 
 ---
 

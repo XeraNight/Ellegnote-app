@@ -48,80 +48,7 @@ enum CameraZoomFactor: Double, CaseIterable, Identifiable {
     }
 }
 
-// MARK: - Tanečný Metronóm Preset (Funkcia 9)
-enum DanceMetronomePreset: String, CaseIterable, Identifiable {
-    case off = "Vypnuté"
-    case waltz = "Waltz (29 MPM)"
-    case tango = "Tango (32 MPM)"
-    case vienneseWaltz = "Viedenský valčík (59 MPM)"
-    case slowfox = "Slowfox (29 MPM)"
-    case quickstep = "Quickstep (51 MPM)"
-    case samba = "Samba (51 MPM)"
-    case chacha = "Cha-Cha (31 MPM)"
-    case rumba = "Rumba (26 MPM)"
-    case pasoDoble = "Paso Doble (61 MPM)"
-    case jive = "Jive (43 MPM)"
-    
-    var id: String { rawValue }
-    
-    var shortCode: String {
-        switch self {
-        case .off: return "Off"
-        case .waltz: return "Waltz"
-        case .tango: return "Tango"
-        case .vienneseWaltz: return "V.Valčík"
-        case .slowfox: return "Slowfox"
-        case .quickstep: return "Quickstep"
-        case .samba: return "Samba"
-        case .chacha: return "Cha-Cha"
-        case .rumba: return "Rumba"
-        case .pasoDoble: return "Paso"
-        case .jive: return "Jive"
-        }
-    }
-    
-    var mpm: Double {
-        switch self {
-        case .off: return 0
-        case .waltz: return 29.0
-        case .tango: return 32.0
-        case .vienneseWaltz: return 59.0
-        case .slowfox: return 29.0
-        case .quickstep: return 51.0
-        case .samba: return 51.0
-        case .chacha: return 31.0
-        case .rumba: return 26.0
-        case .pasoDoble: return 61.0
-        case .jive: return 43.0
-        }
-    }
-    
-    var bpm: Double {
-        switch self {
-        case .off: return 0
-        case .waltz: return 87.0 // 29 * 3
-        case .tango: return 128.0 // 32 * 4
-        case .vienneseWaltz: return 177.0 // 59 * 3
-        case .slowfox: return 116.0 // 29 * 4
-        case .quickstep: return 204.0 // 51 * 4
-        case .samba: return 102.0 // 51 * 2
-        case .chacha: return 124.0 // 31 * 4
-        case .rumba: return 104.0 // 26 * 4
-        case .pasoDoble: return 122.0 // 61 * 2
-        case .jive: return 172.0 // 43 * 4
-        }
-    }
-    
-    var beatsPerMeasure: Int {
-        switch self {
-        case .waltz, .vienneseWaltz: return 3
-        case .samba, .pasoDoble: return 2
-        default: return 4
-        }
-    }
-}
-
-// MARK: - DanceCameraView
+// MARK: - DanceCameraView (Powered by DanceMetronomeEngine)
 struct DanceCameraView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
@@ -155,18 +82,15 @@ struct DanceCameraView: View {
     // Torch state
     @State private var isTorchOn: Bool = false
     
-    // Metronome State (Funkcia 9)
-    @State private var selectedMetronome: DanceMetronomePreset = .off
-    @State private var tempoMultiplier: Double = 1.0
-    @State private var currentBeat: Int = 1
-    @State private var isMetronomePulse: Bool = false
-    @State private var metronomeTimer: Timer? = nil
-    @State private var isMetronomeHapticEnabled: Bool = true
+    // Metronome State (Funkcia 9 - Powered by DanceMetronomeEngine)
+    @ObservedObject private var metronome = DanceMetronomeEngine.shared
+    @State private var beatFlashOpacity: Double = 0.0
     
     // Post-Recording Quick Tag & Trim Modal (Funkcia 8 & 10)
     @State private var rawRecordedURL: URL? = nil
     @State private var showSaveDetailsSheet: Bool = false
     @State private var showTrimmerSheet: Bool = false
+    @State private var showFullMetronomeSheet: Bool = false
     
     var body: some View {
         ZStack {
@@ -209,6 +133,15 @@ struct DanceCameraView: View {
                     .id(countdownRemaining)
             }
             
+            // 4b. Metronome downbeat flash overlay (subtle golden screen pulse)
+            if beatFlashOpacity > 0 {
+                Color.amberGold
+                    .opacity(beatFlashOpacity)
+                    .ignoresSafeArea()
+                    .allowsHitTesting(false)
+                    .animation(.easeOut(duration: 0.12), value: beatFlashOpacity)
+            }
+            
             // 5. Instant Memory Toast Banner
             if let toast = bookmarkToastText {
                 VStack {
@@ -243,6 +176,18 @@ struct DanceCameraView: View {
                 topHeaderBar
                     .padding(.horizontal, 16)
                     .padding(.top, 12)
+                
+                // Action Control Strip (Metronome + Mriežka + Samospúšť)
+                actionControlStrip
+                    .padding(.horizontal, 16)
+                    .padding(.top, 6)
+                
+                if metronome.selectedPreset != .off {
+                    metronomeStatusPill
+                        .padding(.top, 4)
+                        .opacity(camera.isRecording ? 0.75 : 1.0)
+                        .transition(.scale.combined(with: .opacity))
+                }
                 
                 Spacer()
                 
@@ -296,9 +241,9 @@ struct DanceCameraView: View {
                 observer,
                 { _, _, name, _, _ in
                     guard let name = name?.rawValue as String? else { return }
-                    if name == "com.ellegnote.bookmark" {
+                    if name == "com.encore.bookmark" {
                         NotificationCenter.default.post(name: .bookmarkRecordingFromLiveActivity, object: nil)
-                    } else if name == "com.ellegnote.stopRecording" {
+                    } else if name == "com.encore.stopRecording" {
                         NotificationCenter.default.post(name: .stopRecordingFromLiveActivity, object: nil)
                     }
                 },
@@ -332,15 +277,26 @@ struct DanceCameraView: View {
                 showSaveDetailsSheet = true
             }
         }
-        .onChange(of: selectedMetronome) { _, _ in
+        .onChange(of: metronome.selectedPreset) { _, _ in
             updateRecordingLiveActivity(force: true)
         }
-        .onChange(of: tempoMultiplier) { _, _ in
+        .onChange(of: metronome.tempoMultiplier) { _, _ in
             updateRecordingLiveActivity(force: true)
         }
         .onChange(of: camera.audioLevel) { _, _ in
             if camera.isRecording {
                 updateRecordingLiveActivity()
+            }
+        }
+        .onChange(of: metronome.isPulse) { _, pulsing in
+            // Golden screen flash only on downbeat (beat 1) when metronome is active
+            if pulsing && metronome.currentBeat == 1 && metronome.selectedPreset != .off {
+                beatFlashOpacity = 0.13
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.08) {
+                    withAnimation(.easeOut(duration: 0.18)) {
+                        beatFlashOpacity = 0.0
+                    }
+                }
             }
         }
         // Modal for Quick Tag & Trim (Funkcia 8 & 10)
@@ -369,6 +325,9 @@ struct DanceCameraView: View {
                     rawRecordedURL = trimmedURL
                 }
             }
+        }
+        .sheet(isPresented: $showFullMetronomeSheet) {
+            DanceMetronomeView()
         }
     }
     
@@ -418,16 +377,16 @@ struct DanceCameraView: View {
                 .font(.system(size: 13, weight: .heavy, design: .monospaced))
                 .foregroundColor(.white)
             
-            if selectedMetronome != .off {
+            if metronome.selectedPreset != .off {
                 Divider()
                     .frame(height: 14)
                     .overlay(Color.white.opacity(0.25))
                 
                 beatIndicator
                 
-                Text("\(Int(selectedMetronome.bpm * tempoMultiplier)) BPM")
+                Text("\(metronome.effectiveBpm) BPM")
                     .font(.system(size: 12, weight: .black, design: .rounded))
-                    .foregroundColor(currentBeat == 1 ? Color.amberGold : .white)
+                    .foregroundColor(metronome.currentBeat == 1 ? Color.amberGold : .white)
             }
         }
         .padding(.horizontal, 14)
@@ -441,9 +400,9 @@ struct DanceCameraView: View {
         HStack(spacing: 7) {
             beatIndicator
             
-            Text("\(selectedMetronome.shortCode) • \(Int(selectedMetronome.bpm * tempoMultiplier)) BPM • Doba \(currentBeat)/\(selectedMetronome.beatsPerMeasure)")
+            Text("\(metronome.selectedPreset.shortCode) • \(metronome.effectiveBpm) BPM • Doba \(metronome.currentBeat)/\(metronome.beatsPerMeasure)")
                 .font(.system(size: 12, weight: .black, design: .rounded))
-                .foregroundColor(currentBeat == 1 ? Color.amberGold : .white)
+                .foregroundColor(metronome.currentBeat == 1 ? Color.amberGold : .white)
                 .lineLimit(1)
                 .minimumScaleFactor(0.78)
         }
@@ -451,30 +410,42 @@ struct DanceCameraView: View {
         .padding(.vertical, 7)
         .background(Color.black.opacity(0.65))
         .clipShape(Capsule())
-        .overlay(Capsule().stroke(currentBeat == 1 ? Color.amberGold.opacity(0.6) : Color.white.opacity(0.18), lineWidth: 1))
+        .overlay(Capsule().stroke(metronome.currentBeat == 1 ? Color.amberGold.opacity(0.6) : Color.white.opacity(0.18), lineWidth: 1))
     }
     
     private var beatIndicator: some View {
         Circle()
-            .fill(currentBeat == 1 ? Color.amberGold : Color.white)
-            .frame(width: isMetronomePulse ? 10 : 7, height: isMetronomePulse ? 10 : 7)
-            .shadow(color: currentBeat == 1 ? Color.amberGold : Color.clear, radius: isMetronomePulse ? 6 : 0)
+            .fill(metronome.currentBeat == 1 ? Color.amberGold : Color.white)
+            .frame(width: metronome.isPulse ? 10 : 7, height: metronome.isPulse ? 10 : 7)
+            .shadow(color: metronome.currentBeat == 1 ? Color.amberGold : Color.clear, radius: metronome.isPulse ? 6 : 0)
     }
     
-    // MARK: - Action Control Strip (Always Accessible Below Dynamic Island)
+    // MARK: - Action Control Strip (Always Accessible Below Dynamic Island - Waze Style)
     private var actionControlStrip: some View {
         HStack(spacing: 8) {
-            // Metronome Menu with Tempo Adjuster
+            // Metronome Menu with Tempo Adjuster & BPM Trainer Sheet
             Menu {
-                Section("Tanečný metronóm") {
+                Section {
+                    Button {
+                        showFullMetronomeSheet = true
+                    } label: {
+                        Label("🎛️ Otvoriť BPM Tréner & Zvuky", systemImage: "slider.vertical.3")
+                    }
+                }
+                
+                Section("Tanečné štýly") {
                     ForEach(DanceMetronomePreset.allCases) { preset in
                         Button {
-                            selectedMetronome = preset
-                            restartMetronome()
+                            if preset == .off {
+                                metronome.stop()
+                                metronome.selectedPreset = .off
+                            } else {
+                                metronome.start(preset: preset)
+                            }
                         } label: {
                             HStack {
                                 Text(preset.rawValue)
-                                if selectedMetronome == preset {
+                                if metronome.selectedPreset == preset {
                                     Image(systemName: "checkmark")
                                 }
                             }
@@ -482,47 +453,63 @@ struct DanceCameraView: View {
                     }
                 }
                 
-                if selectedMetronome != .off {
-                    Section("Tempo: \(Int(selectedMetronome.bpm * tempoMultiplier)) BPM (\(Int(selectedMetronome.mpm * tempoMultiplier)) MPM)") {
+                if metronome.selectedPreset != .off {
+                    Section("Tempo: \(metronome.effectiveBpm) BPM (\(metronome.effectiveMpm) MPM)") {
                         Button("Svižnejšie (+5%)") {
-                            tempoMultiplier = min(1.3, tempoMultiplier + 0.05)
-                            restartMetronome()
+                            let newMult = min(1.3, metronome.tempoMultiplier + 0.05)
+                            metronome.start(multiplier: newMult)
                         }
                         Button("Pomalšie (-5%)") {
-                            tempoMultiplier = max(0.7, tempoMultiplier - 0.05)
-                            restartMetronome()
+                            let newMult = max(0.7, metronome.tempoMultiplier - 0.05)
+                            metronome.start(multiplier: newMult)
                         }
                         Button("Pôvodné tempo (100%)") {
-                            tempoMultiplier = 1.0
-                            restartMetronome()
+                            metronome.start(multiplier: 1.0)
+                        }
+                        Button("Vypnúť metronóm", role: .destructive) {
+                            metronome.stop()
+                            metronome.selectedPreset = .off
                         }
                     }
                 }
             } label: {
                 HStack(spacing: 6) {
-                    if selectedMetronome != .off {
+                    if metronome.selectedPreset != .off {
                         beatIndicator
-                        Text("\(selectedMetronome.shortCode) \(Int(selectedMetronome.bpm * tempoMultiplier)) BPM")
-                            .font(.system(size: 12, weight: .bold))
+                        Text("\(metronome.selectedPreset.shortCode) • \(metronome.effectiveBpm)")
+                            .font(.system(size: 13, weight: .heavy, design: .rounded))
                     } else {
                         Image(systemName: "metronome.fill")
                             .font(.system(size: 13, weight: .bold))
                         Text("Metronóm")
-                            .font(.system(size: 12, weight: .bold))
+                            .font(.system(size: 13, weight: .bold, design: .rounded))
                     }
+                    Image(systemName: "chevron.down")
+                        .font(.system(size: 9, weight: .black))
+                        .opacity(0.65)
                 }
-                .foregroundColor(selectedMetronome != .off ? Color.amberGold : .white)
-                .padding(.horizontal, 12)
+                .foregroundColor(metronome.selectedPreset != .off ? Color.amberGold : .white)
+                .padding(.horizontal, 13)
                 .padding(.vertical, 8)
-                .background(selectedMetronome != .off ? Color.amberGold.opacity(0.22) : Color.black.opacity(0.55))
-                .cornerRadius(16)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 16)
-                        .stroke(selectedMetronome != .off ? (currentBeat == 1 ? Color.amberGold : Color.amberGold.opacity(0.4)) : Color.white.opacity(0.18), lineWidth: 1)
+                .background(
+                    metronome.selectedPreset != .off
+                        ? Color.amberGold.opacity(0.24)
+                        : Color.black.opacity(0.68)
                 )
+                .clipShape(Capsule())
+                .overlay(
+                    Capsule()
+                        .stroke(
+                            metronome.selectedPreset != .off
+                                ? (metronome.currentBeat == 1 ? Color.amberGold : Color.amberGold.opacity(0.55))
+                                : Color.white.opacity(0.22),
+                            lineWidth: metronome.selectedPreset != .off ? 1.5 : 1
+                        )
+                )
+                .shadow(color: metronome.selectedPreset != .off ? Color.amberGold.opacity(0.35) : Color.black.opacity(0.4), radius: 6, y: 2)
             }
             
-            // Grid & Horizon Level Button (Funkcia 2)
+            // Grid & Horizon Level Button (Funkcia 2 - Waze-style Pill)
             Button {
                 showGridAndLevel.toggle()
                 let gen = UIImpactFeedbackGenerator(style: .light)
@@ -532,20 +519,21 @@ struct DanceCameraView: View {
                     Image(systemName: showGridAndLevel ? "grid" : "grid.slash")
                         .font(.system(size: 13, weight: .bold))
                     Text("Mriežka")
-                        .font(.system(size: 12, weight: .bold))
+                        .font(.system(size: 13, weight: .bold, design: .rounded))
                 }
-                .foregroundColor(showGridAndLevel ? Color.amberGold : .white.opacity(0.75))
-                .padding(.horizontal, 11)
+                .foregroundColor(showGridAndLevel ? Color.amberGold : .white.opacity(0.85))
+                .padding(.horizontal, 12)
                 .padding(.vertical, 8)
-                .background(showGridAndLevel ? Color.amberGold.opacity(0.22) : Color.black.opacity(0.55))
-                .cornerRadius(16)
+                .background(showGridAndLevel ? Color.amberGold.opacity(0.24) : Color.black.opacity(0.68))
+                .clipShape(Capsule())
                 .overlay(
-                    RoundedRectangle(cornerRadius: 16)
-                        .stroke(showGridAndLevel ? Color.amberGold : Color.white.opacity(0.18), lineWidth: 1)
+                    Capsule()
+                        .stroke(showGridAndLevel ? Color.amberGold : Color.white.opacity(0.22), lineWidth: 1)
                 )
+                .shadow(color: Color.black.opacity(0.4), radius: 6, y: 2)
             }
             
-            // Samospúšť / Countdown Duration Selector (Funkcia 1)
+            // Samospúšť / Countdown Duration Selector (Funkcia 1 - Waze-style Pill)
             Menu {
                 ForEach(CountdownDuration.allCases) { dur in
                     Button {
@@ -564,20 +552,24 @@ struct DanceCameraView: View {
                     Image(systemName: "timer")
                         .font(.system(size: 13, weight: .bold))
                     Text(countdownDuration == .off ? "Spúšť" : countdownDuration.title)
-                        .font(.system(size: 12, weight: .bold))
+                        .font(.system(size: 13, weight: .bold, design: .rounded))
+                    Image(systemName: "chevron.down")
+                        .font(.system(size: 9, weight: .black))
+                        .opacity(0.65)
                 }
-                .foregroundColor(countdownDuration != .off ? Color.amberGold : .white.opacity(0.75))
-                .padding(.horizontal, 11)
+                .foregroundColor(countdownDuration != .off ? Color.amberGold : .white.opacity(0.85))
+                .padding(.horizontal, 12)
                 .padding(.vertical, 8)
-                .background(countdownDuration != .off ? Color.amberGold.opacity(0.22) : Color.black.opacity(0.55))
-                .cornerRadius(16)
+                .background(countdownDuration != .off ? Color.amberGold.opacity(0.24) : Color.black.opacity(0.68))
+                .clipShape(Capsule())
                 .overlay(
-                    RoundedRectangle(cornerRadius: 16)
-                        .stroke(countdownDuration != .off ? Color.amberGold : Color.white.opacity(0.18), lineWidth: 1)
+                    Capsule()
+                        .stroke(countdownDuration != .off ? Color.amberGold : Color.white.opacity(0.22), lineWidth: 1)
                 )
+                .shadow(color: Color.black.opacity(0.4), radius: 6, y: 2)
             }
             
-            // Ghost / Onion Skinning Button (Funkcia 4)
+            // Ghost / Onion Skinning Button (Funkcia 4 - Waze-style Pill)
             if ghostVideoPath != nil {
                 Button {
                     showGhostOverlay.toggle()
@@ -591,17 +583,18 @@ struct DanceCameraView: View {
                         Image(systemName: "person.2.wave.2.fill")
                             .font(.system(size: 13, weight: .bold))
                         Text("Ghost")
-                            .font(.system(size: 12, weight: .bold))
+                            .font(.system(size: 13, weight: .bold, design: .rounded))
                     }
-                    .foregroundColor(showGhostOverlay ? Color.amberGold : .white.opacity(0.75))
-                    .padding(.horizontal, 11)
+                    .foregroundColor(showGhostOverlay ? Color.amberGold : .white.opacity(0.85))
+                    .padding(.horizontal, 12)
                     .padding(.vertical, 8)
-                    .background(showGhostOverlay ? Color.amberGold.opacity(0.22) : Color.black.opacity(0.55))
-                    .cornerRadius(16)
+                    .background(showGhostOverlay ? Color.amberGold.opacity(0.24) : Color.black.opacity(0.68))
+                    .clipShape(Capsule())
                     .overlay(
-                        RoundedRectangle(cornerRadius: 16)
-                            .stroke(showGhostOverlay ? Color.amberGold : Color.white.opacity(0.18), lineWidth: 1)
+                        Capsule()
+                            .stroke(showGhostOverlay ? Color.amberGold : Color.white.opacity(0.22), lineWidth: 1)
                     )
+                    .shadow(color: Color.black.opacity(0.4), radius: 6, y: 2)
                 }
             }
         }
@@ -767,65 +760,20 @@ struct DanceCameraView: View {
         }
     }
     
-    // MARK: - Metronome Logic (Funkcia 9 - Precise Rhythm & Downbeat)
+    // MARK: - Metronome Logic (Funkcia 9 - Powered by DanceMetronomeEngine)
     private func restartMetronome() {
-        stopMetronome()
-        guard selectedMetronome != .off else { return }
-        
-        let effectiveBpm = selectedMetronome.bpm * tempoMultiplier
-        guard effectiveBpm > 0 else { return }
-        let interval = 60.0 / effectiveBpm
-        currentBeat = 1
-        
-        // Immediate downbeat on start
-        withAnimation(.spring(response: 0.1, dampingFraction: 0.5)) {
-            isMetronomePulse = true
-        }
-        if isMetronomeHapticEnabled {
-            HapticFeedback.heavy()
-        }
-        AudioServicesPlaySystemSound(1103)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.08) {
-            isMetronomePulse = false
-        }
-        
-        metronomeTimer = Timer.scheduledTimer(withTimeInterval: interval, repeats: true) { _ in
-            currentBeat = (currentBeat % selectedMetronome.beatsPerMeasure) + 1
-            
-            withAnimation(.spring(response: 0.1, dampingFraction: 0.5)) {
-                isMetronomePulse = true
-            }
-            
-            if isMetronomeHapticEnabled {
-                if currentBeat == 1 {
-                    HapticFeedback.heavy()
-                } else {
-                    HapticFeedback.light()
-                }
-            }
-            
-            if currentBeat == 1 {
-                AudioServicesPlaySystemSound(1103) // High downbeat
-            } else {
-                AudioServicesPlaySystemSound(1057) // Beat tick
-            }
-            
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.08) {
-                isMetronomePulse = false
-            }
+        if metronome.selectedPreset != .off {
+            metronome.start()
         }
     }
     
     private func stopMetronome() {
-        metronomeTimer?.invalidate()
-        metronomeTimer = nil
-        currentBeat = 1
-        isMetronomePulse = false
+        metronome.stop()
     }
     
     private func saveInstantMemoryBookmark() {
         let durationString = formatDuration(camera.recordingDuration)
-        let danceName = selectedMetronome != .off ? "\(selectedMetronome.shortCode) Tréning" : "Dance Training Hall 4"
+        let danceName = metronome.selectedPreset != .off ? "\(metronome.selectedPreset.shortCode) Tréning" : "Dance Training Hall 4"
         let noteText = "📌 Značka [\(durationString)] — \(danceName)"
         
         let newNote = InstantNote(text: noteText)
@@ -852,10 +800,10 @@ struct DanceCameraView: View {
         
         let state = RecordingActivityAttributes.ContentState(
             startDate: Date(),
-            sessionTitle: selectedMetronome != .off ? "\(selectedMetronome.shortCode) Tréning" : "Dance Training Hall 4",
-            metronomeName: selectedMetronome == .off ? "" : selectedMetronome.shortCode,
-            bpm: selectedMetronome == .off ? 0 : Int(selectedMetronome.bpm * tempoMultiplier),
-            beatsPerMeasure: selectedMetronome == .off ? 0 : selectedMetronome.beatsPerMeasure,
+            sessionTitle: metronome.selectedPreset != .off ? "\(metronome.selectedPreset.shortCode) Tréning" : "Dance Training Hall 4",
+            metronomeName: metronome.selectedPreset == .off ? "" : metronome.selectedPreset.shortCode,
+            bpm: metronome.effectiveBpm,
+            beatsPerMeasure: metronome.selectedPreset == .off ? 0 : metronome.beatsPerMeasure,
             audioLevel: camera.audioLevel
         )
         
@@ -884,10 +832,10 @@ struct DanceCameraView: View {
         
         let state = RecordingActivityAttributes.ContentState(
             startDate: Date().addingTimeInterval(-Double(camera.recordingDuration)),
-            sessionTitle: selectedMetronome != .off ? "\(selectedMetronome.shortCode) Tréning" : "Dance Training Hall 4",
-            metronomeName: selectedMetronome == .off ? "" : selectedMetronome.shortCode,
-            bpm: selectedMetronome == .off ? 0 : Int(selectedMetronome.bpm * tempoMultiplier),
-            beatsPerMeasure: selectedMetronome == .off ? 0 : selectedMetronome.beatsPerMeasure,
+            sessionTitle: metronome.selectedPreset != .off ? "\(metronome.selectedPreset.shortCode) Tréning" : "Dance Training Hall 4",
+            metronomeName: metronome.selectedPreset == .off ? "" : metronome.selectedPreset.shortCode,
+            bpm: metronome.effectiveBpm,
+            beatsPerMeasure: metronome.selectedPreset == .off ? 0 : metronome.beatsPerMeasure,
             audioLevel: camera.audioLevel
         )
         

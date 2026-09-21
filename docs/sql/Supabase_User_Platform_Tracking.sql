@@ -1,5 +1,5 @@
 -- ==============================================================================
--- Ellegnote — User Platform Tracking & Profiles Schema (iOS vs Web)
+-- Encore — User Platform Tracking & Profiles Schema (iOS vs Web)
 -- Run this in Supabase Dashboard > SQL Editor.
 -- ==============================================================================
 
@@ -23,22 +23,22 @@ create table if not exists public.profiles (
 alter table public.profiles enable row level security;
 
 -- 3. Drop existing policies if any to allow safe re-runs
-drop policy if exists "ellegnote_profiles_select_own" on public.profiles;
-drop policy if exists "ellegnote_profiles_insert_own" on public.profiles;
-drop policy if exists "ellegnote_profiles_update_own" on public.profiles;
+drop policy if exists "encore_profiles_select_own" on public.profiles;
+drop policy if exists "encore_profiles_insert_own" on public.profiles;
+drop policy if exists "encore_profiles_update_own" on public.profiles;
 
 -- 4. RLS Policies (Users can read and update their own profile)
-create policy "ellegnote_profiles_select_own"
+create policy "encore_profiles_select_own"
 on public.profiles for select
 to authenticated
 using (auth.uid() = id);
 
-create policy "ellegnote_profiles_insert_own"
+create policy "encore_profiles_insert_own"
 on public.profiles for insert
 to authenticated
 with check (auth.uid() = id);
 
-create policy "ellegnote_profiles_update_own"
+create policy "encore_profiles_update_own"
 on public.profiles for update
 to authenticated
 using (auth.uid() = id)

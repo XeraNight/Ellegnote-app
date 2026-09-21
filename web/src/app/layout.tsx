@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
 import './globals.css'
+import { PostHogProvider } from '@/components/PostHogProvider'
 
 const inter = Inter({ subsets: ['latin'], display: 'swap' })
 
@@ -14,7 +15,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="sk" className="dark">
       <body className={inter.className}>
-        {children}
+        <PostHogProvider>
+          {children}
+        </PostHogProvider>
       </body>
     </html>
   )

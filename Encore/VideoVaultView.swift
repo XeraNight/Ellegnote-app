@@ -13,6 +13,16 @@ enum VaultFilter: String, CaseIterable, Identifiable {
     var id: String { rawValue }
 }
 
+struct IdentifiableURL: Identifiable, Sendable {
+    let id: UUID
+    let url: URL
+    
+    init(id: UUID = UUID(), url: URL) {
+        self.id = id
+        self.url = url
+    }
+}
+
 struct VideoVaultView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
@@ -33,6 +43,12 @@ struct VideoVaultView: View {
     @State private var previewVideoPath: String? = nil
     @State private var showStorageAlert: Bool = false
     
+    // Trimming State
+    @State private var trimmingItem: IdentifiableURL? = nil
+    @State private var trimmingEntry: VideoMediaEntry? = nil
+    
+    @Query(sort: \VideoMediaEntry.createdAt, order: .reverse) private var allVaultEntries: [VideoMediaEntry]
+    
     // Edit item sheet state
     @State private var editingEntry: VideoMediaEntry? = nil
     @State private var editTitle: String = ""
@@ -44,7 +60,7 @@ struct VideoVaultView: View {
         } else if let node = node {
             return node.mediaVault.sorted { $0.createdAt > $1.createdAt }
         }
-        return []
+        return allVaultEntries
     }
     
     var filteredItems: [VideoMediaEntry] {
@@ -167,6 +183,20 @@ struct VideoVaultView: View {
             .sheet(item: $editingEntry) { entry in
                 editEntrySheet(entry)
             }
+            .fullScreenCover(item: $trimmingItem) { item in
+                VideoTrimView(originalVideoURL: item.url) { trimmedURL in
+                    if let entry = trimmingEntry,
+                       let newFilename = try? MediaStorageManager.copyIntoDocuments(from: trimmedURL, fileExtension: "mp4") {
+                        let oldPath = entry.filePath
+                        entry.filePath = newFilename
+                        if activeSlotAPath == oldPath { activeSlotAPath = newFilename }
+                        if activeSlotBPath == oldPath { activeSlotBPath = newFilename }
+                        saveChanges()
+                    }
+                    trimmingItem = nil
+                    trimmingEntry = nil
+                }
+            }
             .alert("Nedostatok miesta v úložisku", isPresented: $showStorageAlert) {
                 Button("Rozumiem", role: .cancel) { }
             } message: {
@@ -190,7 +220,7 @@ struct VideoVaultView: View {
                     Text(titleForPath(activeSlotAPath) ?? "Nevybraté")
                         .font(.system(size: 11, weight: .bold))
                         .lineLimit(1)
-                        .foregroundColor(.themeDark)
+                        .foregroundColor(.white)
                 }
                 Spacer()
                 if activeSlotAPath != nil {
@@ -200,14 +230,14 @@ struct VideoVaultView: View {
                     } label: {
                         Image(systemName: "xmark.circle.fill")
                             .font(.system(size: 14))
-                            .foregroundColor(.gray)
+                            .foregroundColor(.white.opacity(0.6))
                     }
                 }
             }
             .padding(8)
-            .background(Color.themeBg)
+            .background(Color.obsidian800)
             .cornerRadius(8)
-            .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.red.opacity(0.3), lineWidth: 1.5))
+            .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.red.opacity(0.35), lineWidth: 1.5))
             .frame(maxWidth: .infinity)
             
             // VS Divider
@@ -226,7 +256,7 @@ struct VideoVaultView: View {
                     Text(titleForPath(activeSlotBPath) ?? "Nevybraté")
                         .font(.system(size: 11, weight: .bold))
                         .lineLimit(1)
-                        .foregroundColor(.themeDark)
+                        .foregroundColor(.white)
                 }
                 Spacer()
                 if activeSlotBPath != nil {
@@ -236,14 +266,14 @@ struct VideoVaultView: View {
                     } label: {
                         Image(systemName: "xmark.circle.fill")
                             .font(.system(size: 14))
-                            .foregroundColor(.gray)
+                            .foregroundColor(.white.opacity(0.6))
                     }
                 }
             }
             .padding(8)
-            .background(Color.themeBg)
+            .background(Color.obsidian800)
             .cornerRadius(8)
-            .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.green.opacity(0.3), lineWidth: 1.5))
+            .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.green.opacity(0.35), lineWidth: 1.5))
             .frame(maxWidth: .infinity)
         }
     }
@@ -277,27 +307,14 @@ struct VideoVaultView: View {
     private func videoCardView(for entry: VideoMediaEntry) -> some View {
         let isSlotA = activeSlotAPath == entry.filePath
         let isSlotB = activeSlotBPath == entry.filePath
+        let isPhoto = MediaResolver.isImagePath(path: entry.filePath)
         
         return VStack(alignment: .leading, spacing: 6) {
             // Thumbnail Preview Container
             ZStack(alignment: .topLeading) {
-                Color.black
+                MediaThumbnailView(path: entry.filePath, placeholderIcon: isPhoto ? "photo" : "film", cornerRadius: 10)
                     .aspectRatio(16/10, contentMode: .fill)
-                    .cornerRadius(10)
-                
-                // Play Icon in Center
-                VStack {
-                    Spacer()
-                    HStack {
-                        Spacer()
-                        Image(systemName: "play.circle.fill")
-                            .font(.system(size: 28))
-                            .foregroundColor(.white.opacity(0.85))
-                            .shadow(radius: 4)
-                        Spacer()
-                    }
-                    Spacer()
-                }
+                    .clipped()
                 
                 // Top Tag Badge
                 HStack {
@@ -386,6 +403,19 @@ struct VideoVaultView: View {
                 
                 Divider()
                 
+                if !isPhoto {
+                    Button {
+                        if let url = MediaResolver.resolveVideoURL(path: entry.filePath) {
+                            trimmingEntry = entry
+                            trimmingItem = IdentifiableURL(url: url)
+                        }
+                    } label: {
+                        Label("Orezať video", systemImage: "scissors")
+                    }
+                    
+                    Divider()
+                }
+                
                 Button {
                     editingEntry = entry
                     editTitle = entry.title
@@ -397,7 +427,7 @@ struct VideoVaultView: View {
                 Button(role: .destructive) {
                     deleteEntry(entry)
                 } label: {
-                    Label("Vymazať video", systemImage: "trash")
+                    Label(isPhoto ? "Vymazať fotku" : "Vymazať video", systemImage: "trash")
                 }
             } label: {
                 HStack {
@@ -468,8 +498,8 @@ struct VideoVaultView: View {
                 .shadow(color: Color.gold500.opacity(0.3), radius: 6, y: 3)
             }
             
-            // Photos Picker Import Button
-            PhotosPicker(selection: $selectedPhotoItem, matching: .videos) {
+            // Photos & Videos Picker Import Button
+            PhotosPicker(selection: $selectedPhotoItem, matching: .any(of: [.videos, .images])) {
                 HStack(spacing: 6) {
                     Image(systemName: "photo.on.rectangle.angled")
                     Text("Import")
@@ -490,12 +520,12 @@ struct VideoVaultView: View {
     private func editEntrySheet(_ entry: VideoMediaEntry) -> some View {
         NavigationStack {
             Form {
-                Section("Názov videa") {
+                Section("Názov položky") {
                     TextField("Napr. Tréning 21.8.", text: $editTitle)
                 }
                 
                 Section("Kategória / Tag") {
-                    Picker("Rola videa", selection: $editRole) {
+                    Picker("Rola", selection: $editRole) {
                         ForEach(VideoMediaRole.allCases) { role in
                             Label(role.displayName, systemImage: role.iconName).tag(role)
                         }
@@ -503,7 +533,7 @@ struct VideoVaultView: View {
                     .pickerStyle(.inline)
                 }
             }
-            .navigationTitle("Upraviť video")
+            .navigationTitle("Upraviť médium")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
@@ -513,7 +543,7 @@ struct VideoVaultView: View {
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Uložiť") {
-                        entry.title = editTitle.isEmpty ? "Video" : editTitle
+                        entry.title = editTitle.isEmpty ? "Záznam" : editTitle
                         entry.role = editRole
                         saveChanges()
                         editingEntry = nil
@@ -553,6 +583,13 @@ struct VideoVaultView: View {
                 node.activeTargetVideoPath = filePath
                 activeSlotBPath = filePath
             }
+        } else {
+            modelContext.insert(entry)
+            if activeSlotAPath == nil && defaultRole == .myTake {
+                activeSlotAPath = filePath
+            } else if activeSlotBPath == nil && defaultRole == .targetIdol {
+                activeSlotBPath = filePath
+            }
         }
         
         saveChanges()
@@ -567,9 +604,18 @@ struct VideoVaultView: View {
                     await MainActor.run {
                         addNewVideoEntry(filePath: filename, defaultRole: .targetIdol, defaultTitle: "Importovaný vzor")
                     }
+                    return
+                }
+                
+                if let data = try await item.loadTransferable(type: Data.self) {
+                    let filename = try MediaStorageManager.store(data: data, prefix: "vault_img", fileExtension: "jpg")
+                    await MainActor.run {
+                        addNewVideoEntry(filePath: filename, defaultRole: .targetIdol, defaultTitle: "Importovaná fotografia")
+                    }
+                    return
                 }
             } catch {
-                print("Failed to import video from photos: \(error)")
+                print("Failed to import media from photos: \(error)")
             }
         }
     }

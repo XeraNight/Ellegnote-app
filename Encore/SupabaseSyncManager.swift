@@ -356,7 +356,7 @@ final class SupabaseSyncManager: Sendable {
     
     @SyncActor
     @discardableResult
-    func uploadFileAsync(localFileName: String, bucket: String = "ellegnote-media") async -> URL? {
+    func uploadFileAsync(localFileName: String, bucket: String = "encore-media") async -> URL? {
         guard let client else { return nil }
         
         let fileManager = FileManager.default

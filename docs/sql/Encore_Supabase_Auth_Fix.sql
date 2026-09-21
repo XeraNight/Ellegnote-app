@@ -1,5 +1,5 @@
 -- ==============================================================================
--- Ellegnote — Auto-Confirm Email Fix for Seamless Face ID & Mobile Login
+-- Encore — Auto-Confirm Email Fix for Seamless Face ID & Mobile Login
 -- Run this in Supabase Dashboard > SQL Editor.
 -- ==============================================================================
 

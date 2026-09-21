@@ -11,6 +11,7 @@ struct StudioToolsView: View {
     @State private var showSeminarSplitter = false
     @State private var showCompetitionOrganizer = false
     @State private var showDanceMirror = false
+    @State private var showDanceMetronome = false
     @State private var triggerMirrorAnim = false
 
     var body: some View {
@@ -50,6 +51,7 @@ struct StudioToolsView: View {
                     ) {
                         triggerMirrorAnim = true
                         HapticFeedback.light()
+                        AnalyticsManager.shared.mirrorOpened(source: "studio_tools")
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
                             showDanceMirror = true
                             triggerMirrorAnim = false
@@ -64,6 +66,18 @@ struct StudioToolsView: View {
                             }
                         }
                     }
+                    
+                    // 0.1 Dance Metronome & BPM Trainer
+                    StudioToolCard(
+                        icon: "metronome.fill",
+                        iconColor: Color.amberGold,
+                        title: "Tanečný Metronóm & BPM Tréner",
+                        subtitle: "Presný rytmický klik pre všetkých 10 tancov WDSF/WDC, ktorý hrá aj v tichom režime a popri hudbe.",
+                        badge: "Rytmus & BPM"
+                    ) {
+                        showDanceMetronome = true
+                    }
+                    .padding(.horizontal, 20)
                     
                     // 1. Competition Final Simulator
                     StudioToolCard(
@@ -166,6 +180,9 @@ struct StudioToolsView: View {
         }
         .sheet(isPresented: $showCompetitionOrganizer) {
             CompetitionOrganizerView()
+        }
+        .sheet(isPresented: $showDanceMetronome) {
+            DanceMetronomeView()
         }
         .fullScreenCover(isPresented: $showDanceMirror) {
             DanceMirrorView()

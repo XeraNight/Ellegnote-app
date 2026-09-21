@@ -1,4 +1,4 @@
-# Architektúra Supabase Realtime a Výpočtová Matematika Canvasu pre Ellegnote
+# Architektúra Supabase Realtime a Výpočtová Matematika Canvasu pre Encore
 
 Dokument slúži ako kompletná technická a matematická špecifikácia pre synchronizáciu a manipuláciu s tanečnými kartami na nekonečnom/ohraničenom 2D plátne naprieč **iOS (Swift / SwiftUI)** a **Webom (Next.js / TypeScript / React)**.
 
@@ -8,7 +8,7 @@ Dokument slúži ako kompletná technická a matematická špecifikácia pre syn
 
 Supabase Realtime je postavený na **Elixir / Phoenix Channels** serveroch bežiacich nad WebSockets. Poskytuje obojsmerný komunikačný kanál s minimálnou réžiou a extrémnou priepustnosťou.
 
-V Ellegnote využívame 3 základné stavebné bloky Realtime architektúry:
+V Encore využívame 3 základné stavebné bloky Realtime architektúry:
 
 ```
                       ┌────────────────────────────────────────┐
@@ -34,7 +34,7 @@ V Ellegnote využívame 3 základné stavebné bloky Realtime architektúry:
 
 ### A. Broadcast (Najnižšia latencia, < 50ms, bez zápisu do DB)
 * **Princíp:** Správy typu Publish/Subscribe priamo cez WebSocket pamäť servera. Nezapisujú sa na disk ani do PostgreSQL tabuliek.
-* **Využitie v Ellegnote:**
+* **Využitie v Encore:**
   1. `node_moved`: Priebežné vysielanie súradníc `(x, y)` karty počas ťahania prstom/myšou (frekvencia ~30 Hz).
   2. `canvas_action`: Okamžitá notifikácia o pridani (`added`), zmazaní (`deleted`) alebo úprave figúry (`updated`), kým DB synchronizácia beží asynchrónne na pozadí.
 * **Prečo je to dôležité:** Ak by sa každý pohyb prsta zapisoval do databázy, databáza by skolabovala pod stovkami SQL `UPDATE` príkazov za sekundu. Broadcast zaručuje 60fps plynulosť pre partnera bez akejkoľvek záťaže DB.
@@ -51,7 +51,7 @@ V Ellegnote využívame 3 základné stavebné bloky Realtime architektúry:
     "draggingNodeId": "uuid-tahanej-figury" // null ak len prezerá parket
   }
   ```
-* **Využitie v Ellegnote:**
+* **Využitie v Encore:**
   - Živé zobrazenie partnerského kurzora s menovkou na plátne.
   - **Soft-Locking kariet:** Keď partner chytí kartu (`draggingNodeId != null`), druhá strana kartu vizuálne uzamkne (zlatý badge „Kali práve presúva“), čím predchádzame kolíziám a preťahovaniu.
 
@@ -61,7 +61,7 @@ V Ellegnote využívame 3 základné stavebné bloky Realtime architektúry:
   ALTER PUBLICATION supabase_realtime ADD TABLE canvas_nodes;
   ALTER TABLE canvas_nodes REPLICA IDENTITY FULL;
   ```
-* **Využitie v Ellegnote:**
+* **Využitie v Encore:**
   - Garantovaná perzistencia. Keď používateľ pustí kartu (`onDragEnd`), pozícia sa uloží do DB. Druhému zariadeniu príde potvrdenie cez CDC ako fallback, ak by náhodou vypadol broadcast paket.
 
 ### D. Reconnection & Auto-Reconcile (Obnova spojenia)

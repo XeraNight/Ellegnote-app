@@ -1,5 +1,5 @@
 -- ==============================================================================
--- Ellegnote Supabase Row Level Security (RLS) Enablement Script
+-- Encore Supabase Row Level Security (RLS) Enablement Script
 -- ==============================================================================
 -- Spusti tento skript v Supabase Dashboard -> SQL Editor
 -- Týmto sa odstránia všetky červené security warnings (Policy Exists RLS Disabled).

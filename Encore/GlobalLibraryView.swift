@@ -213,10 +213,14 @@ struct GlobalLibraryView: View {
                 ToolbarItem(placement: .primaryAction) {
                     Button(action: { showAddFigure = true }) {
                         Image(systemName: "plus")
-                            .foregroundColor(.themeDark)
+                            .foregroundColor(Color.gold400)
                             .font(.system(size: 14, weight: .bold))
                     }
-                    .buttonStyle(.neubrutalistSecondary(cornerRadius: 10))
+                    .buttonStyle(.plain)
+                    .frame(width: 36, height: 36)
+                    .background(Color.obsidian800)
+                    .cornerRadius(10)
+                    .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.white.opacity(0.1), lineWidth: 1))
                 }
             }
             .sheet(isPresented: $showAddFigure) {
@@ -230,10 +234,10 @@ struct GlobalLibraryView: View {
                                     VStack(alignment: .leading, spacing: 6) {
                                         Text("Názov figúry")
                                             .font(.system(size: 13, weight: .bold))
-                                            .foregroundColor(.themeDark.opacity(0.55))
+                                            .foregroundColor(Color.textSecondary)
                                         TextField("napr. Spin Turn", text: $newFigureName)
                                             .padding()
-                                            .background(Color.themeCard)
+                                            .background(Color.obsidian800)
                                             .cornerRadius(10)
                                             .foregroundColor(.white)
                                             .overlay(
@@ -245,7 +249,7 @@ struct GlobalLibraryView: View {
                                     VStack(alignment: .leading, spacing: 6) {
                                         Text("Tanec")
                                             .font(.system(size: 13, weight: .bold))
-                                            .foregroundColor(.themeDark.opacity(0.55))
+                                            .foregroundColor(Color.textSecondary)
                                         
                                         Picker("Priradiť k tancu", selection: $newFigureDance) {
                                             ForEach(danceNames, id: \.self) { dance in
@@ -255,7 +259,7 @@ struct GlobalLibraryView: View {
                                         .pickerStyle(.menu)
                                         .padding()
                                         .frame(maxWidth: .infinity, alignment: .leading)
-                                        .background(Color.themeCard)
+                                        .background(Color.obsidian800)
                                         .cornerRadius(10)
                                         .overlay(
                                             RoundedRectangle(cornerRadius: 10)
@@ -266,10 +270,10 @@ struct GlobalLibraryView: View {
                                     VStack(alignment: .leading, spacing: 6) {
                                         Text("Rytmizácia")
                                             .font(.system(size: 13, weight: .bold))
-                                            .foregroundColor(.white.opacity(0.60))
+                                            .foregroundColor(Color.textSecondary)
                                         TextField("napr. 1, 2, 3", text: $newFigureRhythm)
                                             .padding()
-                                            .background(Color.themeCard)
+                                            .background(Color.obsidian800)
                                             .cornerRadius(10)
                                             .foregroundColor(.white)
                                             .overlay(
@@ -281,12 +285,12 @@ struct GlobalLibraryView: View {
                                     VStack(alignment: .leading, spacing: 6) {
                                         Text("Technika / Popis")
                                             .font(.system(size: 13, weight: .bold))
-                                            .foregroundColor(.white.opacity(0.60))
+                                            .foregroundColor(Color.textSecondary)
                                         TextEditor(text: $newFigureNotes)
                                             .scrollContentBackground(.hidden)
                                             .frame(height: 100)
                                             .padding(6)
-                                            .background(Color.themeCard)
+                                            .background(Color.obsidian800)
                                             .foregroundColor(.white)
                                             .cornerRadius(10)
                                             .overlay(
@@ -302,10 +306,18 @@ struct GlobalLibraryView: View {
                                 Button(action: saveFigure) {
                                     Text("Uložiť do knižnice")
                                         .font(.system(size: 15, weight: .bold))
-                                        .foregroundColor(.white)
+                                        .foregroundColor(newFigureName.isEmpty ? Color.white.opacity(0.3) : Color.obsidian950)
                                         .frame(maxWidth: .infinity)
+                                        .padding(.vertical, 14)
+                                        .background(
+                                            newFigureName.isEmpty
+                                            ? LinearGradient(colors: [Color.white.opacity(0.08), Color.white.opacity(0.08)], startPoint: .leading, endPoint: .trailing)
+                                            : Color.goldLinearGradient
+                                        )
+                                        .cornerRadius(12)
+                                        .shadow(color: newFigureName.isEmpty ? Color.clear : Color.gold500.opacity(0.35), radius: 8, y: 3)
                                 }
-                                .buttonStyle(.neubrutalist(accentColor: newFigureName.isEmpty ? Color.gray.opacity(0.6) : Color.themeAccent))
+                                .buttonStyle(.plain)
                                 .disabled(newFigureName.isEmpty)
                                 .padding(.horizontal, 20)
                                 .padding(.bottom, 20)
@@ -318,7 +330,7 @@ struct GlobalLibraryView: View {
                     .toolbar {
                         ToolbarItem(placement: .cancellationAction) {
                             Button("Zrušiť") { showAddFigure = false }
-                                .foregroundColor(.themeDark)
+                                .foregroundColor(Color.gold400)
                         }
                         
                         ToolbarItemGroup(placement: .keyboard) {
@@ -326,7 +338,7 @@ struct GlobalLibraryView: View {
                             Button("Hotovo") {
                                 UIApplication.shared.endEditing()
                             }
-                            .foregroundColor(.themeAccent)
+                            .foregroundColor(Color.gold400)
                         }
                     }
                 }
@@ -398,7 +410,7 @@ struct LibraryFigureDetailSheet: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                Color.themeBg.ignoresSafeArea()
+                Color.obsidian800.ignoresSafeArea()
                 
                 ScrollView {
                     VStack(spacing: 24) {
@@ -408,30 +420,30 @@ struct LibraryFigureDetailSheet: View {
                             VStack(alignment: .leading, spacing: 6) {
                                 Text("Názov figúry")
                                     .font(.system(size: 13, weight: .bold))
-                                    .foregroundColor(.gray)
+                                    .foregroundColor(Color.textSecondary)
                                 TextField("Názov", text: $nameText)
                                     .padding()
-                                    .background(Color.themeCard)
+                                    .background(Color.obsidian800)
                                     .cornerRadius(10)
-                                    .foregroundColor(.themeDark)
+                                    .foregroundColor(.white)
                                     .overlay(
                                         RoundedRectangle(cornerRadius: 10)
-                                            .stroke(Color.themeDark, lineWidth: 2)
+                                            .stroke(Color.white.opacity(0.1), lineWidth: 1)
                                     )
                             }
                             
                             VStack(alignment: .leading, spacing: 6) {
                                 Text("Rytmizácia")
                                     .font(.system(size: 13, weight: .bold))
-                                    .foregroundColor(.themeDark.opacity(0.55))
+                                    .foregroundColor(Color.textSecondary)
                                 TextField("Rytmus", text: $rhythmText)
                                     .padding()
-                                    .background(Color.themeCard)
+                                    .background(Color.obsidian800)
                                     .cornerRadius(10)
-                                    .foregroundColor(.themeDark)
+                                    .foregroundColor(.white)
                                     .overlay(
                                         RoundedRectangle(cornerRadius: 10)
-                                            .stroke(Color.themeDark, lineWidth: 2)
+                                            .stroke(Color.white.opacity(0.1), lineWidth: 1)
                                     )
                             }
                         }
@@ -441,7 +453,7 @@ struct LibraryFigureDetailSheet: View {
                         VStack(alignment: .leading, spacing: 10) {
                             Text("Fotografia")
                                 .font(.system(size: 14, weight: .bold, design: .serif))
-                                .foregroundColor(.themeDark)
+                                .foregroundColor(.white)
                             
                             if let imagePath = figure.imagePath,
                                let uiImage = MediaResolver.resolveImage(path: imagePath) {
@@ -454,7 +466,7 @@ struct LibraryFigureDetailSheet: View {
                                         .cornerRadius(16)
                                         .overlay(
                                             RoundedRectangle(cornerRadius: 16)
-                                                .stroke(Color.themeDark, lineWidth: 2)
+                                                .stroke(Color.white.opacity(0.12), lineWidth: 1)
                                         )
                                     
                                     Button(action: deletePhoto) {
@@ -473,11 +485,14 @@ struct LibraryFigureDetailSheet: View {
                                         Text("Vybrať fotku z galérie")
                                     }
                                     .font(.system(size: 14, weight: .bold))
-                                    .foregroundColor(.themeDark)
+                                    .foregroundColor(Color.gold400)
                                     .frame(maxWidth: .infinity)
                                     .frame(height: 80)
+                                    .background(Color.obsidian800)
+                                    .cornerRadius(12)
+                                    .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.white.opacity(0.1), lineWidth: 1))
                                 }
-                                .buttonStyle(.neubrutalistSecondary(cornerRadius: 12))
+                                .buttonStyle(.plain)
                             }
                         }
                         .padding(.horizontal, 20)
@@ -486,7 +501,7 @@ struct LibraryFigureDetailSheet: View {
                         VStack(alignment: .leading, spacing: 10) {
                             Text("Video ukážka")
                                 .font(.system(size: 14, weight: .bold, design: .serif))
-                                .foregroundColor(.themeDark)
+                                .foregroundColor(.white)
                             
                             if let videoPath = figure.videoPath,
                                let videoURL = MediaResolver.resolveVideoURL(path: videoPath) {
@@ -497,20 +512,26 @@ struct LibraryFigureDetailSheet: View {
                                         .cornerRadius(16)
                                         .overlay(
                                             RoundedRectangle(cornerRadius: 16)
-                                                .stroke(Color.themeDark, lineWidth: 2)
+                                                .stroke(Color.white.opacity(0.12), lineWidth: 1)
                                         )
                                     
                                     HStack(spacing: 12) {
                                         Text("Rýchlosť:")
                                             .font(.system(size: 12, weight: .bold))
-                                            .foregroundColor(.themeDark.opacity(0.55))
+                                            .foregroundColor(Color.textSecondary)
                                         
                                         ForEach([0.5, 0.75, 1.0, 1.5], id: \.self) { speed in
                                             Button(action: { playbackRate = Float(speed) }) {
                                                 Text(String(format: "%.2fx", speed))
                                                     .font(.system(size: 11, weight: .black))
+                                                    .foregroundColor(playbackRate == Float(speed) ? Color.obsidian950 : .white)
+                                                    .padding(.horizontal, 8)
+                                                    .padding(.vertical, 4)
+                                                    .background(playbackRate == Float(speed) ? Color.goldLinearGradient : LinearGradient(colors: [Color.obsidian800, Color.obsidian800], startPoint: .leading, endPoint: .trailing))
+                                                    .cornerRadius(8)
+                                                    .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.white.opacity(0.1), lineWidth: 1))
                                             }
-                                            .buttonStyle(.neubrutalistToggle(isActive: playbackRate == Float(speed), activeColor: Color.themeAccent, cornerRadius: 8))
+                                            .buttonStyle(.plain)
                                         }
                                         
                                         Spacer()
@@ -529,11 +550,14 @@ struct LibraryFigureDetailSheet: View {
                                         Text("Nahrať tréningové video")
                                     }
                                     .font(.system(size: 14, weight: .bold))
-                                    .foregroundColor(.themeDark)
+                                    .foregroundColor(Color.gold400)
                                     .frame(maxWidth: .infinity)
                                     .frame(height: 80)
+                                    .background(Color.obsidian800)
+                                    .cornerRadius(12)
+                                    .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.white.opacity(0.1), lineWidth: 1))
                                 }
-                                .buttonStyle(.neubrutalistSecondary(cornerRadius: 12))
+                                .buttonStyle(.plain)
                             }
                         }
                         .padding(.horizontal, 20)
@@ -542,18 +566,18 @@ struct LibraryFigureDetailSheet: View {
                         VStack(alignment: .leading, spacing: 8) {
                             Text("Technika / Popis")
                                 .font(.system(size: 14, weight: .bold, design: .serif))
-                                .foregroundColor(.themeDark)
+                                .foregroundColor(.white)
                             
                             TextEditor(text: $notesText)
                                 .scrollContentBackground(.hidden)
                                 .frame(height: 120)
                                 .padding(8)
-                                .background(Color.themeCard)
-                                .foregroundColor(.themeDark)
+                                .background(Color.obsidian800)
+                                .foregroundColor(.white)
                                 .cornerRadius(12)
                                 .overlay(
                                     RoundedRectangle(cornerRadius: 12)
-                                        .stroke(Color.themeDark, lineWidth: 2)
+                                        .stroke(Color.white.opacity(0.1), lineWidth: 1)
                                 )
                         }
                         .padding(.horizontal, 20)
@@ -584,8 +608,11 @@ struct LibraryFigureDetailSheet: View {
                             .font(.system(size: 15, weight: .bold))
                             .foregroundColor(.white)
                             .frame(maxWidth: .infinity)
+                            .padding(.vertical, 14)
+                            .background(Color.latinRed.opacity(0.85))
+                            .cornerRadius(12)
                         }
-                        .buttonStyle(.neubrutalist(accentColor: Color.latinRed))
+                        .buttonStyle(.plain)
                         .padding(.horizontal, 20)
                         .padding(.top, 16)
                         .padding(.bottom, 24)
@@ -610,7 +637,7 @@ struct LibraryFigureDetailSheet: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Zrušiť") { dismiss() }
-                        .foregroundColor(.themeDark)
+                        .foregroundColor(Color.gold400)
                 }
                 ToolbarItem(placement: .primaryAction) {
                     Button("Uložiť") {
@@ -618,7 +645,7 @@ struct LibraryFigureDetailSheet: View {
                         dismiss()
                     }
                     .font(.system(size: 15, weight: .bold))
-                    .foregroundColor(.themeAccent)
+                    .foregroundColor(Color.gold400)
                 }
                 
                 ToolbarItemGroup(placement: .keyboard) {
@@ -626,7 +653,7 @@ struct LibraryFigureDetailSheet: View {
                     Button("Hotovo") {
                         UIApplication.shared.endEditing()
                     }
-                    .foregroundColor(.themeAccent)
+                    .foregroundColor(Color.gold400)
                 }
             }
             .onAppear {
@@ -833,8 +860,13 @@ struct FilterChip: View {
         Button(action: action) {
             Text(title)
                 .font(.system(size: 13, weight: .bold))
-                .foregroundColor(isSelected ? .white : .themeDark)
+                .foregroundColor(isSelected ? Color.obsidian950 : Color.textSecondary)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 8)
+                .background(isSelected ? Color.goldLinearGradient : LinearGradient(colors: [Color.obsidian800, Color.obsidian800], startPoint: .leading, endPoint: .trailing))
+                .cornerRadius(20)
+                .overlay(RoundedRectangle(cornerRadius: 20).stroke(isSelected ? Color.clear : Color.white.opacity(0.1), lineWidth: 1))
         }
-        .buttonStyle(.neubrutalistToggle(isActive: isSelected, activeColor: Color.themeAccent, cornerRadius: 20))
+        .buttonStyle(.plain)
     }
 }

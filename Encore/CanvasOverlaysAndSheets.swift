@@ -41,7 +41,7 @@ struct FiguresDrawerSheet: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                Color.themeBg.ignoresSafeArea()
+                Color.obsidian800.ignoresSafeArea()
                 ScrollView {
                     VStack(alignment: .leading, spacing: 12) {
                         Text("Dostupné figúry pre \(danceName)")
@@ -53,21 +53,24 @@ struct FiguresDrawerSheet: View {
                             ForEach(libraryItems) { item in
                                 Button(action: { onSelectFigure(item) }) {
                                     HStack {
-                                        VStack(alignment: .leading, spacing: 4) {
-                                            Text(item.name)
-                                                .font(.system(size: 15, weight: .bold, design: .serif))
-                                                .foregroundColor(.themeDark)
-                                            Text(item.rhythm)
-                                                .font(.system(size: 12))
-                                                .foregroundColor(.themeAccent)
-                                        }
-                                        Spacer()
-                                        Image(systemName: "plus.circle")
-                                            .font(.system(size: 18))
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text(item.name)
+                                            .font(.system(size: 15, weight: .bold, design: .serif))
+                                            .foregroundColor(.themeDark)
+                                        Text(item.rhythm)
+                                            .font(.system(size: 12))
                                             .foregroundColor(.themeAccent)
                                     }
-                                    .padding()
-                                    .neubrutalistCard(cornerRadius: 12, shadowOffset: 2)
+                                    Spacer()
+                                    Image(systemName: "plus.circle")
+                                        .font(.system(size: 18))
+                                        .foregroundColor(.themeAccent)
+                                }
+                                .padding()
+                                .background(Color.themeCard)
+                                .cornerRadius(12)
+                                .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.gold400.opacity(0.18), lineWidth: 1))
+                                .shadow(color: Color.black.opacity(0.3), radius: 6, x: 0, y: 2)
                                 }
                                 .buttonStyle(.plain)
                             }
@@ -81,7 +84,7 @@ struct FiguresDrawerSheet: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Zrušiť") { isPresented = false }
-                        .foregroundColor(.themeDark)
+                        .foregroundColor(.gold400)
                 }
             }
         }
@@ -105,18 +108,18 @@ struct TransitionEditSheet: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                Color.themeBg.ignoresSafeArea()
+                Color.obsidian800.ignoresSafeArea()
                 VStack(spacing: 20) {
                     VStack(alignment: .leading, spacing: 8) {
                         Text("Prechod zo:")
                             .font(.system(size: 12, weight: .bold))
-                            .foregroundColor(.gray)
+                            .foregroundColor(.themeTextSecondary)
                         Text(fromNode.figureName)
                             .font(.system(size: 16, weight: .bold, design: .serif))
                             .foregroundColor(.themeDark)
                         Text("do:")
                             .font(.system(size: 12, weight: .bold))
-                            .foregroundColor(.gray)
+                            .foregroundColor(.themeTextSecondary)
                             .padding(.top, 8)
                         Text(toNode.figureName)
                             .font(.system(size: 16, weight: .bold, design: .serif))
@@ -124,7 +127,10 @@ struct TransitionEditSheet: View {
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding()
-                    .neubrutalistCard(cornerRadius: 14, shadowOffset: 3)
+                    .background(Color.themeCard)
+                    .cornerRadius(14)
+                    .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.gold400.opacity(0.20), lineWidth: 1))
+                    .shadow(color: Color.black.opacity(0.4), radius: 8, x: 0, y: 3)
                     .padding(.horizontal, 20)
                     
                     VStack(alignment: .leading, spacing: 8) {
@@ -199,7 +205,7 @@ struct TransitionEditSheet: View {
                         saveNow()
                         onSave()
                     }
-                        .foregroundColor(.themeDark)
+                        .foregroundColor(.gold400)
                 }
                 ToolbarItem(placement: .primaryAction) {
                     if isAutoSaved {
@@ -383,7 +389,7 @@ struct QRExportSheet: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                Color.themeBg.ignoresSafeArea()
+                EllegancePageBackground()
                 
                 VStack(spacing: 20) {
                     Text("Zdieľanie zostavy")
@@ -408,9 +414,9 @@ struct QRExportSheet: View {
                             .cornerRadius(18)
                             .overlay(
                                 RoundedRectangle(cornerRadius: 18)
-                                    .stroke(Color.themeDark, lineWidth: 3)
+                                    .stroke(Color.gold400, lineWidth: 2)
                             )
-                            .shadow(color: Color.themeDark, radius: 0, x: 4, y: 4)
+                            .shadow(color: Color.amberGold.opacity(0.25), radius: 16, x: 0, y: 4)
                     } else {
                         VStack(spacing: 12) {
                             ProgressView()
@@ -467,7 +473,7 @@ struct QRExportSheet: View {
                     Button("Zavrieť") {
                         dismiss()
                     }
-                    .foregroundColor(.themeDark)
+                    .foregroundColor(.gold400)
                 }
             }
         }

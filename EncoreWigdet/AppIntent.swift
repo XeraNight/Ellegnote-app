@@ -1,6 +1,6 @@
 //
 //  AppIntent.swift
-//  EllegnoteWigdet
+//  EncoreWigdet
 //
 //  Created by Jakub on 19/07/2026.
 //
@@ -23,7 +23,7 @@ struct StopRecordingIntent: LiveActivityIntent {
     static var description = IntentDescription("Stops the active dance camera recording.")
 
     func perform() async throws -> some IntentResult {
-        let notificationName = "com.ellegnote.stopRecording" as CFString
+        let notificationName = "com.encore.stopRecording" as CFString
         CFNotificationCenterPostNotification(
             CFNotificationCenterGetDarwinNotifyCenter(),
             CFNotificationName(notificationName),
@@ -45,7 +45,7 @@ struct BookmarkRecordingIntent: LiveActivityIntent {
     static var description = IntentDescription("Bookmarks a key dance moment during recording into Instant Notes.")
 
     func perform() async throws -> some IntentResult {
-        let notificationName = "com.ellegnote.bookmark" as CFString
+        let notificationName = "com.encore.bookmark" as CFString
         CFNotificationCenterPostNotification(
             CFNotificationCenterGetDarwinNotifyCenter(),
             CFNotificationName(notificationName),

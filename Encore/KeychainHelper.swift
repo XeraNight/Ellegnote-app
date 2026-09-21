@@ -4,7 +4,7 @@ import Security
 // MARK: - Thread-safe iOS Keychain Helper for Biometric / Saved Auth
 final class KeychainHelper {
     static let shared = KeychainHelper()
-    private let serviceName = "com.ellegnote.app.auth"
+    private let serviceName = "com.encore.app.auth"
     
     private init() {}
     

@@ -1,17 +1,17 @@
-# 🌐 ELLEGNOTE WEB — Architektúra & Špecifikácia Realtime Webovej Verzie pre Android & Desktop
+# 🌐 ENCORE WEB — Architektúra & Špecifikácia Realtime Webovej Verzie pre Android & Desktop
 
 > **Dátum:** August 2026  
-> **Účel:** Špecifikácia, porovnanie a plán vývoja webovej verzie pre tanečníkov s Androidom a trénerov na PC/Macu, prepojenej na rovnaký Supabase Realtime backend ako iOS aplikácia Ellegnote.
+> **Účel:** Špecifikácia, porovnanie a plán vývoja webovej verzie pre tanečníkov s Androidom a trénerov na PC/Macu, prepojenej na rovnaký Supabase Realtime backend ako iOS aplikácia Encore.
 
 ---
 
-## 🔍 1. Porovnanie: Školský Projekt vs. Ellegnote iOS vs. Budúci Web
+## 🔍 1. Porovnanie: Školský Projekt vs. Encore iOS vs. Budúci Web
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────────────────────────┐
 │                                   ARCHITEKTÚRNE POROVNANIE                                      │
 ├───────────────────────┬───────────────────────────────┬─────────────────────────────────────────┤
-│ 🏫 Bývalý Projekt      │ 📱 Súčasný Ellegnote (iOS)    │ 🌐 Budúci Ellegnote Web (Android / PC)  │
+│ 🏫 Bývalý Projekt      │ 📱 Súčasný Encore (iOS)    │ 🌐 Budúci Encore Web (Android / PC)  │
 │ (ballroom-note-taking)│ (Natívny Swift & SwiftData)   │ (Next.js 15, React 19, Supabase Realtime)│
 ├───────────────────────┼───────────────────────────────┼─────────────────────────────────────────┤
 │ • Statický Next.js    │ • 100% Natívne iOS (SwiftUI)  │ • Next.js 15 (App Router) + TypeScript │
@@ -25,14 +25,14 @@
 
 ---
 
-## 🎨 2. Vizuálny Dizajn & Inšpirácia (Ellegance + Ellegnote)
+## 🎨 2. Vizuálny Dizajn & Inšpirácia (Ellegance + Encore)
 
 Pre webovú verziu skombinujeme to najlepšie z dvoch svetov:
 
 1. **Značka Ellegance (z projektu `Ellegance website`):**
    - **Farby:** Obsidian Black (`#050505`, `#0a0a0a`), Gold akcenty (`#D4AF37`, `#FFE088`), jemné sklenené panely (Glassmorphism).
    - **Typografia:** *Plus Jakarta Sans* pre nadpisy a čísla taktov, *Inter / Outfit* pre čisté čítanie na mobiloch.
-2. **Ergonómia Ellegnote (z našej iOS aplikácie):**
+2. **Ergonómia Encore (z našej iOS aplikácie):**
    - Hrubé, vysoko kontrastné ohraničenia kariet (čitateľné aj na diaľku na parkete).
    - Farebné odznaky: 🔵 **Standard Blue** pre štandardné tance, 🔴 **Latin Red / Pink** pre latinskoamerické tance.
    - Spodný plávajúci ovládací dok prispôsobený pre dotyk jedným palcom na Android telefónoch.
