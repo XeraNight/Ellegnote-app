@@ -48,7 +48,25 @@ Deno.serve(async (req: Request) => {
 
     const { action, couple_id, discipline, partner_name, partner_consent } = body || {};
 
-    // Strict numeric validation
+    // 3a. POST action: "list" -> Return user's couples
+    if (action === "list") {
+      const { data, error } = await supabase
+        .from("user_couples")
+        .select("id, couple_id, discipline, partner_name, partner_consent, created_at, updated_at")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: true });
+
+      if (error) {
+        return errorResponse("invalid_input", `Chyba pri načítaní párov: ${error.message}`, 400);
+      }
+
+      return jsonResponse({
+        success: true,
+        couples: data || [],
+      });
+    }
+
+    // Strict numeric validation for action: "add" or "remove"
     const parsedCoupleId = Number(couple_id);
     if (!Number.isInteger(parsedCoupleId) || parsedCoupleId <= 0) {
       return errorResponse("invalid_input", "couple_id musí byť kladné celé číslo.", 400);

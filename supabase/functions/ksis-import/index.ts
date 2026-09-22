@@ -210,8 +210,36 @@ Deno.serve(async (req: Request) => {
 
   // If preview requested, return parsed data without saving to DB
   if (preview_only === true) {
+    const previewResult = {
+      id: "00000000-0000-0000-0000-000000000000",
+      user_id: user.id,
+      sutaz_id: parsedSutazId,
+      couple_id: parsedCoupleId,
+      event_name: meta.eventName,
+      category_name: meta.categoryName,
+      discipline: meta.discipline,
+      date: meta.date,
+      place: meta.place,
+      couple_count: meta.coupleCount,
+      placement_text: couple.placementText,
+      placement: couple.placement,
+      points_earned: couple.pointsEarned,
+      cumulative_stats: couple.cumulativeStats,
+      cumulative_points: couple.cumulativePoints,
+      cumulative_finals: couple.cumulativeFinals,
+      crosses_count: null,
+      is_official: couple.isOfficial,
+      season: meta.season,
+      is_deleted: false,
+      deleted_at: null,
+      imported_at: new Date().toISOString(),
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+
     return jsonResponse({
       success: true,
+      result: previewResult,
       preview: {
         meta,
         couple,

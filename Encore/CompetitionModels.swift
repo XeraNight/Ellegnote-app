@@ -48,6 +48,34 @@ public struct UserCouple: Identifiable, Codable, Equatable, Sendable {
         }
         return "Pár #\(coupleId) (\(discipline))"
     }
+
+    public func fullCoupleTitle(myUserName: String? = nil) -> String {
+        let me = myUserName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let partner = partnerName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        if !me.isEmpty && !partner.isEmpty && me != "Tanečník" {
+            return "\(me) & \(partner)"
+        } else if !partner.isEmpty {
+            return "Pár: \(partner)"
+        }
+        return "Pár #\(coupleId)"
+    }
+
+    public var disciplineTitle: String {
+        switch discipline.uppercased() {
+        case "ALL", "10T":
+            return "Štandard aj Latina"
+        case "STT":
+            return "Štandard (STT)"
+        case "LAT":
+            return "Latina (LAT)"
+        default:
+            return discipline
+        }
+    }
+
+    public var isAllDisciplines: Bool {
+        discipline.uppercased() == "ALL" || discipline.uppercased() == "10T"
+    }
 }
 
 // MARK: - KSIS Competition Result Model
@@ -233,15 +261,83 @@ public struct KSISImportRequest: Encodable {
     }
 }
 
+public struct KSISPreviewMeta: Decodable, Sendable {
+    public let sutazId: Int
+    public let eventName: String
+    public let categoryName: String
+    public let discipline: String
+    public let date: String
+    public let place: String?
+    public let coupleCount: Int?
+    public let season: String?
+    public let isOfficial: Bool?
+}
+
+public struct KSISPreviewCouple: Decodable, Sendable {
+    public let coupleId: Int
+    public let coupleName: String?
+    public let club: String?
+    public let bib: String?
+    public let roundName: String?
+    public let placementText: String?
+    public let placement: Int?
+    public let pointsEarned: Int?
+    public let cumulativeStats: String?
+    public let cumulativePoints: Int?
+    public let cumulativeFinals: Int?
+    public let isOfficial: Bool?
+    public let state: String?
+}
+
+public struct KSISPreviewPayload: Decodable, Sendable {
+    public let meta: KSISPreviewMeta?
+    public let couple: KSISPreviewCouple?
+    public let stateHash: String?
+
+    public func toCompetitionResult(userId: UUID? = nil) -> CompetitionResult? {
+        guard let meta = meta, let couple = couple else { return nil }
+        return CompetitionResult(
+            id: UUID(),
+            userId: userId,
+            sutazId: meta.sutazId,
+            coupleId: couple.coupleId,
+            eventName: meta.eventName,
+            categoryName: meta.categoryName,
+            discipline: meta.discipline,
+            date: meta.date,
+            place: meta.place,
+            coupleCount: meta.coupleCount,
+            placementText: couple.placementText,
+            placement: couple.placement,
+            pointsEarned: couple.pointsEarned,
+            cumulativeStats: couple.cumulativeStats,
+            cumulativePoints: couple.cumulativePoints,
+            cumulativeFinals: couple.cumulativeFinals,
+            isOfficial: (couple.isOfficial ?? false) || (meta.isOfficial ?? false),
+            season: meta.season,
+            isDeleted: false,
+            deletedAt: nil,
+            createdAt: ISO8601DateFormatter().string(from: Date()),
+            updatedAt: ISO8601DateFormatter().string(from: Date())
+        )
+    }
+}
+
 public struct KSISImportResponse: Decodable {
     public let success: Bool
-    public let preview: Bool?
+    public let preview: KSISPreviewPayload?
     public let result: CompetitionResult?
     public let message: String?
     public let error: String?
     public let can_restore: Bool?
     public let conflict_id: String?
+    public let existing_result_id: String?
     public let retry_after: Int?
+    public let name_warning: String?
+
+    public var resolvedResult: CompetitionResult? {
+        result ?? preview?.toCompetitionResult()
+    }
 }
 
 public struct KSISCoupleActionRequest: Encodable {

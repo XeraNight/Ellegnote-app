@@ -134,12 +134,19 @@ struct ProfileView: View {
                     VStack(alignment: .leading, spacing: 3) {
                         if let couple = competitionManager.activeCouple {
                             let adv = competitionManager.computeAdvancement(for: couple.coupleId)
-                            Text(couple.displayTitle)
+                            Text(couple.fullCoupleTitle(myUserName: profileStore.currentName))
                                 .font(.system(size: 15, weight: .bold))
                                 .foregroundColor(.white)
-                            Text("\(adv.currentPoints) / \(adv.requiredPoints) b. • \(adv.currentFinals) / \(adv.requiredFinals) finále")
-                                .font(.system(size: 12, weight: .medium))
-                                .foregroundColor(Color.gold300.opacity(0.7))
+                            HStack(spacing: 6) {
+                                Text(couple.disciplineTitle)
+                                    .font(.system(size: 11, weight: .semibold))
+                                    .foregroundColor(.gold400)
+                                Text("•")
+                                    .foregroundColor(.white.opacity(0.3))
+                                Text("\(adv.currentPoints)/\(adv.requiredPoints) b. (\(adv.currentFinals)/\(adv.requiredFinals) F)")
+                                    .font(.system(size: 12, weight: .medium))
+                                    .foregroundColor(Color.gold300.opacity(0.8))
+                            }
                         } else {
                             Text("KSIS Denník & Postupy")
                                 .font(.system(size: 15, weight: .bold))

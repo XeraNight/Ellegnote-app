@@ -3,9 +3,11 @@ import SwiftUI
 // MARK: - Competition Tracker & Diary View (KSIS)
 public struct CompetitionTrackerView: View {
     @StateObject private var manager = CompetitionManager.shared
+    @ObservedObject private var profileStore = UserProfileStore.shared
     @Environment(\.dismiss) private var dismiss
 
     @State private var selectedDisciplineFilter: String = "Všetko"
+    @State private var advancementDiscipline: String = "STT"
     @State private var showImportSheet: Bool = false
     @State private var showCoupleSheet: Bool = false
     @State private var showArchivedSheet: Bool = false
@@ -82,10 +84,17 @@ public struct CompetitionTrackerView: View {
         }
         .task {
             await manager.loadAllData()
+            if let active = manager.activeCouple {
+                if active.discipline == "LAT" {
+                    advancementDiscipline = "LAT"
+                } else {
+                    advancementDiscipline = "STT"
+                }
+            }
         }
     }
 
-    // MARK: - 1. Couple Selector Header Card
+    // MARK: - 1. Couple Selector Header Card (Obsidian & Gold)
     @ViewBuilder
     private var coupleSelectorHeaderCard: some View {
         VStack(spacing: 12) {
@@ -100,7 +109,7 @@ public struct CompetitionTrackerView: View {
                         .font(.system(size: 16, weight: .bold))
                         .foregroundColor(.white)
 
-                    Text("Prepojte svoje KSIS ID páru (zo stránky szts.ksis.eu/par.php) pre sledovanie postupov a oficiálny denník.")
+                    Text("Prepojte svoje KSIS ID páru (napr. 18978 zo szts.ksis.eu/par.php) pre automatické načítanie výsledkov a sledovanie postupov.")
                         .font(.system(size: 13, weight: .regular))
                         .foregroundColor(Color.white.opacity(0.7))
                         .multilineTextAlignment(.center)
@@ -133,61 +142,123 @@ public struct CompetitionTrackerView: View {
                         .stroke(LuxuryTheme.gold500.opacity(0.3), lineWidth: 1.2)
                 )
             } else {
-                // Active couple bar with switcher if 2 couples exist
-                HStack(spacing: 12) {
-                    ZStack {
-                        Circle()
-                            .fill(LuxuryTheme.gold500.opacity(0.15))
-                            .frame(width: 44, height: 44)
-                        Image(systemName: "trophy.fill")
-                            .font(.system(size: 18, weight: .bold))
-                            .foregroundColor(LuxuryTheme.gold400)
-                    }
-                    .overlay(Circle().stroke(LuxuryTheme.gold500.opacity(0.35), lineWidth: 1))
+                // Active couple card with names, badges and switcher
+                let couple = manager.activeCouple ?? manager.couples.first!
+                let coupleTitle = couple.fullCoupleTitle(myUserName: profileStore.currentName)
 
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text(manager.activeCouple?.displayTitle ?? "Tanečný Pár")
-                            .font(.system(size: 15, weight: .bold))
-                            .foregroundColor(.white)
+                VStack(alignment: .leading, spacing: 12) {
+                    HStack(spacing: 12) {
+                        ZStack {
+                            Circle()
+                                .fill(LuxuryTheme.gold500.opacity(0.18))
+                                .frame(width: 46, height: 46)
+                            Image(systemName: "trophy.fill")
+                                .font(.system(size: 19, weight: .bold))
+                                .foregroundColor(LuxuryTheme.gold400)
+                        }
+                        .overlay(Circle().stroke(LuxuryTheme.gold500.opacity(0.4), lineWidth: 1))
 
-                        Text("KSIS Pár ID: \(manager.activeCouple?.coupleId ?? 0) • \(manager.activeCouple?.discipline ?? "STT/LAT")")
-                            .font(.system(size: 12, weight: .medium))
-                            .foregroundColor(Color.gold300.opacity(0.7))
-                    }
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(coupleTitle)
+                                .font(.system(size: 16, weight: .bold))
+                                .foregroundColor(.white)
 
-                    Spacer()
+                            HStack(spacing: 6) {
+                                Text("Pár #\(couple.coupleId)")
+                                    .font(.system(size: 11, weight: .bold))
+                                    .foregroundColor(LuxuryTheme.gold300)
+                                    .padding(.horizontal, 6)
+                                    .padding(.vertical, 2)
+                                    .background(LuxuryTheme.gold500.opacity(0.18))
+                                    .cornerRadius(6)
 
-                    if manager.couples.count > 1 {
-                        Menu {
-                            ForEach(manager.couples) { c in
-                                Button {
-                                    manager.activeCouple = c
-                                } label: {
-                                    HStack {
-                                        Text(c.displayTitle)
-                                        if manager.activeCouple?.coupleId == c.coupleId {
-                                            Image(systemName: "checkmark")
-                                        }
-                                    }
+                                if couple.isAllDisciplines {
+                                    Text("STT")
+                                        .font(.system(size: 10, weight: .bold))
+                                        .foregroundColor(.white)
+                                        .padding(.horizontal, 6)
+                                        .padding(.vertical, 2)
+                                        .background(Color.standardBlue.opacity(0.85))
+                                        .cornerRadius(5)
+
+                                    Text("LAT")
+                                        .font(.system(size: 10, weight: .bold))
+                                        .foregroundColor(.white)
+                                        .padding(.horizontal, 6)
+                                        .padding(.vertical, 2)
+                                        .background(Color.latinCrimson.opacity(0.85))
+                                        .cornerRadius(5)
+                                } else {
+                                    Text(couple.discipline)
+                                        .font(.system(size: 10, weight: .bold))
+                                        .foregroundColor(.white)
+                                        .padding(.horizontal, 6)
+                                        .padding(.vertical, 2)
+                                        .background(LuxuryTheme.obsidian700)
+                                        .cornerRadius(5)
                                 }
+
+                                Text("• Prepojený pár")
+                                    .font(.system(size: 11, weight: .semibold))
+                                    .foregroundColor(Color.syncEmerald)
                             }
+                        }
+
+                        Spacer()
+
+                        // Manage or Switch Button
+                        Button {
+                            showCoupleSheet = true
                         } label: {
-                            Image(systemName: "arrow.triangle.2.circlepath")
-                                .font(.system(size: 14, weight: .bold))
+                            Image(systemName: "slider.horizontal.3")
+                                .font(.system(size: 13, weight: .bold))
                                 .foregroundColor(LuxuryTheme.gold400)
                                 .padding(8)
                                 .background(LuxuryTheme.obsidian700)
                                 .clipShape(Circle())
+                                .overlay(Circle().stroke(LuxuryTheme.gold500.opacity(0.3), lineWidth: 1))
+                        }
+                    }
+
+                    if manager.couples.count > 1 {
+                        Divider().background(Color.white.opacity(0.08))
+
+                        HStack {
+                            Text("Prepnúť pár:")
+                                .font(.system(size: 12, weight: .medium))
+                                .foregroundColor(Color.white.opacity(0.6))
+
+                            Spacer()
+
+                            ForEach(manager.couples) { c in
+                                Button {
+                                    manager.activeCouple = c
+                                } label: {
+                                    Text("#\(c.coupleId) (\(c.discipline))")
+                                        .font(.system(size: 11, weight: .bold))
+                                        .foregroundColor(manager.activeCouple?.coupleId == c.coupleId ? LuxuryTheme.obsidian900 : Color.white.opacity(0.8))
+                                        .padding(.horizontal, 8)
+                                        .padding(.vertical, 4)
+                                        .background(
+                                            manager.activeCouple?.coupleId == c.coupleId
+                                                ? LinearGradient(colors: [LuxuryTheme.gold500, LuxuryTheme.gold400], startPoint: .leading, endPoint: .trailing)
+                                                : LinearGradient(colors: [LuxuryTheme.obsidian700, LuxuryTheme.obsidian700], startPoint: .leading, endPoint: .trailing)
+                                        )
+                                        .cornerRadius(6)
+                                }
+                                .buttonStyle(.plain)
+                            }
                         }
                     }
                 }
                 .padding(16)
-                .background(LuxuryTheme.obsidian800.opacity(0.9))
+                .background(LuxuryTheme.obsidian800.opacity(0.95))
                 .cornerRadius(18)
                 .overlay(
                     RoundedRectangle(cornerRadius: 18)
-                        .stroke(LuxuryTheme.gold500.opacity(0.25), lineWidth: 1)
+                        .stroke(LuxuryTheme.gold500.opacity(0.35), lineWidth: 1.2)
                 )
+                .shadow(color: Color.black.opacity(0.4), radius: 10, x: 0, y: 4)
             }
         }
     }
@@ -195,9 +266,10 @@ public struct CompetitionTrackerView: View {
     // MARK: - 2. Class Advancement Progress Card
     @ViewBuilder
     private var advancementCard: some View {
+        let couple = manager.activeCouple ?? manager.couples.first
         let adv = manager.computeAdvancement(
-            for: manager.activeCouple?.coupleId,
-            discipline: selectedDisciplineFilter == "Všetko" ? nil : selectedDisciplineFilter
+            for: couple?.coupleId,
+            discipline: advancementDiscipline
         )
 
         VStack(spacing: 14) {
@@ -233,12 +305,53 @@ public struct CompetitionTrackerView: View {
                 }
             }
 
+            // Discipline Switcher for Advancement Card (STT vs LAT)
+            HStack(spacing: 8) {
+                Button {
+                    advancementDiscipline = "STT"
+                } label: {
+                    HStack(spacing: 4) {
+                        Text("🩰 Štandard (STT)")
+                    }
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundColor(advancementDiscipline == "STT" ? LuxuryTheme.obsidian900 : Color.white.opacity(0.8))
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 7)
+                    .background(
+                        advancementDiscipline == "STT"
+                            ? LinearGradient(colors: [LuxuryTheme.gold500, LuxuryTheme.gold400], startPoint: .leading, endPoint: .trailing)
+                            : LinearGradient(colors: [LuxuryTheme.obsidian700, LuxuryTheme.obsidian700], startPoint: .leading, endPoint: .trailing)
+                    )
+                    .cornerRadius(8)
+                }
+                .buttonStyle(.plain)
+
+                Button {
+                    advancementDiscipline = "LAT"
+                } label: {
+                    HStack(spacing: 4) {
+                        Text("🔥 Latina (LAT)")
+                    }
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundColor(advancementDiscipline == "LAT" ? LuxuryTheme.obsidian900 : Color.white.opacity(0.8))
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 7)
+                    .background(
+                        advancementDiscipline == "LAT"
+                            ? LinearGradient(colors: [LuxuryTheme.gold500, LuxuryTheme.gold400], startPoint: .leading, endPoint: .trailing)
+                            : LinearGradient(colors: [LuxuryTheme.obsidian700, LuxuryTheme.obsidian700], startPoint: .leading, endPoint: .trailing)
+                    )
+                    .cornerRadius(8)
+                }
+                .buttonStyle(.plain)
+            }
+
             Divider().background(Color.gold500.opacity(0.15))
 
             // Points Progress Bar
             VStack(alignment: .leading, spacing: 6) {
                 HStack {
-                    Text("Body na postup")
+                    Text("Body na postup (\(advancementDiscipline))")
                         .font(.system(size: 13, weight: .medium))
                         .foregroundColor(Color.white.opacity(0.8))
 
@@ -272,7 +385,7 @@ public struct CompetitionTrackerView: View {
             // Finals Progress Bar
             VStack(alignment: .leading, spacing: 6) {
                 HStack {
-                    Text("Počet finálových umiestnení")
+                    Text("Finálové umiestnenia (\(advancementDiscipline))")
                         .font(.system(size: 13, weight: .medium))
                         .foregroundColor(Color.white.opacity(0.8))
 
@@ -413,8 +526,9 @@ public struct CompetitionTrackerView: View {
     // MARK: - 4. Results List Section
     @ViewBuilder
     private var resultsListSection: some View {
+        let activeCoupleId = manager.activeCouple?.coupleId ?? manager.couples.first?.coupleId
         let filteredResults = manager.results.filter { r in
-            if let active = manager.activeCouple, r.coupleId != active.coupleId {
+            if let activeId = activeCoupleId, r.coupleId != activeId {
                 return false
             }
             if selectedDisciplineFilter != "Všetko" && r.discipline.uppercased() != selectedDisciplineFilter.uppercased() {
@@ -447,7 +561,7 @@ public struct CompetitionTrackerView: View {
                         .font(.system(size: 15, weight: .semibold))
                         .foregroundColor(.white)
 
-                    Text("Vložte odkaz na súťaž (sutaz.php?sutaz_id=...) a výsledky sa automaticky naimportujú z oficiálneho KSIS protokolu.")
+                    Text("Vložte odkaz alebo číslo súťaže (napr. 12094) a výsledky sa automaticky naimportujú z oficiálneho KSIS protokolu.")
                         .font(.system(size: 12, weight: .regular))
                         .foregroundColor(Color.white.opacity(0.6))
                         .multilineTextAlignment(.center)
@@ -585,6 +699,7 @@ public struct CompetitionResultRowView: View {
 // MARK: - KSIS Import Sheet
 public struct KSISImportSheet: View {
     @StateObject private var manager = CompetitionManager.shared
+    @ObservedObject private var profileStore = UserProfileStore.shared
     @Environment(\.dismiss) private var dismiss
 
     @State private var inputUrlOrId: String = ""
@@ -592,8 +707,13 @@ public struct KSISImportSheet: View {
     @State private var localError: String? = nil
     @State private var showConflictRestoreAlert: Bool = false
     @State private var conflictResultIdToRestore: String? = nil
+    @State private var showCoupleSheet: Bool = false
 
     public init() {}
+
+    private var targetCouple: UserCouple? {
+        manager.activeCouple ?? manager.couples.first
+    }
 
     public var body: some View {
         NavigationStack {
@@ -608,7 +728,7 @@ public struct KSISImportSheet: View {
                                 .font(.system(size: 20, weight: .bold))
                                 .foregroundColor(.white)
 
-                            Text("Vložte URL odkaz na stránku súťaže z KSIS alebo jej číselné ID.")
+                            Text("Zadajte číslo súťaže (napr. 12094) alebo vložte celý URL odkaz z KSIS.")
                                 .font(.system(size: 13, weight: .regular))
                                 .foregroundColor(Color.white.opacity(0.7))
                                 .multilineTextAlignment(.center)
@@ -616,16 +736,16 @@ public struct KSISImportSheet: View {
                         .padding(.top, 10)
 
                         // Input Card
-                        VStack(alignment: .leading, spacing: 10) {
-                            Text("ODKAZ ALEBO ID SÚŤAŽE")
+                        VStack(alignment: .leading, spacing: 12) {
+                            Text("ČÍSLO ALEBO ODKAZ SÚŤAŽE")
                                 .font(.system(size: 11, weight: .black))
                                 .foregroundColor(LuxuryTheme.gold400)
 
                             HStack {
-                                Image(systemName: "link")
+                                Image(systemName: "magnifyingglass")
                                     .foregroundColor(LuxuryTheme.gold400)
                                 TextField("napr. 12094 alebo szts.ksis.eu/sutaz.php?sutaz_id=12094", text: $inputUrlOrId)
-                                    .keyboardType(.URL)
+                                    .keyboardType(.numbersAndPunctuation)
                                     .autocapitalization(.none)
                                     .disableAutocorrection(true)
                                     .foregroundColor(.white)
@@ -650,14 +770,40 @@ public struct KSISImportSheet: View {
                                     .stroke(LuxuryTheme.gold500.opacity(0.25), lineWidth: 1)
                             )
 
-                            if let couple = manager.activeCouple {
-                                Text("Importujete pre pár: #\(couple.coupleId) (\(couple.discipline))")
-                                    .font(.system(size: 11, weight: .medium))
-                                    .foregroundColor(LuxuryTheme.gold300.opacity(0.8))
+                            // Couple indicator banner
+                            if let couple = targetCouple {
+                                HStack(spacing: 8) {
+                                    Image(systemName: "person.2.fill")
+                                        .font(.system(size: 12))
+                                        .foregroundColor(LuxuryTheme.gold400)
+
+                                    Text("Import pre: \(couple.fullCoupleTitle(myUserName: profileStore.currentName)) (#\(couple.coupleId))")
+                                        .font(.system(size: 12, weight: .medium))
+                                        .foregroundColor(LuxuryTheme.gold300)
+                                        .lineLimit(1)
+
+                                    Spacer()
+                                }
+                                .padding(10)
+                                .background(LuxuryTheme.obsidian900.opacity(0.5))
+                                .cornerRadius(8)
                             } else {
-                                Text("⚠️ Najprv prepojte tanečný pár v nastaveniach denníka.")
-                                    .font(.system(size: 11, weight: .semibold))
-                                    .foregroundColor(Color.latinCrimson)
+                                HStack {
+                                    Text("⚠️ Nemáte prepojený tanečný pár.")
+                                        .font(.system(size: 12, weight: .semibold))
+                                        .foregroundColor(Color.latinCrimson)
+
+                                    Spacer()
+
+                                    Button("Prepojiť pár") {
+                                        showCoupleSheet = true
+                                    }
+                                    .font(.system(size: 12, weight: .bold))
+                                    .foregroundColor(LuxuryTheme.gold400)
+                                }
+                                .padding(10)
+                                .background(Color.latinCrimson.opacity(0.15))
+                                .cornerRadius(8)
                             }
                         }
                         .padding(16)
@@ -675,7 +821,7 @@ public struct KSISImportSheet: View {
                                     } else {
                                         Image(systemName: "magnifyingglass")
                                     }
-                                    Text(isAnalyzing ? "Overujem na KSIS..." : "Načítať Náhľad z KSIS")
+                                    Text(isAnalyzing ? "Vyhľadávam výsledok na KSIS..." : "Vyhľadať a Načítať Náhľad")
                                 }
                                 .font(.system(size: 15, weight: .bold))
                                 .foregroundColor(LuxuryTheme.obsidian900)
@@ -686,7 +832,7 @@ public struct KSISImportSheet: View {
                                 )
                                 .cornerRadius(14)
                             }
-                            .disabled(isAnalyzing || inputUrlOrId.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || manager.activeCouple == nil)
+                            .disabled(isAnalyzing || inputUrlOrId.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                         }
 
                         // Preview Card (when loaded)
@@ -759,7 +905,7 @@ public struct KSISImportSheet: View {
                                 HStack(spacing: 6) {
                                     Image(systemName: "checkmark.seal.fill")
                                         .foregroundColor(Color.syncEmerald)
-                                    Text("Oficiálne potvrdený výsledok KSIS")
+                                    Text("Oficiálne overený výsledok KSIS")
                                         .font(.system(size: 12, weight: .medium))
                                         .foregroundColor(Color.syncEmerald)
                                 }
@@ -832,6 +978,9 @@ public struct KSISImportSheet: View {
                     .foregroundColor(LuxuryTheme.gold400)
                 }
             }
+            .sheet(isPresented: $showCoupleSheet) {
+                KSISCoupleManagementSheet()
+            }
             .alert("Výsledok bol nájdený v archíve", isPresented: $showConflictRestoreAlert) {
                 Button("Obnoviť výsledok") {
                     if let idStr = conflictResultIdToRestore, let uuid = UUID(uuidString: idStr) {
@@ -850,11 +999,14 @@ public struct KSISImportSheet: View {
 
     private func analyzeCompetition() {
         guard let sutazId = CompetitionManager.extractSutazId(from: inputUrlOrId) else {
-            localError = "Neplatné ID alebo URL súťaže. Vložte napr. 12094 alebo celú adresu."
+            localError = "Neplatné číslo alebo URL súťaže. Zadajte napríklad 12094."
             return
         }
-        guard let coupleId = manager.activeCouple?.coupleId else {
-            localError = "Vyberte aktívny tanečný pár pred importom."
+
+        // Verify that user has a couple selected/linked
+        guard let couple = targetCouple, couple.coupleId > 0 else {
+            localError = "Pred vyhľadaním súťaže si najprv prepojte váš tanečný pár (kliknite na 'Prepojiť pár')."
+            showCoupleSheet = true
             return
         }
 
@@ -863,7 +1015,7 @@ public struct KSISImportSheet: View {
 
         Task {
             do {
-                _ = try await manager.previewResult(sutazId: sutazId, coupleId: coupleId)
+                _ = try await manager.previewResult(sutazId: sutazId, coupleId: couple.coupleId)
                 isAnalyzing = false
             } catch {
                 isAnalyzing = false
@@ -878,8 +1030,8 @@ public struct KSISImportSheet: View {
     }
 
     private func confirmImport() {
-        guard let sutazId = manager.previewResult?.sutazId,
-              let coupleId = manager.previewResult?.coupleId else { return }
+        guard let sutazId = manager.previewResult?.sutazId else { return }
+        let coupleId = manager.previewResult?.coupleId
 
         Task {
             do {
@@ -900,12 +1052,13 @@ public struct KSISImportSheet: View {
 // MARK: - KSIS Couple Management Sheet
 public struct KSISCoupleManagementSheet: View {
     @StateObject private var manager = CompetitionManager.shared
+    @ObservedObject private var profileStore = UserProfileStore.shared
     @Environment(\.dismiss) private var dismiss
 
     @State private var inputCoupleUrlOrId: String = ""
     @State private var partnerName: String = ""
-    @State private var selectedDiscipline: String = "STT"
-    @State private var partnerConsent: Bool = false
+    @State private var selectedDiscipline: String = "ALL" // Default: Štandard aj Latina
+    @State private var partnerConsent: Bool = true
     @State private var isSaving: Bool = false
     @State private var errorMessage: String? = nil
 
@@ -921,19 +1074,26 @@ public struct KSISCoupleManagementSheet: View {
                         // Section 1: Prepojené páry
                         if !manager.couples.isEmpty {
                             VStack(alignment: .leading, spacing: 12) {
-                                Text("PREPOJENÉ PÁRY (MAX 2)")
+                                Text("AKTUÁLNE PREPOJENÉ PÁRY")
                                     .font(.system(size: 11, weight: .black))
                                     .foregroundColor(LuxuryTheme.gold400)
 
                                 ForEach(manager.couples) { couple in
                                     HStack {
-                                        VStack(alignment: .leading, spacing: 2) {
-                                            Text(couple.displayTitle)
-                                                .font(.system(size: 14, weight: .bold))
+                                        VStack(alignment: .leading, spacing: 3) {
+                                            Text(couple.fullCoupleTitle(myUserName: profileStore.currentName))
+                                                .font(.system(size: 15, weight: .bold))
                                                 .foregroundColor(.white)
-                                            Text("KSIS ID: \(couple.coupleId) • \(couple.discipline)")
-                                                .font(.system(size: 12))
-                                                .foregroundColor(Color.white.opacity(0.6))
+
+                                            HStack(spacing: 6) {
+                                                Text("KSIS ID: \(couple.coupleId)")
+                                                    .font(.system(size: 11, weight: .bold))
+                                                    .foregroundColor(LuxuryTheme.gold300)
+
+                                                Text("• \(couple.disciplineTitle)")
+                                                    .font(.system(size: 11, weight: .medium))
+                                                    .foregroundColor(Color.white.opacity(0.7))
+                                            }
                                         }
 
                                         Spacer()
@@ -945,6 +1105,9 @@ public struct KSISCoupleManagementSheet: View {
                                         } label: {
                                             Image(systemName: "trash")
                                                 .foregroundColor(Color.latinCrimson)
+                                                .padding(8)
+                                                .background(Color.latinCrimson.opacity(0.15))
+                                                .clipShape(Circle())
                                         }
                                     }
                                     .padding(14)
@@ -957,20 +1120,20 @@ public struct KSISCoupleManagementSheet: View {
                             .cornerRadius(16)
                         }
 
-                        // Section 2: Pridať nový pár
-                        if manager.couples.count < 2 {
+                        // Section 2: Pridať alebo Aktualizovať pár
+                        if manager.couples.count < 2 || !manager.couples.isEmpty {
                             VStack(alignment: .leading, spacing: 14) {
-                                Text("PRIDAŤ KSIS PÁR")
+                                Text(manager.couples.isEmpty ? "PREPOJIŤ KSIS PÁR" : "PRIDAŤ ALEBO UPRAVIŤ PÁR")
                                     .font(.system(size: 11, weight: .black))
                                     .foregroundColor(LuxuryTheme.gold400)
 
                                 VStack(alignment: .leading, spacing: 6) {
-                                    Text("Odkaz alebo ID páru z KSIS")
+                                    Text("Číslo alebo odkaz na pár z KSIS")
                                         .font(.system(size: 12, weight: .medium))
                                         .foregroundColor(Color.white.opacity(0.8))
 
                                     TextField("napr. 18978 alebo szts.ksis.eu/par.php?id=18978", text: $inputCoupleUrlOrId)
-                                        .keyboardType(.URL)
+                                        .keyboardType(.numbersAndPunctuation)
                                         .autocapitalization(.none)
                                         .disableAutocorrection(true)
                                         .foregroundColor(.white)
@@ -980,7 +1143,7 @@ public struct KSISCoupleManagementSheet: View {
                                 }
 
                                 VStack(alignment: .leading, spacing: 6) {
-                                    Text("Meno partnera / partnerky")
+                                    Text("Meno tanečného partnera / partnerky")
                                         .font(.system(size: 12, weight: .medium))
                                         .foregroundColor(Color.white.opacity(0.8))
 
@@ -992,14 +1155,15 @@ public struct KSISCoupleManagementSheet: View {
                                 }
 
                                 VStack(alignment: .leading, spacing: 6) {
-                                    Text("Disciplína")
+                                    Text("Tanečná disciplína")
                                         .font(.system(size: 12, weight: .medium))
                                         .foregroundColor(Color.white.opacity(0.8))
 
                                     Picker("Disciplína", selection: $selectedDiscipline) {
+                                        Text("ŠTT aj LAT (Obe)").tag("ALL")
                                         Text("Štandard (STT)").tag("STT")
                                         Text("Latina (LAT)").tag("LAT")
-                                        Text("10 Tancov (10T)").tag("10T")
+                                        Text("10 Tancov").tag("10T")
                                     }
                                     .pickerStyle(.segmented)
                                 }
@@ -1026,7 +1190,7 @@ public struct KSISCoupleManagementSheet: View {
                                         if isSaving {
                                             ProgressView().tint(LuxuryTheme.obsidian900)
                                         }
-                                        Text(isSaving ? "Ukladám..." : "Prepojiť Pár")
+                                        Text(isSaving ? "Ukladám..." : "Uložiť a Prepojiť Pár")
                                     }
                                     .font(.system(size: 15, weight: .bold))
                                     .foregroundColor(LuxuryTheme.obsidian900)
@@ -1044,11 +1208,6 @@ public struct KSISCoupleManagementSheet: View {
                             .padding(16)
                             .background(LuxuryTheme.obsidian800)
                             .cornerRadius(16)
-                        } else {
-                            Text("Dosiahli ste maximálny povolený počet prepojených párov (2). Ak chcete pridať iný, najprv jeden odstráňte.")
-                                .font(.system(size: 12, weight: .medium))
-                                .foregroundColor(Color.white.opacity(0.6))
-                                .padding(.horizontal, 10)
                         }
 
                         if let err = errorMessage {
@@ -1071,12 +1230,20 @@ public struct KSISCoupleManagementSheet: View {
                     .foregroundColor(LuxuryTheme.gold400)
                 }
             }
+            .onAppear {
+                if let existing = manager.activeCouple ?? manager.couples.first {
+                    inputCoupleUrlOrId = "\(existing.coupleId)"
+                    partnerName = existing.partnerName ?? ""
+                    selectedDiscipline = existing.discipline
+                    partnerConsent = existing.partnerConsent
+                }
+            }
         }
     }
 
     private func saveCouple() {
         guard let coupleId = CompetitionManager.extractCoupleId(from: inputCoupleUrlOrId) else {
-            errorMessage = "Neplatné KSIS ID páru. Vložte napr. 18978 alebo odkaz."
+            errorMessage = "Neplatné KSIS ID páru. Vložte napríklad 18978."
             return
         }
 

@@ -78,26 +78,96 @@ public final class CompetitionManager: ObservableObject {
 
     // MARK: - KSIS Link & ID Extraction Helpers
     public static func extractCoupleId(from input: String) -> Int? {
-        let trimmed = input.trimmingCharacters(in: .whitespacesAndNewlines)
-        if let id = Int(trimmed) { return id }
-        // Match par.php?id=18978 or ?id=18978
-        if let regex = try? NSRegularExpression(pattern: #"[?&]id=(\d+)"#),
-           let match = regex.firstMatch(in: trimmed, range: NSRange(trimmed.startIndex..., in: trimmed)),
-           let range = Range(match.range(at: 1), in: trimmed) {
-            return Int(trimmed[range])
+        var cleaned = input
+            .replacingOccurrences(of: "\u{00A0}", with: " ")
+            .replacingOccurrences(of: "\u{200B}", with: "")
+            .replacingOccurrences(of: "\u{202F}", with: " ")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+
+        if cleaned.hasPrefix("#") {
+            cleaned = String(cleaned.dropFirst()).trimmingCharacters(in: .whitespacesAndNewlines)
         }
+
+        // 1. Check query parameters like ?id=18978 or ?couple_id=18978 or ?par_id=18978 or ?par=18978
+        if let regex = try? NSRegularExpression(pattern: #"(?:[?&]|^)(?:couple_id|par_id|par|id)=(\d+)"#, options: .caseInsensitive),
+           let match = regex.firstMatch(in: cleaned, range: NSRange(cleaned.startIndex..., in: cleaned)),
+           let range = Range(match.range(at: 1), in: cleaned) {
+            return Int(cleaned[range])
+        }
+
+        // 2. Check URL path patterns like /par/18978
+        if let regex = try? NSRegularExpression(pattern: #"/(?:par|couple)/(\d+)"#, options: .caseInsensitive),
+           let match = regex.firstMatch(in: cleaned, range: NSRange(cleaned.startIndex..., in: cleaned)),
+           let range = Range(match.range(at: 1), in: cleaned) {
+            return Int(cleaned[range])
+        }
+
+        // 3. Strip thousand separators (spaces, dots, commas, apostrophes, slashes) and check if pure number
+        let digitsOnly = cleaned
+            .replacingOccurrences(of: " ", with: "")
+            .replacingOccurrences(of: ".", with: "")
+            .replacingOccurrences(of: ",", with: "")
+            .replacingOccurrences(of: "'", with: "")
+            .replacingOccurrences(of: "/", with: "")
+
+        if let id = Int(digitsOnly), id > 0 {
+            return id
+        }
+
+        // 4. Fallback: match any 3 to 7 digit sequence
+        if let regex = try? NSRegularExpression(pattern: #"\b(\d{3,7})\b"#),
+           let match = regex.firstMatch(in: cleaned, range: NSRange(cleaned.startIndex..., in: cleaned)),
+           let range = Range(match.range(at: 1), in: cleaned) {
+            return Int(cleaned[range])
+        }
+
         return nil
     }
 
     public static func extractSutazId(from input: String) -> Int? {
-        let trimmed = input.trimmingCharacters(in: .whitespacesAndNewlines)
-        if let id = Int(trimmed) { return id }
-        // Match sutaz.php?sutaz_id=12094 or ?sutaz_id=12094
-        if let regex = try? NSRegularExpression(pattern: #"[?&]sutaz_id=(\d+)"#),
-           let match = regex.firstMatch(in: trimmed, range: NSRange(trimmed.startIndex..., in: trimmed)),
-           let range = Range(match.range(at: 1), in: trimmed) {
-            return Int(trimmed[range])
+        var cleaned = input
+            .replacingOccurrences(of: "\u{00A0}", with: " ")
+            .replacingOccurrences(of: "\u{200B}", with: "")
+            .replacingOccurrences(of: "\u{202F}", with: " ")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+
+        if cleaned.hasPrefix("#") {
+            cleaned = String(cleaned.dropFirst()).trimmingCharacters(in: .whitespacesAndNewlines)
         }
+
+        // 1. Check query parameters like ?sutaz_id=12094 or ?id=12094 or ?sutaz=12094
+        if let regex = try? NSRegularExpression(pattern: #"(?:[?&]|^)(?:sutaz_id|sutaz|id)=(\d+)"#, options: .caseInsensitive),
+           let match = regex.firstMatch(in: cleaned, range: NSRange(cleaned.startIndex..., in: cleaned)),
+           let range = Range(match.range(at: 1), in: cleaned) {
+            return Int(cleaned[range])
+        }
+
+        // 2. Check URL path patterns like /sutaz/12094 or /sutaz.php/12094
+        if let regex = try? NSRegularExpression(pattern: #"/(?:sutaz|sutaz_id)/(\d+)"#, options: .caseInsensitive),
+           let match = regex.firstMatch(in: cleaned, range: NSRange(cleaned.startIndex..., in: cleaned)),
+           let range = Range(match.range(at: 1), in: cleaned) {
+            return Int(cleaned[range])
+        }
+
+        // 3. Strip thousand separators (spaces, dots, commas, apostrophes, slashes) and check if pure number
+        let digitsOnly = cleaned
+            .replacingOccurrences(of: " ", with: "")
+            .replacingOccurrences(of: ".", with: "")
+            .replacingOccurrences(of: ",", with: "")
+            .replacingOccurrences(of: "'", with: "")
+            .replacingOccurrences(of: "/", with: "")
+
+        if let id = Int(digitsOnly), id > 0 {
+            return id
+        }
+
+        // 4. Fallback: match any 3 to 7 digit sequence
+        if let regex = try? NSRegularExpression(pattern: #"\b(\d{3,7})\b"#),
+           let match = regex.firstMatch(in: cleaned, range: NSRange(cleaned.startIndex..., in: cleaned)),
+           let range = Range(match.range(at: 1), in: cleaned) {
+            return Int(cleaned[range])
+        }
+
         return nil
     }
 
@@ -146,9 +216,9 @@ public final class CompetitionManager: ObservableObject {
         // Check for conflict 409 (e.g. soft-deleted row)
         if httpResponse.statusCode == 409 {
             if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
-                let msg = json["error"] as? String ?? "Tento výsledok už existuje v denníku."
+                let msg = (json["message"] as? String) ?? (json["error"] as? String) ?? "Tento výsledok už existuje v denníku."
                 let canRestore = json["can_restore"] as? Bool ?? false
-                let conflictId = json["conflict_id"] as? String ?? ""
+                let conflictId = (json["existing_result_id"] as? String) ?? (json["conflict_id"] as? String) ?? ""
                 if canRestore && !conflictId.isEmpty {
                     self.conflictRestorePayload = (resultId: conflictId, message: msg)
                 }
@@ -158,9 +228,11 @@ public final class CompetitionManager: ObservableObject {
 
         // Check for other error codes
         if httpResponse.statusCode != 200 {
-            if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-               let err = json["error"] as? String {
-                throw NSError(domain: "EncoreKSIS", code: httpResponse.statusCode, userInfo: [NSLocalizedDescriptionKey: err])
+            if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                let msg = (json["message"] as? String) ?? (json["error"] as? String)
+                if let msg = msg, !msg.isEmpty {
+                    throw NSError(domain: "EncoreKSIS", code: httpResponse.statusCode, userInfo: [NSLocalizedDescriptionKey: msg])
+                }
             }
             throw NSError(
                 domain: "EncoreKSIS",
@@ -170,24 +242,31 @@ public final class CompetitionManager: ObservableObject {
         }
 
         let decoder = JSONDecoder()
-        return try decoder.decode(Res.self, from: data)
+        do {
+            return try decoder.decode(Res.self, from: data)
+        } catch {
+            print("[invokeFunction] JSON decoding error for \(name): \(error)")
+            throw NSError(
+                domain: "EncoreKSIS",
+                code: -2,
+                userInfo: [NSLocalizedDescriptionKey: "Odpoveď servera nemala očakávanú štruktúru údajov. Skúste akciu zopakovať."]
+            )
+        }
     }
 
     // MARK: - Cooldown Timer
     private func startCooldown(seconds: Int) {
         cooldownTimer?.invalidate()
         cooldownRemaining = max(seconds, 1)
-        cooldownTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] timer in
-            guard let self = self else {
-                timer.invalidate()
-                return
-            }
-            Task { @MainActor in
+        cooldownTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                guard let self = self else { return }
                 if self.cooldownRemaining > 1 {
                     self.cooldownRemaining -= 1
                 } else {
                     self.cooldownRemaining = 0
-                    timer.invalidate()
+                    self.cooldownTimer?.invalidate()
+                    self.cooldownTimer = nil
                 }
             }
         }
@@ -195,21 +274,38 @@ public final class CompetitionManager: ObservableObject {
 
     // MARK: - Couple Management
     public func fetchCouples() async {
+        // Direct query to Supabase via RLS for maximum reliability
         do {
-            let req = KSISCoupleActionRequest(action: "list")
-            let res: KSISCoupleActionResponse = try await invokeFunction(name: "ksis-manage-couples", body: req)
-            if let fetched = res.couples {
-                self.couples = fetched
-                if self.activeCouple == nil || !fetched.contains(where: { $0.coupleId == self.activeCouple?.coupleId }) {
-                    self.activeCouple = fetched.first
-                }
+            let client = SupabaseConfig.client
+            let fetched: [UserCouple] = try await client
+                .from("user_couples")
+                .select()
+                .order("created_at", ascending: true)
+                .execute()
+                .value
+            self.couples = fetched
+            if self.activeCouple == nil || !fetched.contains(where: { $0.coupleId == self.activeCouple?.coupleId }) {
+                self.activeCouple = fetched.first
             }
         } catch {
-            print("[CompetitionManager] fetchCouples error: \(error.localizedDescription)")
+            print("[CompetitionManager] direct fetchCouples notice: \(error.localizedDescription)")
+            // Fallback to Edge function if needed
+            do {
+                let req = KSISCoupleActionRequest(action: "list")
+                let res: KSISCoupleActionResponse = try await invokeFunction(name: "ksis-manage-couples", body: req)
+                if let fetched = res.couples {
+                    self.couples = fetched
+                    if self.activeCouple == nil || !fetched.contains(where: { $0.coupleId == self.activeCouple?.coupleId }) {
+                        self.activeCouple = fetched.first
+                    }
+                }
+            } catch {
+                print("[CompetitionManager] fetchCouples function fallback notice: \(error.localizedDescription)")
+            }
         }
     }
 
-    public func addCouple(coupleId: Int, discipline: String, partnerName: String, partnerConsent: Bool) async throws {
+    public func addCouple(coupleId: Int, discipline: String = "ALL", partnerName: String, partnerConsent: Bool) async throws {
         guard partnerConsent else {
             throw NSError(
                 domain: "EncoreKSIS",
@@ -226,8 +322,8 @@ public final class CompetitionManager: ObservableObject {
             partner_consent: partnerConsent
         )
         let res: KSISCoupleActionResponse = try await invokeFunction(name: "ksis-manage-couples", body: req)
+        await fetchCouples()
         if let created = res.couple {
-            await fetchCouples()
             self.activeCouple = created
         }
     }
@@ -286,7 +382,7 @@ public final class CompetitionManager: ObservableObject {
     }
 
     // MARK: - Import Flow (Preview -> Confirm)
-    public func previewResult(sutazId: Int, coupleId: Int) async throws -> CompetitionResult {
+    public func previewResult(sutazId: Int, coupleId: Int? = nil) async throws -> CompetitionResult {
         guard cooldownRemaining == 0 else {
             throw NSError(
                 domain: "EncoreKSIS",
@@ -295,25 +391,40 @@ public final class CompetitionManager: ObservableObject {
             )
         }
 
+        // Auto-resolve coupleId if missing
+        var resolvedCoupleId = coupleId ?? activeCouple?.coupleId ?? couples.first?.coupleId ?? 0
+        if resolvedCoupleId == 0 {
+            await fetchCouples()
+            resolvedCoupleId = activeCouple?.coupleId ?? couples.first?.coupleId ?? 0
+        }
+
+        guard resolvedCoupleId > 0 else {
+            throw NSError(
+                domain: "EncoreKSIS",
+                code: 400,
+                userInfo: [NSLocalizedDescriptionKey: "Najprv si prosím prepojte tanečný pár pomocou tlačidla 'Prepojiť Pár'."]
+            )
+        }
+
         isImporting = true
         errorMessage = nil
         conflictRestorePayload = nil
         defer { isImporting = false }
 
-        let req = KSISImportRequest(sutaz_id: sutazId, couple_id: coupleId, preview_only: true)
+        let req = KSISImportRequest(sutaz_id: sutazId, couple_id: resolvedCoupleId, preview_only: true)
         let res: KSISImportResponse = try await invokeFunction(name: "ksis-import", body: req)
-        guard let preview = res.result else {
+        guard let preview = res.resolvedResult else {
             throw NSError(
                 domain: "EncoreKSIS",
                 code: -1,
-                userInfo: [NSLocalizedDescriptionKey: res.error ?? "Nepodarilo sa načítať náhľad výsledku."]
+                userInfo: [NSLocalizedDescriptionKey: res.message ?? res.error ?? "Nepodarilo sa načítať náhľad výsledku."]
             )
         }
         self.previewResult = preview
         return preview
     }
 
-    public func confirmImport(sutazId: Int, coupleId: Int) async throws -> CompetitionResult {
+    public func confirmImport(sutazId: Int, coupleId: Int? = nil) async throws -> CompetitionResult {
         guard cooldownRemaining == 0 else {
             throw NSError(
                 domain: "EncoreKSIS",
@@ -322,18 +433,32 @@ public final class CompetitionManager: ObservableObject {
             )
         }
 
+        var resolvedCoupleId = coupleId ?? activeCouple?.coupleId ?? couples.first?.coupleId ?? 0
+        if resolvedCoupleId == 0 {
+            await fetchCouples()
+            resolvedCoupleId = activeCouple?.coupleId ?? couples.first?.coupleId ?? 0
+        }
+
+        guard resolvedCoupleId > 0 else {
+            throw NSError(
+                domain: "EncoreKSIS",
+                code: 400,
+                userInfo: [NSLocalizedDescriptionKey: "Najprv si prosím prepojte tanečný pár."]
+            )
+        }
+
         isImporting = true
         errorMessage = nil
         conflictRestorePayload = nil
         defer { isImporting = false }
 
-        let req = KSISImportRequest(sutaz_id: sutazId, couple_id: coupleId, preview_only: false)
+        let req = KSISImportRequest(sutaz_id: sutazId, couple_id: resolvedCoupleId, preview_only: false)
         let res: KSISImportResponse = try await invokeFunction(name: "ksis-import", body: req)
-        guard let imported = res.result else {
+        guard let imported = res.resolvedResult else {
             throw NSError(
                 domain: "EncoreKSIS",
                 code: -1,
-                userInfo: [NSLocalizedDescriptionKey: res.error ?? "Import výsledku zlyhal."]
+                userInfo: [NSLocalizedDescriptionKey: res.message ?? res.error ?? "Import výsledku zlyhal."]
             )
         }
 
