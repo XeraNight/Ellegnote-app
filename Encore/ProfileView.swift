@@ -30,6 +30,7 @@ struct ProfileView: View {
     @State private var imageToCrop: UIImage? = nil
     @State private var showCropSheet = false
     @State private var showAuthSheet = false
+    @State private var showLegalSheet = false
     
     // Storage loaded async to avoid file I/O on main thread
     @State private var storageUsageBytes: Int64 = 0
@@ -437,6 +438,10 @@ struct ProfileView: View {
                 MaintenanceButton(icon: "envelope.badge",
                                   title: "Spätná väzba / Nahlásiť problém",
                                   isDestructive: false) { openFeedbackEmail() }
+                Divider().background(Color.gold500.opacity(0.15))
+                MaintenanceButton(icon: "hand.raised.fill",
+                                  title: "Ochrana súkromia & Zmluvné podmienky",
+                                  isDestructive: false) { showLegalSheet = true }
                 if authManager.isAuthenticated {
                     Divider().background(Color.latinRed.opacity(0.25))
                     MaintenanceButton(icon: "person.crop.circle.badge.xmark",
@@ -629,6 +634,9 @@ struct ProfileView: View {
             .task { refreshStorageUsage() }
             .sheet(isPresented: $showEditProfile) {
                 editProfileSheet
+            }
+            .sheet(isPresented: $showLegalSheet) {
+                LegalComplianceView()
             }
             .sheet(isPresented: $friendManager.showInviteSheet) {
                 if let invite = friendManager.incomingInvite {
@@ -1878,4 +1886,10 @@ struct StatCardView: View {
         .padding(16)
         .luxuryProfileCard(cornerRadius: 18)
     }
+}
+
+// MARK: - Xcode Canvas Preview
+#Preview("ProfileView") {
+    ProfileView()
+        .previewWithSampleData()
 }

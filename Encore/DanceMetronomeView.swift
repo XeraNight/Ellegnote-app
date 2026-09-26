@@ -20,7 +20,7 @@ public struct DanceMetronomeView: View {
     public var body: some View {
         NavigationStack {
             ZStack {
-                EllegancePageBackground()
+                ElleganceToolBackground()
                 
                 ScrollView(showsIndicators: false) {
                     VStack(spacing: 24) {
@@ -351,4 +351,10 @@ public struct DanceMetronomeView: View {
                 )
         }
     }
+}
+
+// MARK: - Xcode Canvas Preview
+#Preview("DanceMetronomeView") {
+    DanceMetronomeView()
+        .preferredColorScheme(.dark)
 }

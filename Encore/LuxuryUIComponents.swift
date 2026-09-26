@@ -33,12 +33,22 @@ public struct EllegancePageBackground: View {
                     .frame(width: proxy.size.width, height: proxy.size.height)
                     .clipped()
                 
-                // Subtle ambient vignette to maintain flawless contrast for cards and text
+                // Ambient radial + linear vignette to maintain flawless contrast (WCAG AA)
+                RadialGradient(
+                    colors: [
+                        Color.clear,
+                        Color.black.opacity(0.30)
+                    ],
+                    center: .center,
+                    startRadius: 160,
+                    endRadius: 500
+                )
+                
                 LinearGradient(
                     colors: [
-                        Color.black.opacity(0.15),
+                        Color.black.opacity(0.20),
                         Color.clear,
-                        Color.black.opacity(0.35)
+                        Color.black.opacity(0.40)
                     ],
                     startPoint: .top,
                     endPoint: .bottom
@@ -48,6 +58,81 @@ public struct EllegancePageBackground: View {
         .ignoresSafeArea()
     }
 }
+
+// MARK: - 0B. Encore Rehearsal Tool Background (Calm Deep Obsidian Surface)
+public struct ElleganceToolBackground: View {
+    public init() {}
+    
+    public var body: some View {
+        ZStack {
+            // Pure Deep Obsidian Base (#070709)
+            Color(red: 7/255, green: 7/255, blue: 9/255)
+            
+            // Subtle warm studio vignette (calm, zero glare, battery-friendly)
+            RadialGradient(
+                colors: [
+                    Color(red: 24/255, green: 14/255, blue: 18/255).opacity(0.35),
+                    Color(red: 7/255, green: 7/255, blue: 9/255)
+                ],
+                center: .top,
+                startRadius: 40,
+                endRadius: 550
+            )
+            
+            // Top ambient gradient for status bar / navigation depth
+            LinearGradient(
+                colors: [
+                    Color.black.opacity(0.25),
+                    Color.clear,
+                    Color.black.opacity(0.45)
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+        }
+        .ignoresSafeArea()
+    }
+}
+
+// MARK: - 0C. Art Deco Geometric Section Divider (1px Hairline + Center Diamond)
+public struct ArtDecoDivider: View {
+    public var accentColor: Color = LuxuryTheme.gold400
+    
+    public init(accentColor: Color = LuxuryTheme.gold400) {
+        self.accentColor = accentColor
+    }
+    
+    public var body: some View {
+        HStack(spacing: 8) {
+            Rectangle()
+                .fill(
+                    LinearGradient(
+                        colors: [Color.clear, accentColor.opacity(0.30)],
+                        startPoint: .leading,
+                        endPoint: .trailing
+                    )
+                )
+                .frame(height: 1)
+            
+            // Subtle geometric diamond glyph
+            Image(systemName: "diamond.fill")
+                .font(.system(size: 5))
+                .foregroundColor(accentColor.opacity(0.65))
+            
+            Rectangle()
+                .fill(
+                    LinearGradient(
+                        colors: [accentColor.opacity(0.30), Color.clear],
+                        startPoint: .leading,
+                        endPoint: .trailing
+                    )
+                )
+                .frame(height: 1)
+        }
+        .padding(.vertical, 6)
+    }
+}
+
 
 // MARK: - 1. Luxury Primary Button (Ellegance Gold CTA)
 public struct LuxuryPrimaryButton: View {
@@ -568,4 +653,71 @@ public struct DownloadingLoopIconView: View {
             }
         }
     }
+}
+
+// MARK: - Live Xcode Canvas Preview for Luxury Design System
+#Preview("Luxury Design System") {
+    ZStack {
+        ElleganceToolBackground()
+        
+        ScrollView {
+            VStack(spacing: 24) {
+                // Header
+                VStack(spacing: 6) {
+                    Text("ART DECO LUXURY SYSTEM")
+                        .font(.system(size: 11, weight: .black, design: .rounded))
+                        .tracking(1.8)
+                        .foregroundColor(LuxuryTheme.gold400)
+                    
+                    Text("Encore Studio Design")
+                        .font(.system(size: 26, weight: .bold, design: .serif))
+                        .foregroundColor(.white)
+                }
+                .padding(.top, 24)
+                
+                ArtDecoDivider()
+                    .padding(.horizontal, 24)
+                
+                // Sample Card
+                VStack(alignment: .leading, spacing: 14) {
+                    HStack {
+                        Image(systemName: "sparkles")
+                            .foregroundColor(LuxuryTheme.gold400)
+                        Text("Smoked Liquid Glass Card")
+                            .font(.system(size: 16, weight: .bold))
+                            .foregroundColor(.white)
+                        Spacer()
+                        Text("ACTIVE")
+                            .font(.system(size: 10, weight: .black))
+                            .foregroundColor(LuxuryTheme.gold400)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(LuxuryTheme.gold500.opacity(0.15))
+                            .clipShape(Capsule())
+                    }
+                    
+                    Text("Každá karta v aplikácii Encore využíva 85% dymový obsidian s 1px zlatým skoseným lemom a ultra-tenkým materiálom.")
+                        .font(.system(size: 13, weight: .regular))
+                        .foregroundColor(.white.opacity(0.8))
+                        .lineSpacing(3)
+                }
+                .padding(18)
+                .luxurySmokedCard(cornerRadius: 18)
+                .padding(.horizontal, 20)
+                
+                // Dividers showcase
+                VStack(spacing: 12) {
+                    Text("Art Deco Dividers")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(.white.opacity(0.6))
+                    
+                    ArtDecoDivider()
+                    ArtDecoDivider(accentColor: LuxuryTheme.latinCrimson)
+                }
+                .padding(.horizontal, 24)
+            }
+            .padding(.bottom, 40)
+        }
+    }
+    .preferredColorScheme(.dark)
 }

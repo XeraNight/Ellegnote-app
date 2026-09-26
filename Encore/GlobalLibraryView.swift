@@ -157,8 +157,7 @@ struct GlobalLibraryView: View {
                                                     }
                                                 }
                                                 .padding(16)
-                                                .background(Color.themeCard)
-                                                .neubrutalistCard(cornerRadius: 16, shadowOffset: 2)
+                                                .luxurySmokedCard(cornerRadius: 16, accentColor: Color.gold400)
                                             }
                                             .buttonStyle(.plain)
                                         }
@@ -869,4 +868,10 @@ struct FilterChip: View {
         }
         .buttonStyle(.plain)
     }
+}
+
+// MARK: - Xcode Canvas Preview
+#Preview("GlobalLibraryView") {
+    GlobalLibraryView()
+        .previewWithSampleData()
 }

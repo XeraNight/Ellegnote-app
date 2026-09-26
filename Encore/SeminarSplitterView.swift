@@ -55,7 +55,11 @@ struct SeminarSplitterView: View {
     @ViewBuilder
     private var cutButtonBackground: some View {
         if isCutDisabled {
-            LinearGradient(colors: [Color.gray.opacity(0.4), Color.gray.opacity(0.4)], startPoint: .leading, endPoint: .trailing)
+            LinearGradient(
+                colors: [Color.obsidian700.opacity(0.85), Color.obsidian800.opacity(0.85)],
+                startPoint: .leading,
+                endPoint: .trailing
+            )
         } else {
             Color.goldLinearGradient
         }
@@ -64,7 +68,7 @@ struct SeminarSplitterView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                EllegancePageBackground()
+                ElleganceToolBackground()
                 
                 ScrollView {
                     VStack(spacing: 20) {
@@ -147,26 +151,34 @@ struct SeminarSplitterView: View {
     @ViewBuilder
     private var videoImportCard: some View {
         PhotosPicker(selection: $selectedPhotoItem, matching: .videos) {
-            VStack(spacing: 12) {
-                Image(systemName: "film.stack.fill")
-                    .font(.system(size: 44))
-                    .foregroundColor(Color.gold400)
+            ZStack {
+                // Subtle Art Deco geometric concentric circles in background (4% opacity)
+                Circle()
+                    .strokeBorder(Color.gold400.opacity(0.06), lineWidth: 1)
+                    .frame(width: 140, height: 140)
+                Circle()
+                    .strokeBorder(Color.gold400.opacity(0.04), lineWidth: 1)
+                    .frame(width: 210, height: 210)
                 
-                Text("Nahrať video seminára z kempu")
-                    .font(.system(size: 16, weight: .bold))
-                    .foregroundColor(.white)
-                
-                Text("Podporuje dlhé 30 – 60 minútové nahrávky z workshopov")
-                    .font(.system(size: 12))
-                    .foregroundColor(Color.textSecondary)
-                    .multilineTextAlignment(.center)
+                VStack(spacing: 12) {
+                    Image(systemName: "film.stack.fill")
+                        .font(.system(size: 44))
+                        .foregroundColor(Color.gold400)
+                    
+                    Text("Nahrať video seminára z kempu")
+                        .font(.system(size: 16, weight: .bold))
+                        .foregroundColor(.white)
+                    
+                    Text("Podporuje dlhé 30 – 60 minútové nahrávky z workshopov")
+                        .font(.system(size: 12))
+                        .foregroundColor(Color.textSecondary)
+                        .multilineTextAlignment(.center)
+                }
             }
             .frame(maxWidth: .infinity)
-            .padding(36)
-            .background(Color.obsidian800)
-            .cornerRadius(18)
-            .overlay(RoundedRectangle(cornerRadius: 18).stroke(Color.white.opacity(0.1), lineWidth: 1))
-            .shadow(color: Color.black.opacity(0.4), radius: 12, x: 0, y: 4)
+            .padding(.vertical, 36)
+            .padding(.horizontal, 20)
+            .luxurySmokedCard(cornerRadius: 18, accentColor: Color.gold400)
             .padding(.horizontal, 16)
         }
     }
@@ -236,7 +248,7 @@ struct SeminarSplitterView: View {
                 .foregroundColor(.white)
                 .background(Color.obsidian900)
                 .cornerRadius(12)
-                .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.white.opacity(0.1), lineWidth: 1))
+                .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.gold400.opacity(0.20), lineWidth: 1))
             
             // Target Routine Picker
             if !routines.isEmpty {
@@ -271,20 +283,22 @@ struct SeminarSplitterView: View {
                             .font(.system(size: 14, weight: .bold))
                     }
                 }
-                .foregroundColor(.black)
+                .foregroundColor(isCutDisabled ? Color.white.opacity(0.35) : Color.obsidian900)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 14)
                 .background(cutButtonBackground)
                 .cornerRadius(14)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 14)
+                        .stroke(isCutDisabled ? Color.gold400.opacity(0.18) : Color.white.opacity(0.40), lineWidth: 1)
+                )
                 .shadow(color: isCutDisabled ? Color.clear : Color.gold500.opacity(0.35), radius: 8, y: 3)
             }
             .buttonStyle(.plain)
             .disabled(isCutDisabled)
         }
         .padding(16)
-        .background(Color.obsidian800)
-        .cornerRadius(16)
-        .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.white.opacity(0.08), lineWidth: 1))
+        .luxurySmokedCard(cornerRadius: 16, accentColor: Color.gold400)
         .padding(.horizontal, 16)
     }
     
@@ -456,4 +470,10 @@ struct SeminarSplitterView: View {
         let s = Int(seconds) % 60
         return String(format: "%02d:%02d", m, s)
     }
+}
+
+// MARK: - Xcode Canvas Preview
+#Preview("SeminarSplitterView") {
+    SeminarSplitterView()
+        .previewWithSampleData()
 }

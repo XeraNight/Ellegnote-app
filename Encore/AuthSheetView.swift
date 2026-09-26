@@ -80,6 +80,7 @@ struct AuthSheetView: View {
     @State private var email = ""
     @State private var password = ""
     @State private var nickname = ""
+    @State private var showLegalSheet = false
     
     var body: some View {
         NavigationStack {
@@ -370,10 +371,20 @@ struct AuthSheetView: View {
                                                 )
                                             }
                                         }
+                                        // ── Legal & Privacy Terms ──
+                                        Button(action: { showLegalSheet = true }) {
+                                            Text("Pokračovaním súhlasíte s Podmienkami používania a Zásadami ochrany osobných údajov.")
+                                                .font(.system(size: 10, weight: .regular))
+                                                .foregroundColor(.white.opacity(0.45))
+                                                .underline()
+                                                .multilineTextAlignment(.center)
+                                                .padding(.horizontal, 8)
+                                                .padding(.top, 4)
+                                        }
                                     }
                                     .padding(.horizontal, 24)
                                     .padding(.top, 16)
-                                    .padding(.bottom, 28)
+                                    .padding(.bottom, 24)
                                 }
                                 .background(Color.themeCard)
                                 .cornerRadius(28)
@@ -393,6 +404,9 @@ struct AuthSheetView: View {
                     .scrollBounceBehavior(.basedOnSize)
                     .scrollDismissesKeyboard(.interactively)
                 }
+            }
+            .sheet(isPresented: $showLegalSheet) {
+                LegalComplianceView()
             }
             .onAppear {
                 if email.isEmpty, let saved = authManager.savedEmail {

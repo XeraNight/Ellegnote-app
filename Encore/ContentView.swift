@@ -1291,17 +1291,7 @@ private struct QuickActionTile: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 12)
-        .background(
-            ZStack {
-                Color.themeCard
-                Rectangle().fill(.ultraThinMaterial)
-            }
-        )
-        .cornerRadius(16)
-        .overlay(
-            RoundedRectangle(cornerRadius: 16)
-                .stroke(Color.white.opacity(0.08), lineWidth: 1)
-        )
+        .luxurySmokedCard(cornerRadius: 16, accentColor: accentColor)
     }
 }
 
@@ -1833,9 +1823,7 @@ struct CompareHubView: View {
             }
         }
         .padding(12)
-        .background(Color.themeCard)
-        .cornerRadius(16)
-        .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.white.opacity(0.08), lineWidth: 1))
+        .luxurySmokedCard(cornerRadius: 16, accentColor: accentColor)
     }
 }
 
@@ -1927,9 +1915,7 @@ struct AllRoutinesSheetView: View {
                                             .foregroundColor(Color.white.opacity(0.3))
                                     }
                                     .padding(14)
-                                    .background(Color.themeCard)
-                                    .cornerRadius(14)
-                                    .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.white.opacity(0.08), lineWidth: 1))
+                                    .luxurySmokedCard(cornerRadius: 14, accentColor: Color.gold400)
                                 }
                                 .buttonStyle(.plain)
                             }
@@ -2044,9 +2030,7 @@ struct DanceCategoryView: View {
                                             .foregroundColor(Color.white.opacity(0.3))
                                     }
                                     .padding(20)
-                                    .background(Color.themeCard)
-                                    .cornerRadius(18)
-                                    .overlay(RoundedRectangle(cornerRadius: 18).stroke(Color.white.opacity(0.08), lineWidth: 1))
+                                    .luxurySmokedCard(cornerRadius: 18, accentColor: Color.gold400)
                                 }
                                 .buttonStyle(.plain)
                             }
@@ -2156,9 +2140,7 @@ struct DanceDetailView: View {
                                 .multilineTextAlignment(.leading)
                         }
                         .padding(20)
-                        .background(Color.themeCard)
-                        .cornerRadius(18)
-                        .overlay(RoundedRectangle(cornerRadius: 18).stroke(Color.white.opacity(0.08), lineWidth: 1))
+                        .luxurySmokedCard(cornerRadius: 18, accentColor: accentColor)
                         
                         // Routines List Section
                         VStack(alignment: .leading, spacing: 12) {
@@ -2182,13 +2164,17 @@ struct DanceDetailView: View {
                             }
                             
                             if routinesForDance.isEmpty {
-                                Text("Zatiaľ nemáš vytvorenú žiadnu zostavu pre \(dance.name).")
-                                    .font(.system(size: 13))
-                                    .foregroundColor(Color.white.opacity(0.5))
-                                    .padding()
-                                    .frame(maxWidth: .infinity, alignment: .center)
-                                    .background(Color.themeCard.opacity(0.5))
-                                    .cornerRadius(12)
+                                HStack(spacing: 8) {
+                                    Image(systemName: "square.dashed")
+                                        .font(.system(size: 14))
+                                        .foregroundColor(Color.gold400.opacity(0.7))
+                                    Text("Zatiaľ nemáš vytvorenú žiadnu zostavu pre \(dance.name).")
+                                        .font(.system(size: 13, weight: .medium))
+                                        .foregroundColor(Color.white.opacity(0.65))
+                                }
+                                .padding()
+                                .frame(maxWidth: .infinity, alignment: .center)
+                                .luxurySmokedCard(cornerRadius: 14, accentColor: Color.gold400.opacity(0.4))
                             } else {
                                 VStack(spacing: 10) {
                                     ForEach(routinesForDance) { routine in
@@ -2229,9 +2215,7 @@ struct DanceDetailView: View {
                                             .buttonStyle(.plain)
                                         }
                                         .padding()
-                                        .background(Color.themeCard)
-                                        .cornerRadius(14)
-                                        .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.white.opacity(0.08), lineWidth: 1))
+                                        .luxurySmokedCard(cornerRadius: 14, accentColor: accentColor)
                                     }
                                 }
                             }
@@ -2284,9 +2268,7 @@ struct DanceDetailView: View {
                                         }
                                     }
                                     .padding()
-                                    .background(Color.themeCard)
-                                    .cornerRadius(12)
-                                    .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.white.opacity(0.08), lineWidth: 1))
+                                    .luxurySmokedCard(cornerRadius: 12, accentColor: Color.gold400)
                                 }
                             }
                         }
@@ -2340,7 +2322,7 @@ struct DanceDetailView: View {
                                 .foregroundColor(.white)
                                 .frame(maxWidth: .infinity)
                         }
-                        .buttonStyle(.neubrutalist(accentColor: newRoutineName.isEmpty ? Color.gray.opacity(0.6) : Color.themeAccent))
+                        .buttonStyle(.neubrutalist(accentColor: newRoutineName.isEmpty ? Color.obsidian800 : Color.themeAccent))
                         .disabled(newRoutineName.isEmpty)
                         .padding(.horizontal, 20)
                         .padding(.bottom, 20)
@@ -2433,7 +2415,7 @@ struct DanceDetailView: View {
                                 .foregroundColor(.white)
                                 .frame(maxWidth: .infinity)
                         }
-                        .buttonStyle(.neubrutalist(accentColor: customFigureName.isEmpty ? Color.gray.opacity(0.6) : Color.themeAccent))
+                        .buttonStyle(.neubrutalist(accentColor: customFigureName.isEmpty ? Color.obsidian800 : Color.themeAccent))
                         .disabled(customFigureName.isEmpty)
                         .padding(.horizontal, 20)
                         .padding(.bottom, 20)
@@ -2823,18 +2805,6 @@ struct EditDanceSheet: View {
 
 // MARK: - Xcode Canvas Preview (Safe Static Container for Instant Live Preview)
 #Preview("ContentView - Workspace") {
-    let schema = Schema([
-        Dance.self,
-        FigureLibraryItem.self,
-        Routine.self,
-        CanvasNode.self,
-        InstantNote.self,
-        VideoMediaEntry.self
-    ])
-    let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
-    let container = try! ModelContainer(for: schema, configurations: [config])
-    
-    return ContentView()
-        .modelContainer(container)
-        .preferredColorScheme(.dark)
+    ContentView()
+        .previewWithSampleData()
 }

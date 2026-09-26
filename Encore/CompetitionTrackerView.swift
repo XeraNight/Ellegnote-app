@@ -34,6 +34,19 @@ public struct CompetitionTrackerView: View {
                     // 4. Results Diary List
                     resultsListSection
 
+                    // Official Data Attribution (Fair Use & Legal Transparency)
+                    HStack(spacing: 6) {
+                        Image(systemName: "checkmark.seal.fill")
+                            .font(.system(size: 11))
+                            .foregroundColor(LuxuryTheme.gold400.opacity(0.7))
+                        Text("Zdroj dát: ksis.eu • Oficiálne výsledky a postupové body eviduje Slovenský zväz tanečného športu (SZTŠ)")
+                            .font(.system(size: 10, weight: .medium))
+                            .foregroundColor(.white.opacity(0.45))
+                            .multilineTextAlignment(.center)
+                    }
+                    .padding(.top, 16)
+                    .padding(.horizontal, 16)
+
                     Spacer().frame(height: 80)
                 }
                 .padding(.horizontal, 18)

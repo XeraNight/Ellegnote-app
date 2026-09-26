@@ -24,7 +24,7 @@ struct MusicSpeedTrainerSheet: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                EllegancePageBackground()
+                ElleganceToolBackground()
                 
                 VStack(spacing: 24) {
                     // 1. Audio Track Display Card
@@ -55,10 +55,7 @@ struct MusicSpeedTrainerSheet: View {
                         }
                     }
                     .padding(18)
-                    .background(Color.themeCard)
-                    .cornerRadius(16)
-                    .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.gold400.opacity(0.20), lineWidth: 1))
-                    .shadow(color: Color.black.opacity(0.4), radius: 10, x: 0, y: 4)
+                    .luxurySmokedCard(cornerRadius: 16, accentColor: Color.gold400)
                     .padding(.horizontal, 16)
                     .padding(.top, 8)
                     
@@ -74,9 +71,7 @@ struct MusicSpeedTrainerSheet: View {
                         }
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 16)
-                        .background(Color.themeCard)
-                        .cornerRadius(16)
-                        .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.gold400.opacity(0.18), lineWidth: 1))
+                        .luxurySmokedCard(cornerRadius: 16, accentColor: Color.latinRed)
                         
                         VStack(spacing: 4) {
                             Text("UPRAVENÉ TEMPO")
@@ -88,9 +83,7 @@ struct MusicSpeedTrainerSheet: View {
                         }
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 16)
-                        .background(Color.themeCard)
-                        .cornerRadius(16)
-                        .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.gold400.opacity(0.18), lineWidth: 1))
+                        .luxurySmokedCard(cornerRadius: 16, accentColor: Color.gold400)
                     }
                     .padding(.horizontal, 16)
                     
@@ -133,8 +126,7 @@ struct MusicSpeedTrainerSheet: View {
                         }
                     }
                     .padding(18)
-                    .background(Color.themeCard)
-                    .neubrutalistCard(cornerRadius: 16, shadowOffset: 2)
+                    .luxurySmokedCard(cornerRadius: 16, accentColor: Color.gold400)
                     .padding(.horizontal, 16)
                     
                     // 4. Quick Dance MPM Presets
@@ -303,4 +295,10 @@ struct AudioDocumentPicker: UIViewControllerRepresentable {
             }
         }
     }
+}
+
+// MARK: - Xcode Canvas Preview
+#Preview("MusicSpeedTrainerSheet") {
+    MusicSpeedTrainerSheet()
+        .preferredColorScheme(.dark)
 }

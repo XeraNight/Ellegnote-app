@@ -163,7 +163,36 @@ extension View {
             shadowOffset: shadowOffset
         ))
     }
+    
+    /// Elegant Art Deco smoked liquid glass card with a 1px gold hairline bevel
+    func luxurySmokedCard(cornerRadius: CGFloat = 16, accentColor: Color = Color.gold400) -> some View {
+        self
+            .background(
+                ZStack {
+                    Color.obsidian800.opacity(0.85)
+                    Rectangle().fill(.ultraThinMaterial)
+                }
+            )
+            .cornerRadius(cornerRadius)
+            .overlay(
+                RoundedRectangle(cornerRadius: cornerRadius)
+                    .stroke(
+                        LinearGradient(
+                            colors: [
+                                accentColor.opacity(0.35),
+                                Color.white.opacity(0.10),
+                                Color.clear
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ),
+                        lineWidth: 1
+                    )
+            )
+            .shadow(color: Color.black.opacity(0.35), radius: 8, x: 0, y: 3)
+    }
 }
+
 
 extension ButtonStyle where Self == NeubrutalistButtonStyle {
     static func neubrutalist(accentColor: Color = .gold500, cornerRadius: CGFloat = 16) -> NeubrutalistButtonStyle {

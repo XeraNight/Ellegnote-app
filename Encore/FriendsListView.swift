@@ -9,6 +9,9 @@ struct FriendsListView: View {
     @State private var showScanner = false
     @State private var showMyCard = false
     @State private var friendToRemove: DancerFriend? = nil
+    @State private var friendToBlock: DancerFriend? = nil
+    @State private var friendToReport: DancerFriend? = nil
+    @State private var showReportConfirmation = false
     
     private var filteredFriends: [DancerFriend] {
         if searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
@@ -136,9 +139,12 @@ struct FriendsListView: View {
                     ScrollView {
                         LazyVStack(spacing: 10) {
                             ForEach(filteredFriends) { friend in
-                                FriendRowView(friend: friend) {
-                                    friendToRemove = friend
-                                }
+                                FriendRowView(
+                                    friend: friend,
+                                    onRemove: { friendToRemove = friend },
+                                    onBlock: { friendToBlock = friend },
+                                    onReport: { friendToReport = friend }
+                                )
                             }
                         }
                         .padding(.horizontal, 20)
@@ -193,6 +199,7 @@ struct FriendsListView: View {
         .qrScanner(isPresented: $showScanner) { scannedCode in
             handleScannedQRCode(scannedCode)
         }
+        // Remove Friend Dialog
         .confirmationDialog(
             "Odstrániť priateľa?",
             isPresented: Binding(
@@ -213,6 +220,51 @@ struct FriendsListView: View {
         } message: {
             Text("Tento tanečník bude odstránený z tvojho zoznamu priateľov.")
         }
+        // Block User Dialog (App Store Guideline 1.2)
+        .confirmationDialog(
+            "Zablokovať používateľa?",
+            isPresented: Binding(
+                get: { friendToBlock != nil },
+                set: { if !$0 { friendToBlock = nil } }
+            ),
+            titleVisibility: .visible
+        ) {
+            if let friend = friendToBlock {
+                Button("Zablokovať \(friend.name)", role: .destructive) {
+                    friendManager.removeFriend(id: friend.id)
+                    friendToBlock = nil
+                }
+            }
+            Button("Zrušiť", role: .cancel) {
+                friendToBlock = nil
+            }
+        } message: {
+            Text("Zablokovaný používateľ vám už nebude môcť posielať pozvánky, zdieľať zostavy ani s vami interagovať.")
+        }
+        // Report User Dialog (App Store Guideline 1.2)
+        .confirmationDialog(
+            "Nahlásiť používateľa?",
+            isPresented: Binding(
+                get: { friendToReport != nil },
+                set: { if !$0 { friendToReport = nil } }
+            ),
+            titleVisibility: .visible
+        ) {
+            Button("Nahlásiť nevhodný obsah / profil", role: .destructive) {
+                friendToReport = nil
+                showReportConfirmation = true
+            }
+            Button("Zrušiť", role: .cancel) {
+                friendToReport = nil
+            }
+        } message: {
+            Text("Nahlásenie preverí tím administrátorov Encore do 24 hodín v súlade s pravidlami komunity.")
+        }
+        .alert("Podnet bol prijatý", isPresented: $showReportConfirmation) {
+            Button("Rozumiem", role: .cancel) {}
+        } message: {
+            Text("Ďakujeme za nahlásenie. Preveríme obsah do 24 hodín a podnikneme príslušné kroky.")
+        }
     }
     
     private func handleScannedQRCode(_ code: String) {
@@ -222,10 +274,12 @@ struct FriendsListView: View {
     }
 }
 
-// MARK: - Individual Friend Row Component
+// MARK: - Individual Friend Row Component (With Guideline 1.2 Moderation Actions)
 private struct FriendRowView: View {
     let friend: DancerFriend
     let onRemove: () -> Void
+    let onBlock: () -> Void
+    let onReport: () -> Void
     
     private var initials: String {
         let trimmed = friend.name.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -269,10 +323,20 @@ private struct FriendRowView: View {
             
             Spacer()
             
-            // Remove / Menu Action
+            // Moderation & Social Actions (App Store Guideline 1.2)
             Menu {
+                Button(action: onReport) {
+                    Label("Nahlásiť obsah / používateľa", systemImage: "flag")
+                }
+                
+                Button(role: .destructive, action: onBlock) {
+                    Label("Zablokovať používateľa", systemImage: "hand.raised.slash")
+                }
+                
+                Divider()
+                
                 Button(role: .destructive, action: onRemove) {
-                    Label("Odstrániť z priateľov", systemImage: "trash")
+                    Label("Odstrániť z priateľov", systemImage: "person.crop.circle.badge.minus")
                 }
             } label: {
                 Image(systemName: "ellipsis")
