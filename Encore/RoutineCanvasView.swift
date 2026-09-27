@@ -83,7 +83,7 @@ struct RoutineCanvasView: View {
         let w = viewport.width > 0 ? viewport.width : fallback.width
         let h = viewport.height > 0 ? viewport.height : fallback.height
         let availableW = max(w - 24, 280)
-        let availableH = max(h - (isPresentedInTab ? 200 : 130), 320)
+        let availableH = max(h - 200, 320)
         let fit = min(availableW / contentWidth, availableH / contentHeight)
         return max(fit, 0.35)
     }
@@ -370,7 +370,7 @@ struct RoutineCanvasView: View {
                         }
                     }
                     .padding(.horizontal, 24)
-                    .padding(.bottom, isPresentedInTab ? max(geo.safeAreaInsets.bottom + 92, 134) : max(geo.safeAreaInsets.bottom + 28, 50))
+                    .padding(.bottom, max(geo.safeAreaInsets.bottom + 120, 155))
                 }
                 .frame(width: viewport.width, height: viewport.height)
                 
@@ -387,7 +387,7 @@ struct RoutineCanvasView: View {
                             Task { await refreshFromDB(userInitiated: true) }
                         }
                     }
-                    .padding(.bottom, isPresentedInTab ? max(geo.safeAreaInsets.bottom + 78, 120) : max(geo.safeAreaInsets.bottom + 16, 36))
+                    .padding(.bottom, max(geo.safeAreaInsets.bottom + 85, 120))
                 }
                 .frame(width: viewport.width, height: viewport.height)
                 
@@ -599,6 +599,7 @@ struct RoutineCanvasView: View {
         .sheet(isPresented: $showQRExport) {
             QRExportSheet(routine: routine, qrImage: qrCodeImage)
         }
+        .disableSwipeBack()
         .onAppear {
             AppDelegate.orientationLock = .allButUpsideDown
             UIApplication.shared.isIdleTimerDisabled = true
@@ -938,7 +939,7 @@ struct RoutineCanvasView: View {
         let boundsWidth  = max(maxX - minX + 60, contentWidth)
         let boundsHeight = max(maxY - minY + 60, contentHeight)
         let availableWidth  = max(viewportSize.width  - 24,  280)
-        let availableHeight = max(viewportSize.height - (isPresentedInTab ? 200 : 130), 320)
+        let availableHeight = max(viewportSize.height - 200, 320)
         let targetScale = min(max(min(availableWidth / boundsWidth, availableHeight / boundsHeight), minS), maxScale)
         
         withAnimation(.spring(response: 0.38, dampingFraction: 0.75)) {

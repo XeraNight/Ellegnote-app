@@ -9,8 +9,6 @@ struct MainTabView: View {
     @State private var showCaptureSheet: Bool = false
     @StateObject private var navDepth = NavDepth.shared
 
-    // Splash overlay
-    @State private var showSplash: Bool = true
 
     var body: some View {
         ZStack {
@@ -88,17 +86,6 @@ struct MainTabView: View {
                 }
             }
 
-            // ── Splash overlay ─────────────────────────────────────────────
-            if showSplash {
-                AppSplashView {
-                    withAnimation(.easeOut(duration: 0.25)) {
-                        showSplash = false
-                    }
-                }
-                .zIndex(10)
-                .transition(.opacity)
-                .ignoresSafeArea()
-            }
         }
         .animation(.spring(response: 0.3, dampingFraction: 0.8), value: navDepth.isDocked)
         .sheet(isPresented: $showCaptureSheet) {

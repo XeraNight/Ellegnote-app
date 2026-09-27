@@ -6,6 +6,7 @@ import SwiftUI
 struct AppSplashView: View {
     var onComplete: () -> Void
 
+    @ObservedObject private var authManager = AuthManager.shared
     @AppStorage("profileName") private var userName = "Tanečník"
     @State private var isAnimatingLogo = false
     @State private var rotationDegrees: Double = 0.0
@@ -65,22 +66,39 @@ struct AppSplashView: View {
                         .scaleEffect(isAnimatingLogo ? 1.05 : 0.95)
                 }
 
-                // Name fade-in
+                // Name / Brand fade-in
                 VStack(spacing: 4) {
-                    Text("Vítaj v Encore")
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundColor(Color.white.opacity(0.50))
+                    if authManager.isAuthenticated, !userName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, userName != "Tanečník" {
+                        Text("Vítaj späť")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundColor(Color.white.opacity(0.50))
 
-                    Text(userName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "Jakub" : userName)
-                        .font(.system(size: 34, weight: .bold))
-                        .foregroundStyle(
-                            LinearGradient(
-                                colors: [Color.gold400, Color.gold300, Color.white],
-                                startPoint: .leading,
-                                endPoint: .trailing
+                        Text(userName)
+                            .font(.system(size: 32, weight: .bold))
+                            .foregroundStyle(
+                                LinearGradient(
+                                    colors: [Color.gold400, Color.gold300, Color.white],
+                                    startPoint: .leading,
+                                    endPoint: .trailing
+                                )
                             )
-                        )
-                        .shadow(color: Color.gold500.opacity(0.30), radius: 8, x: 0, y: 3)
+                            .shadow(color: Color.gold500.opacity(0.30), radius: 8, x: 0, y: 3)
+                    } else {
+                        Text("Vítaj v")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundColor(Color.white.opacity(0.50))
+
+                        Text("Encore")
+                            .font(.system(size: 34, weight: .bold))
+                            .foregroundStyle(
+                                LinearGradient(
+                                    colors: [Color.gold400, Color.gold300, Color.white],
+                                    startPoint: .leading,
+                                    endPoint: .trailing
+                                )
+                            )
+                            .shadow(color: Color.gold500.opacity(0.30), radius: 8, x: 0, y: 3)
+                    }
                 }
                 .opacity(nameOpacity)
 
@@ -91,7 +109,7 @@ struct AppSplashView: View {
         }
         .task {
             // Logo pulse
-            withAnimation(.easeInOut(duration: 0.5).repeatForever(autoreverses: true)) {
+            withAnimation(.easeInOut(duration: 0.6).repeatForever(autoreverses: true)) {
                 isAnimatingLogo = true
             }
             // Arc spin
@@ -102,14 +120,22 @@ struct AppSplashView: View {
             withAnimation(.easeOut(duration: 0.2)) {
                 nameOpacity = 1.0
             }
-            // S3-1: Fast exit using Swift Concurrency — no legacy GCD timers.
-            // Task.sleep cooperates with the Swift scheduler and is cancellable.
-            try? await Task.sleep(for: .milliseconds(250))
-            withAnimation(.easeOut(duration: 0.15)) {
+            // Minimum branded display time (450ms) so user gets smooth luxury feel
+            try? await Task.sleep(for: .milliseconds(450))
+
+            // Wait for auth check to finish resolving if still pending (cap at 800ms)
+            var waitCount = 0
+            while authManager.isCheckingInitialAuth && waitCount < 16 {
+                try? await Task.sleep(for: .milliseconds(50))
+                waitCount += 1
+            }
+
+            // Smooth exit animation
+            withAnimation(.easeOut(duration: 0.22)) {
                 scale = 1.02
                 opacity = 0.0
             }
-            try? await Task.sleep(for: .milliseconds(150))
+            try? await Task.sleep(for: .milliseconds(220))
             onComplete()
         }
     }

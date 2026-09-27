@@ -119,10 +119,19 @@ struct RootAppView: View {
     @ObservedObject private var friendManager = FriendManager.shared
     @Environment(\.scenePhase) private var scenePhase
     @State private var dismissMaintenanceOffline = false
+    @State private var isSplashActive = true
 
     var body: some View {
         ZStack {
-            if authManager.isAuthenticated {
+            if isSplashActive {
+                AppSplashView {
+                    withAnimation(.easeInOut(duration: 0.35)) {
+                        isSplashActive = false
+                    }
+                }
+                .transition(.opacity)
+                .zIndex(100)
+            } else if authManager.isAuthenticated {
                 MainTabView()
                     .transition(.opacity)
             } else {
@@ -143,7 +152,8 @@ struct RootAppView: View {
                 .zIndex(190)
             }
         }
-        .animation(.easeInOut(duration: 0.28), value: authManager.isAuthenticated)
+        .animation(.easeInOut(duration: 0.32), value: isSplashActive)
+        .animation(.easeInOut(duration: 0.32), value: authManager.isAuthenticated)
         .animation(.easeInOut(duration: 0.28), value: remoteConfig.needsForceUpdate)
         .animation(.easeInOut(duration: 0.28), value: remoteConfig.isMaintenanceMode)
         .sheet(isPresented: $friendManager.showInviteSheet) {

@@ -17,6 +17,7 @@ final class AuthManager: ObservableObject {
 
     @Published var currentUser: User? = nil
     @Published var isAuthenticated: Bool
+    @Published var isCheckingInitialAuth: Bool = true
     @Published var isLoading = false
     @Published var authErrorMessage: String? = nil
     @Published var authSuccessMessage: String? = nil
@@ -33,12 +34,32 @@ final class AuthManager: ObservableObject {
 
     private init() {
         self.isAuthenticated = false
+        self.isCheckingInitialAuth = true
 
-        // Start listening to auth state changes reactively.
-        // The first event (.initialSession) fires from local keychain
-        // without any blocking network call.
+        Task { await checkInitialAuth() }
+    }
+
+    private func checkInitialAuth() async {
         Task { await startAuthListener() }
+
+        if let client {
+            do {
+                let session = try await client.auth.session
+                if !session.isExpired {
+                    applySession(session)
+                } else {
+                    clearSession()
+                }
+            } catch {
+                // No cached session or expired
+            }
+        }
+
         restoreGoogleSignInIfNeeded()
+
+        // Allow async initial events (Google restore, Supabase keychain) to settle
+        try? await Task.sleep(for: .milliseconds(300))
+        isCheckingInitialAuth = false
     }
 
     // MARK: - Restore Google Sign In on App Launch
@@ -46,7 +67,13 @@ final class AuthManager: ObservableObject {
         GIDSignIn.sharedInstance.restorePreviousSignIn { [weak self] user, error in
             guard let self, let user, error == nil else {
                 if let error = error {
-                    Logger.auth.warning("[GoogleSignIn] Silent restore not available: \(error.localizedDescription, privacy: .public)")
+                    let nsError = error as NSError
+                    // Error -4 is kGIDSignInErrorCodeHasNoAuthInKeychain — normal when not logged in
+                    if nsError.code != -4 {
+                        Logger.auth.warning("[GoogleSignIn] Silent restore note: \(error.localizedDescription, privacy: .public)")
+                    } else {
+                        Logger.auth.debug("[GoogleSignIn] No cached Google credentials in keychain (code -4).")
+                    }
                 }
                 return
             }
@@ -88,7 +115,10 @@ final class AuthManager: ObservableObject {
 
     // MARK: - Reactive auth state listener
     private func startAuthListener() async {
-        guard let client else { return }
+        guard let client else {
+            isCheckingInitialAuth = false
+            return
+        }
         for await (event, session) in client.auth.authStateChanges {
             switch event {
             case .initialSession:
@@ -98,10 +128,13 @@ final class AuthManager: ObservableObject {
                 } else {
                     clearSession()
                 }
+                isCheckingInitialAuth = false
             case .signedIn, .tokenRefreshed, .userUpdated:
                 if let s = session { applySession(s) }
+                isCheckingInitialAuth = false
             case .signedOut, .userDeleted:
                 clearSession()
+                isCheckingInitialAuth = false
             default:
                 break
             }

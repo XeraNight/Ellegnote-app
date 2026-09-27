@@ -38,6 +38,20 @@ final class DanceCameraManager: NSObject, ObservableObject, @unchecked Sendable,
     }
     
     func start() {
+        // Pre-configure unified audio session BEFORE camera session starts
+        // This eliminates category conflict (err=-19224 / err=-17281) with simultaneous metronome audio
+        do {
+            let audioSession = AVAudioSession.sharedInstance()
+            try audioSession.setCategory(
+                .playAndRecord,
+                mode: .videoRecording,
+                options: [.defaultToSpeaker, .mixWithOthers, .allowBluetooth, .allowBluetoothA2DP]
+            )
+            try audioSession.setActive(true)
+        } catch {
+            Logger.camera.warning("AudioSession pre-configuration warning: \(error.localizedDescription)")
+        }
+
         sessionQueue.async { [weak self] in
             guard let self = self else { return }
             if !self.isConfigured {

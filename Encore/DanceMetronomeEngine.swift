@@ -179,12 +179,13 @@ public final class DanceMetronomeEngine: ObservableObject {
     // MARK: - Playback Session Activation
     private func activateAudioSession() {
         do {
-            // Category .playback bypasses the hardware Silent/Mute switch!
-            // .mixWithOthers allows metronome to play simultaneously over studio music (Spotify/Apple Music)
+            // Category .playAndRecord with .defaultToSpeaker allows metronome playback
+            // simultaneously with camera microphone recording, and bypasses Silent/Mute switch.
+            // .mixWithOthers allows metronome to play simultaneously over studio music (Spotify/Apple Music).
             try AVAudioSession.sharedInstance().setCategory(
-                .playback,
+                .playAndRecord,
                 mode: .default,
-                options: [.mixWithOthers, .allowBluetoothHFP, .allowAirPlay]
+                options: [.defaultToSpeaker, .mixWithOthers, .allowBluetooth, .allowBluetoothA2DP]
             )
             try AVAudioSession.sharedInstance().setActive(true, options: .notifyOthersOnDeactivation)
         } catch {

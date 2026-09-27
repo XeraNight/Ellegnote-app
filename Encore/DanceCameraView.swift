@@ -60,9 +60,9 @@ struct DanceCameraView: View {
     // Camera Controller State
     @StateObject private var camera = DanceCameraManager()
     
-    // Instant Memory Toast
     @State private var bookmarkToastText: String? = nil
     @State private var lastLiveActivityUpdate: Date = .distantPast
+    @State private var lastReportedAudioLevel: Float = 0.0
     
     // UI Feature States (Funkcie 1 - 5)
     @State private var countdownDuration: CountdownDuration = .off
@@ -170,58 +170,56 @@ struct DanceCameraView: View {
                 .zIndex(100)
             }
             
-            // 6. Camera Controls Deck UI (Header + Ambient VU Meter + Footer)
-            VStack {
-                // Top Header Bar
+            // 6. Camera Controls Deck UI (Header + Ambient VU Meter + Lower Controls Deck)
+            VStack(spacing: 0) {
+                // Top Header Bar (Dismiss 'X' and Flash 'bolt' - clear from Dynamic Island)
                 topHeaderBar
                     .padding(.horizontal, 16)
                     .padding(.top, 12)
                 
-                // Action Control Strip (Metronome + Mriežka + Samospúšť)
-                actionControlStrip
-                    .padding(.horizontal, 16)
-                    .padding(.top, 6)
-                
-                if metronome.selectedPreset != .off {
-                    metronomeStatusPill
-                        .padding(.top, 4)
-                        .opacity(camera.isRecording ? 0.75 : 1.0)
-                        .transition(.scale.combined(with: .opacity))
-                }
-                
                 Spacer()
                 
-                // Live VU Meter & Recording Duration Pill
+                // ── Lower Thumb Zone Deck (Ergonomic One-Handed Access) ──
+                VStack(spacing: 8) {
+                    // Metronome Live Measure & Beat Status Pill
+                    if metronome.selectedPreset != .off {
+                        metronomeStatusPill
+                            .opacity(camera.isRecording ? 0.75 : 1.0)
+                            .transition(.scale.combined(with: .opacity))
+                    }
+                    
+                    // Action Control Strip (Metronome + Mriežka + Samospúšť + Ghost)
+                    actionControlStrip
+                }
+                .padding(.horizontal, 16)
+                .padding(.bottom, 6)
+                
+                // Ghost / Onion Skinning Opacity Slider
+                if showGhostOverlay && ghostVideoPath != nil {
+                    ghostControlsBar
+                        .padding(.horizontal, 24)
+                        .padding(.bottom, 6)
+                }
+                
+                // Live VU Meter & Recording Status Pill
                 HStack(spacing: 10) {
                     if camera.isRecording {
-                        HStack(spacing: 6) {
-                            Circle()
-                                .fill(Color.red)
-                                .frame(width: 8, height: 8)
-                            Text(formatDuration(camera.recordingDuration))
-                                .font(.system(size: 13, weight: .heavy, design: .monospaced))
-                                .foregroundColor(.white)
-                        }
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 6)
-                        .background(Color.black.opacity(0.7))
-                        .cornerRadius(16)
-                        .overlay(Capsule().stroke(Color.red.opacity(0.6), lineWidth: 1))
+                        recordingStatusPill
                     }
                     
                     // Live Audio VU Meter (Funkcia 7: Reálny ambientný mikrofón)
                     CameraVUMeterView(audioLevel: camera.audioLevel)
                 }
-                .padding(.bottom, 10)
+                .padding(.bottom, 8)
                 
                 // Zoom Quick Switcher (Funkcia 3: 0.5x, 1x, 2x)
                 zoomSwitcherBar
-                    .padding(.bottom, 16)
+                    .padding(.bottom, 12)
                 
                 // Bottom Camera Shutter Deck
                 bottomControlsDeck
                     .padding(.horizontal, 24)
-                    .padding(.bottom, 32)
+                    .padding(.bottom, 28)
             }
         }
         .statusBarHidden()
@@ -283,8 +281,11 @@ struct DanceCameraView: View {
         .onChange(of: metronome.tempoMultiplier) { _, _ in
             updateRecordingLiveActivity(force: true)
         }
-        .onChange(of: camera.audioLevel) { _, _ in
-            if camera.isRecording {
+        .onChange(of: camera.audioLevel) { _, newLevel in
+            guard camera.isRecording else { return }
+            let now = Date()
+            if abs(newLevel - lastReportedAudioLevel) >= 0.08 && now.timeIntervalSince(lastLiveActivityUpdate) >= 0.5 {
+                lastReportedAudioLevel = newLevel
                 updateRecordingLiveActivity()
             }
         }
