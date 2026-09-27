@@ -31,6 +31,9 @@ struct ProfileView: View {
     @State private var showCropSheet = false
     @State private var showAuthSheet = false
     @State private var showLegalSheet = false
+    @State private var showOwnerAdminSheet = false
+    @State private var showPaywallSheet = false
+    @ObservedObject private var subscriptionManager = SubscriptionManager.shared
     
     // Storage loaded async to avoid file I/O on main thread
     @State private var storageUsageBytes: Int64 = 0
@@ -90,6 +93,70 @@ struct ProfileView: View {
     }
 
     // MARK: - Body sections (Luxury Obsidian & Gold Styling)
+
+    @ViewBuilder private var membershipTierSection: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text("Členstvo & Predplatné").sectionHeader()
+            
+            Button {
+                showPaywallSheet = true
+            } label: {
+                HStack(spacing: 14) {
+                    ZStack {
+                        Circle()
+                            .fill(subscriptionManager.currentTier.badgeColor.opacity(0.18))
+                            .frame(width: 44, height: 44)
+                        Image(systemName: subscriptionManager.currentTier.iconName)
+                            .font(.system(size: 19, weight: .bold))
+                            .foregroundColor(subscriptionManager.currentTier.badgeColor)
+                    }
+                    .overlay(
+                        Circle().stroke(subscriptionManager.currentTier.badgeColor.opacity(0.4), lineWidth: 1)
+                    )
+                    
+                    VStack(alignment: .leading, spacing: 3) {
+                        HStack(spacing: 6) {
+                            Text("Encore \(subscriptionManager.currentTier.rawValue)")
+                                .font(.system(size: 15, weight: .bold))
+                                .foregroundColor(.white)
+                            
+                            if subscriptionManager.isAppOwner {
+                                Text("MAJITEĽ")
+                                    .font(.system(size: 9, weight: .black))
+                                    .foregroundColor(LuxuryTheme.obsidian900)
+                                    .padding(.horizontal, 6)
+                                    .padding(.vertical, 2)
+                                    .background(LuxuryTheme.gold400)
+                                    .cornerRadius(6)
+                            } else if subscriptionManager.entitlementSource == .ownerGrant {
+                                Text("VIP GRANT")
+                                    .font(.system(size: 9, weight: .black))
+                                    .foregroundColor(LuxuryTheme.obsidian900)
+                                    .padding(.horizontal, 6)
+                                    .padding(.vertical, 2)
+                                    .background(LuxuryTheme.gold400)
+                                    .cornerRadius(6)
+                            }
+                        }
+                        
+                        Text(subscriptionManager.currentTier.shortDescription)
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundColor(Color.white.opacity(0.65))
+                            .lineLimit(1)
+                    }
+                    
+                    Spacer()
+                    
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundColor(Color.gold400.opacity(0.6))
+                }
+                .padding(16)
+                .luxuryProfileCard(cornerRadius: 18)
+            }
+            .buttonStyle(.plain)
+        }
+    }
 
     @ViewBuilder private var memberCardSection: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -442,6 +509,12 @@ struct ProfileView: View {
                 MaintenanceButton(icon: "hand.raised.fill",
                                   title: "Ochrana súkromia & Zmluvné podmienky",
                                   isDestructive: false) { showLegalSheet = true }
+                if subscriptionManager.isAppOwner {
+                    Divider().background(Color.gold500.opacity(0.35))
+                    MaintenanceButton(icon: "crown.fill",
+                                      title: "👑 Majiteľská Konzola (SuperAdmin)",
+                                      isDestructive: false) { showOwnerAdminSheet = true }
+                }
                 if authManager.isAuthenticated {
                     Divider().background(Color.latinRed.opacity(0.25))
                     MaintenanceButton(icon: "person.crop.circle.badge.xmark",
@@ -577,6 +650,7 @@ struct ProfileView: View {
                 }
                 
                 memberCardSection
+                membershipTierSection
                 competitionDiarySection
                 communitySection
                 statsSection
@@ -637,6 +711,12 @@ struct ProfileView: View {
             }
             .sheet(isPresented: $showLegalSheet) {
                 LegalComplianceView()
+            }
+            .sheet(isPresented: $showOwnerAdminSheet) {
+                OwnerAdminConsoleView()
+            }
+            .sheet(isPresented: $showPaywallSheet) {
+                SubscriptionPaywallView()
             }
             .sheet(isPresented: $friendManager.showInviteSheet) {
                 if let invite = friendManager.incomingInvite {

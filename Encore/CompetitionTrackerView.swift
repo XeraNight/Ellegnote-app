@@ -13,6 +13,8 @@ public struct CompetitionTrackerView: View {
     @State private var showArchivedSheet: Bool = false
     @State private var resultToDelete: CompetitionResult? = nil
     @State private var showDeleteConfirmation: Bool = false
+    @ObservedObject private var subscriptionManager = SubscriptionManager.shared
+    @State private var showPaywallSheet: Bool = false
 
     public init() {}
 
@@ -25,8 +27,12 @@ public struct CompetitionTrackerView: View {
                     // 1. Couple Header Card
                     coupleSelectorHeaderCard
 
-                    // 2. Class Advancement Progress Card
-                    advancementCard
+                    // 2. Class Advancement Progress Card (Gated for Plus/Studio)
+                    if !subscriptionManager.canTrackOwnPoints {
+                        freeTierPaywallCard
+                    } else {
+                        advancementCard
+                    }
 
                     // 3. Action Buttons & Filter Bar
                     actionAndFilterSection
@@ -76,6 +82,9 @@ public struct CompetitionTrackerView: View {
         }
         .sheet(isPresented: $showArchivedSheet) {
             KSISArchivedResultsSheet()
+        }
+        .sheet(isPresented: $showPaywallSheet) {
+            SubscriptionPaywallView(initialTier: .plus)
         }
         .confirmationDialog(
             "Naozaj archivovať tento výsledok?",
@@ -277,6 +286,55 @@ public struct CompetitionTrackerView: View {
     }
 
     // MARK: - 2. Class Advancement Progress Card
+    @ViewBuilder
+    private var freeTierPaywallCard: some View {
+        VStack(spacing: 14) {
+            ZStack {
+                Circle()
+                    .fill(LuxuryTheme.gold500.opacity(0.18))
+                    .frame(width: 50, height: 50)
+                Image(systemName: "crown.fill")
+                    .font(.system(size: 22, weight: .bold))
+                    .foregroundColor(LuxuryTheme.gold400)
+            }
+            
+            Text("Sledovanie bodov & postupov")
+                .font(.system(size: 17, weight: .bold))
+                .foregroundColor(.white)
+            
+            Text("Sledujte svoje body, finálové umiestnenia a postupové triedy zo súťaží ksis.eu priamo vo vašom denníku. Táto funkcia je súčasťou predplatného Encore Plus.")
+                .font(.system(size: 13))
+                .foregroundColor(Color.white.opacity(0.7))
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 10)
+            
+            Button {
+                showPaywallSheet = true
+            } label: {
+                HStack(spacing: 6) {
+                    Text("Odomknúť Encore Plus")
+                    Image(systemName: "sparkles")
+                }
+                .font(.system(size: 14, weight: .bold))
+                .foregroundColor(LuxuryTheme.obsidian900)
+                .padding(.horizontal, 20)
+                .padding(.vertical, 11)
+                .background(
+                    LinearGradient(colors: [LuxuryTheme.gold500, LuxuryTheme.gold400], startPoint: .leading, endPoint: .trailing)
+                )
+                .cornerRadius(12)
+            }
+        }
+        .padding(20)
+        .frame(maxWidth: .infinity)
+        .background(LuxuryTheme.obsidian800.opacity(0.9))
+        .cornerRadius(18)
+        .overlay(
+            RoundedRectangle(cornerRadius: 18)
+                .stroke(LuxuryTheme.gold500.opacity(0.3), lineWidth: 1.2)
+        )
+    }
+
     @ViewBuilder
     private var advancementCard: some View {
         let couple = manager.activeCouple ?? manager.couples.first
@@ -1074,6 +1132,8 @@ public struct KSISCoupleManagementSheet: View {
     @State private var partnerConsent: Bool = true
     @State private var isSaving: Bool = false
     @State private var errorMessage: String? = nil
+    @ObservedObject private var subscriptionManager = SubscriptionManager.shared
+    @State private var showPaywallSheet: Bool = false
 
     public init() {}
 
@@ -1134,7 +1194,40 @@ public struct KSISCoupleManagementSheet: View {
                         }
 
                         // Section 2: Pridať alebo Aktualizovať pár
-                        if manager.couples.count < 2 || !manager.couples.isEmpty {
+                        if manager.couples.count >= 1 && !subscriptionManager.canTrackRosterPoints {
+                            // Studio Tier Upsell Card for Roster & Tracking other couples
+                            VStack(alignment: .leading, spacing: 12) {
+                                HStack(spacing: 8) {
+                                    Image(systemName: "building.columns.fill")
+                                        .foregroundColor(LuxuryTheme.gold400)
+                                    Text("Sledovanie viacerých párov & zverencov")
+                                        .font(.system(size: 13, weight: .bold))
+                                        .foregroundColor(.white)
+                                }
+                                Text("V balíku Encore Plus môžete sledovať 1 svoj vlastný tanečný pár. Sledovanie celého rosteru zverencov v klube alebo sledovanie priateľov je súčasťou prémiového balíka Encore Studio.")
+                                    .font(.system(size: 12))
+                                    .foregroundColor(Color.white.opacity(0.75))
+                                
+                                Button {
+                                    showPaywallSheet = true
+                                } label: {
+                                    HStack(spacing: 6) {
+                                        Text("Prejsť na Encore Studio")
+                                        Image(systemName: "arrow.up.right")
+                                    }
+                                    .font(.system(size: 13, weight: .bold))
+                                    .foregroundColor(LuxuryTheme.obsidian900)
+                                    .padding(.horizontal, 16)
+                                    .padding(.vertical, 10)
+                                    .background(LuxuryTheme.gold400)
+                                    .cornerRadius(10)
+                                }
+                            }
+                            .padding(16)
+                            .background(LuxuryTheme.obsidian800)
+                            .cornerRadius(16)
+                            .overlay(RoundedRectangle(cornerRadius: 16).stroke(LuxuryTheme.gold500.opacity(0.35), lineWidth: 1))
+                        } else if manager.couples.count < 2 || !manager.couples.isEmpty {
                             VStack(alignment: .leading, spacing: 14) {
                                 Text(manager.couples.isEmpty ? "PREPOJIŤ KSIS PÁR" : "PRIDAŤ ALEBO UPRAVIŤ PÁR")
                                     .font(.system(size: 11, weight: .black))
@@ -1250,6 +1343,9 @@ public struct KSISCoupleManagementSheet: View {
                     selectedDiscipline = existing.discipline
                     partnerConsent = existing.partnerConsent
                 }
+            }
+            .sheet(isPresented: $showPaywallSheet) {
+                SubscriptionPaywallView(initialTier: .studio)
             }
         }
     }

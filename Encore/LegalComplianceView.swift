@@ -150,6 +150,16 @@ public struct LegalComplianceView: View {
                 title: "5. Tretie strany a infraštruktúra",
                 body: "Dáta sú bezpečne ukladané v databáze Supabase s platnou zmluvou o spracovaní údajov (DPA) a servermi umiestnenými v Európskej únii. Žiadne osobné údaje nepredávame reklamným sieťam ani nesledujeme používateľov naprieč inými aplikáciami (App Tracking Transparency = No Tracking)."
             )
+            
+            legalSection(
+                title: "6. Verejné športové dáta (SZTŠ / ksis.eu)",
+                body: "Import a zobrazenie súťažných výsledkov a postupových bodov z verejného systému ksis.eu sa riadi právnym základom Oprávneného záujmu (čl. 6 ods. 1 písm. f GDPR) pre potreby evidencie športovej výkonnosti. Žiadne citlivé osobné údaje nie sú spracúvané."
+            )
+            
+            legalSection(
+                title: "7. Administrátorský a servisný prístup",
+                body: "Personál a správca aplikácie má prístup k systémovým údajom výlučne na účely technickej podpory, diagnostiky chýb a riešenia nahlásených bezpečnostných incidentov. Správca aplikácie neposkytuje ani nezverejňuje súkromné materiály používateľov."
+            )
         }
     }
 
@@ -184,7 +194,17 @@ public struct LegalComplianceView: View {
             )
 
             legalSection(
-                title: "5. Vekové obmedzenie a ochrana mladistvých (GDPR)",
+                title: "5. Bezplatné VIP licencie a dary",
+                body: "Prevádzkovateľ aplikácie si vyhradzuje právo podľa vlastného uváženia bezplatne udeliť alebo predĺžiť plnú či čiastočnú prémiovú licenciu vybraným používateľom (VIP grant pre partnerov, trénerov, ambasádorov a testerov) bez vzniku nároku na takéto plnenie pre ostatných používateľov."
+            )
+
+            legalSection(
+                title: "6. Moderácia a zablokovanie účtu",
+                body: "Prevádzkovateľ má právo okamžite pozastaviť alebo zablokovať účet používateľovi, ktorý závažne poruší tieto Podmienky používania, pravidlá slušnosti, pokúsi sa o neoprávnený zásah do bezpečnosti alebo obťažovanie iných používateľov. V prípade zablokovania z dôvodu porušenia pravidiel nevzniká nárok na refundáciu predplatného."
+            )
+
+            legalSection(
+                title: "7. Vekové obmedzenie a ochrana mladistvých (GDPR)",
                 body: "Aplikácia Encore je určená pre tanečníkov všetkých vekových kategórií vrátane juniorov a mládeže. Používatelia mladší ako 16 rokov môžu aplikáciu používať a zakladať si účet výhradne so súhlasom svojho zákonného zástupcu (rodiča) v súlade s článkom 8 nariadenia GDPR a Zákonom č. 18/2018 Z. z. o ochranne osobných údajov."
             )
         }

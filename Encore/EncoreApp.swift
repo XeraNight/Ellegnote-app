@@ -117,6 +117,7 @@ struct RootAppView: View {
     @ObservedObject private var authManager = AuthManager.shared
     @ObservedObject private var remoteConfig = RemoteConfigManager.shared
     @ObservedObject private var friendManager = FriendManager.shared
+    @ObservedObject private var subscriptionManager = SubscriptionManager.shared
     @Environment(\.scenePhase) private var scenePhase
     @State private var dismissMaintenanceOffline = false
     @State private var isSplashActive = true
@@ -151,8 +152,21 @@ struct RootAppView: View {
                 .transition(.opacity)
                 .zIndex(190)
             }
+            
+            // Account Banned / Suspended Interceptor
+            if subscriptionManager.isAccountBanned {
+                AccountBannedNoticeView(reason: subscriptionManager.banReason) {
+                    Task {
+                        await authManager.signOut(forgetDevice: true)
+                        subscriptionManager.isAccountBanned = false
+                    }
+                }
+                .transition(.opacity)
+                .zIndex(250)
+            }
         }
         .animation(.easeInOut(duration: 0.32), value: isSplashActive)
+        .animation(.easeInOut(duration: 0.32), value: subscriptionManager.isAccountBanned)
         .animation(.easeInOut(duration: 0.32), value: authManager.isAuthenticated)
         .animation(.easeInOut(duration: 0.28), value: remoteConfig.needsForceUpdate)
         .animation(.easeInOut(duration: 0.28), value: remoteConfig.isMaintenanceMode)

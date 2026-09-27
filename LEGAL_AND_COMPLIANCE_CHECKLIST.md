@@ -12,20 +12,23 @@
 | **Zmazanie účtu v appke** | 🟢 **HOTOVO** | `deleteAccount()` v `AuthManager.swift` + potvrdzovací dialóg v `ProfileView.swift` | Overiť, že RPC funkcia `delete_user_account` je nasadená v Supabase |
 | **Autorské práva k hudbe** | 🟢 **ČISTÉ** | Metronóm generuje syntetický PCM zvuk v RAM (`DanceMetronomeEngine.swift`), Speed Trainer prehráva iba lokálne súbory používateľa | Žiadna nelegálna hudba nie je v bundle appky |
 | **Licencie k fontom** | 🟢 **ČISTÉ** | Používajú sa 100% natívne Apple fonty (SF Pro, New York, SF Mono, Zapfino, Snell Roundhand) | Žiadne cudzie fonty (TTF/OTF) s rizikom licenčných poplatkov |
-| **Encryption export tag** | 🟡 **POTREBNÉ** | Beží štandardné HTTPS/Keychain | Pridať `ITSAppUsesNonExemptEncryption = NO` do `Info.plist` |
-| **Privacy Policy odkaz v appke** | 🔴 **KRITICKÉ** | Chýba v UI | Pridať odkaz na Zásady ochrany osobných údajov do `ProfileView` a `AuthSheetView` |
-| **Supabase RLS pravidlá** | 🔴 **KRITICKÉ** | RLS je zapnuté, ale pravidlá majú `using (true)` | Zviazať pravidlá s `auth.uid() = user_id`, aby si používatelia nevideli cudzie zostavy |
+| **Encryption export tag** | 🟢 **HOTOVO** | `ITSAppUsesNonExemptEncryption = false` je pridané v `Info.plist` | Hotovo, žiadne papierovanie v App Store Connect |
+| **Privacy Policy & EULA v appke** | 🟢 **HOTOVO** | Odkaz + interaktívny prehliadač v `ProfileView`, `AuthSheetView`, `LegalComplianceView` a `SubscriptionPaywallView` | Vložiť verejný odkaz do App Store Connect pred odoslaním na review |
+| **Predplatné (StoreKit 2 IAP)** | 🟢 **HOTOVO** | `SubscriptionManager.swift`, `SubscriptionModels.swift`, `SubscriptionPaywallView.swift` (Plus & Studio) | Nastaviť rovnaké Product ID v App Store Connect |
+| **Majiteľská konzola & VIP dary** | 🟢 **HOTOVO** | God Mode pre Jakuba, udelenie VIP tierov zadarmo partnerke/trénerovi (`OwnerAdminConsoleView`) | Spustiť migračný SQL skript `AdminAndEntitlements.sql` v Supabase |
+| **Moderácia & Blokovanie účtov** | 🟢 **HOTOVO** | Možnosť zablokovať účet priamo z appky + interceptor `AccountBannedNoticeView` | Právne ošetrené v ToS čl. 2.5 a Privacy Policy čl. 1.7 |
+| **Súťažné body (Gating)** | 🟢 **HOTOVO** | Plus = vlastný pár a body, Studio = zverenci / roster viacerých párov (`CompetitionTrackerView`) | Spracovanie podložené Oprávneným záujmom (GDPR) |
+| **Supabase RLS pravidlá** | 🟡 **NASADENIE** | RLS je zapnuté, pripravený skript `AdminAndEntitlements.sql` | Spustiť v Supabase SQL editore pred spustením pre verejnosť |
 | **SZTŠ / ksis.eu dáta** | 🟡 **STRATÉGIA** | Prebieha cez Supabase Edge Function s rate limitom | Poslať informačný e-mail / žiadosť o partnerstvo na SZTŠ |
 
 ---
 
 ## 1. 🍎 Apple App Store — Technické požiadavky na schválenie (Guideline audit)
 
-### 1.1 Odkaz na Privacy Policy priamo v appke (Guideline 5.1.1)
-- [ ] **Problém:** Apple vyžaduje funkčný odkaz na Privacy Policy na dvoch miestach: v App Store Connect a **priamo v používateľskom rozhraní aplikácie**. V našom `ProfileView` a `AuthSheetView` tento odkaz zatiaľ chýba.
-- [ ] **Riešenie v kóde:**
-  - Vložiť sekciu do `ProfileView`: *"Právne informácie & Ochrana súkromia"* s linkom otvárajúcim URL (napr. Safari sheet).
-  - Vložiť drobný text pod tlačidlá v `AuthSheetView`: *"Prihlásením súhlasíte s Obchodnými podmienkami a Zásadami ochrany osobných údajov."*
+### 1.1 Odkaz na Privacy Policy priamo v appke (Guideline 5.1.1) — STAV: VYRIEŠENÉ ✅
+- [x] Apple vyžaduje funkčný odkaz na Privacy Policy na dvoch miestach: v App Store Connect a **priamo v používateľskom rozhraní aplikácie**.
+- [x] V aplikácii máme integrovaný `LegalComplianceView` s kompletným znením GDPR, ToS, EULA a Disclaimermi dostupný z `ProfileView`, `AuthSheetView` a zo `SubscriptionPaywallView`.
+- [x] Súbor `PRIVACY_POLICY.html` je pripravený na nasadenie na vlastnú doménu alebo GitHub Pages / Supabase Storage pre App Store Connect URL.
 
 ### 1.2 Sign in with Apple (Guideline 4.8) — STAV: VYRIEŠENÉ ✅
 - [x] Apple striktne vyžaduje, že ak appka ponúka Google Sign-In, **musí** ponúkať aj Sign in with Apple ako rovnocennú možnosť.
@@ -33,12 +36,11 @@
 
 ### 1.3 Zmazanie účtu používateľom (Guideline 5.1.1(v)) — STAV: VYRIEŠENÉ ✅
 - [x] Apple vyžaduje možnosť zmazať účet priamo v aplikácii, pričom musí ísť o úplné zmazanie dát.
-- [x] V `ProfileView.swift` (riadok 659) máme hotový deštruktívny potvrdzovací dialóg: *"Naozaj zmazať účet?"*.
-- [x] V `AuthManager.swift` (riadok 496) funkcia `deleteAccount()` volá Supabase RPC procedúru `delete_user_account`, odpája Google Sign-In a maže Keychain položky.
+- [x] V `ProfileView.swift` máme hotový deštruktívny potvrdzovací dialóg: *"Naozaj zmazať účet?"*.
+- [x] V `AuthManager.swift` funkcia `deleteAccount()` volá Supabase RPC procedúru `delete_user_account`, odpája Google Sign-In a maže Keychain položky.
 
-### 1.4 Export Compliance (`ITSAppUsesNonExemptEncryption`) — STAV: POTREBNÉ PRIDAŤ 🟡
-- [ ] Apple sa pri každom builde v App Store Connect pýta na exportné šifrovanie.
-- [ ] **Riešenie:** Do `Encore/Info.plist` stačí pridať:
+### 1.4 Export Compliance (`ITSAppUsesNonExemptEncryption`) — STAV: VYRIEŠENÉ ✅
+- [x] Do `Encore/Info.plist` bol pridaný kľúč:
   ```xml
   <key>ITSAppUsesNonExemptEncryption</key>
   <false/>
@@ -50,14 +52,14 @@ V dotazníku v App Store Connect zaškrtávame:
 - **Kontaktné údaje:** Meno a Email (zbierané cez Auth na účely prihlásenia a profilu).
 - **Používateľský obsah:** Tréningové videá, hlasové nahrávky, choreografie (lokálne + voliteľne v cloude).
 - **Identifikátory:** ID používateľa (UserID v Supabase).
+- **Nákupy:** História nákupov a predplatného (StoreKit).
 - **Diagnostika & Pádové reporty:** Základné pádové logy.
 - **Sledovanie (Tracking):** **NIE** (žiadne predávanie dát tretím stranám za účelom reklamného cielenia cez IDFA).
 
-### 1.6 Ochrana pred škodlivým obsahom (Guideline 1.2 — User Generated Content)
-- [ ] Naša appka má QR zdieľanie a spojenie s partnermi/priateľmi (`FriendsListView`).
-- [ ] Pre 1:1 zdieľanie choreografií stačí mať v EULA / ToS klauzulu:
-  - Zákaz nahrávania nevhodného, urážlivého alebo nezákonného materiálu.
-  - V appke máme možnosť priateľa kedykoľvek odstrániť a vymazať zostavu.
+### 1.6 Ochrana pred škodlivým obsahom (Guideline 1.2 — User Generated Content) — STAV: VYRIEŠENÉ ✅
+- [x] Politika nulovej tolerancie zakotvená v ToS (čl. 2.1) a v `LegalComplianceView.swift`.
+- [x] Mechanizmus moderácie: Majiteľ môže cez SuperAdmin konzolu okamžite zablokovať účet porušujúci pravidlá.
+- [x] Interceptor `AccountBannedNoticeView` znemožní zablokovanému používateľovi ďalší prístup.
 
 ---
 
