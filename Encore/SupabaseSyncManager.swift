@@ -368,6 +368,10 @@ final class SupabaseSyncManager: Sendable {
             return nil
         }
         
+        // Scope media under user folder: {user_id}/{filename} for private storage RLS
+        let userId = await MainActor.run { AuthManager.shared.currentUser?.id.uuidString } ?? "guest"
+        let remotePath = "\(userId)/\(localFileName)"
+        
         do {
             let data = try Data(contentsOf: fileURL, options: .mappedIfSafe)
             let fileExtension = fileURL.pathExtension.lowercased()
@@ -383,25 +387,33 @@ final class SupabaseSyncManager: Sendable {
                 contentType = "application/octet-stream"
             }
             
-            Logger.sync.info("Uploading '\(localFileName, privacy: .public)' (\(data.count) bytes)")
+            Logger.sync.info("Uploading '\(remotePath, privacy: .public)' (\(data.count) bytes)")
             
             // Upload to Supabase Storage (using options to specify content-type)
             try await client.storage
                 .from(bucket)
                 .upload(
-                    localFileName,
+                    remotePath,
                     data: data,
                     options: FileOptions(contentType: contentType, upsert: true)
                 )
             
+            // For private buckets, generate a signed URL (valid for 7 days)
+            if let signedURL = try? await client.storage
+                .from(bucket)
+                .createSignedURL(path: remotePath, expiresIn: 604800) {
+                Logger.sync.info("Uploaded '\(remotePath, privacy: .public)' → signed URL")
+                return signedURL
+            }
+            
             let publicURL = try client.storage
                 .from(bucket)
-                .getPublicURL(path: localFileName)
+                .getPublicURL(path: remotePath)
             
-            Logger.sync.info("Uploaded '\(localFileName, privacy: .public)' → \(publicURL.absoluteString, privacy: .public)")
+            Logger.sync.info("Uploaded '\(remotePath, privacy: .public)' → \(publicURL.absoluteString, privacy: .public)")
             return publicURL
         } catch {
-            Logger.sync.error("Upload failed for '\(localFileName, privacy: .public)': \(error.localizedDescription, privacy: .public)")
+            Logger.sync.error("Upload failed for '\(remotePath, privacy: .public)': \(error.localizedDescription, privacy: .public)")
             return nil
         }
     }

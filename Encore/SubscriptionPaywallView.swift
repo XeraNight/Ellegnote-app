@@ -64,6 +64,7 @@ public struct SubscriptionPaywallView: View {
                 LegalComplianceView()
             }
             .task {
+                AnalyticsManager.shared.paywallViewed(source: "paywall_modal", initialTier: selectedTier.rawValue)
                 await subscriptionManager.loadProducts()
             }
         }
@@ -201,7 +202,7 @@ public struct SubscriptionPaywallView: View {
                         .foregroundColor(.white.opacity(0.6))
                 }
                 
-                Text(tier == .plus ? "Pre tanečníkov & páry" : "Pre trénerov & kluby")
+                Text(tier == .plus ? "Pre súťažné páry" : "Ultimátny Pro & Radar")
                     .font(.system(size: 11, weight: .medium))
                     .foregroundColor(.white.opacity(0.65))
             }
@@ -227,16 +228,18 @@ public struct SubscriptionPaywallView: View {
                 .tracking(1.2)
             
             if selectedTier == .plus {
-                featureRow(icon: "trophy.fill", title: "Sledovanie vlastných KSIS bodov", subtitle: "Automatický výpočet postupových bodov z ksis.eu a finálových umiestnení")
-                featureRow(icon: "arrow.triangle.2.circlepath", title: "Zdieľanie s partnerom v cloude", subtitle: "Spoločná synchronizácia zostáv a poznámok naživo")
-                featureRow(icon: "folder.fill.badge.plus", title: "Neobmedzené choreografie", subtitle: "Žiadny limit 2 zostáv, archivácia všetkých tancov STT a LAT")
-                featureRow(icon: "waveform.path", title: "Biomechanická analýza držania tela", subtitle: "Detekcia tanečného rámu a sklonu ramien")
+                featureRow(icon: "folder.fill.badge.plus", title: "Neobmedzené choreografie", subtitle: "Viacero verzií pre každý tanec (Free má limit 1 zostava na tanec)")
+                featureRow(icon: "calendar.badge.clock", title: "Súťažný & Tréningový Kalendár", subtitle: "Plánovanie súťaží a samostatných tréningov so sync do Apple Kalendára")
+                featureRow(icon: "target", title: "Top 3 priority po lekcii", subtitle: "Zaznamenanie kľúčových korekcií od trénera pre každý tanec")
+                featureRow(icon: "key.fill", title: "7-dňový kľúč pre externého trénera", subtitle: "Hosťujúci tréner pridá poznámky bez videnia komentárov iných trénerov")
+                featureRow(icon: "trophy.fill", title: "KSIS kalkulačka postupov", subtitle: "Výpočet bodov a finálových umiestnení do vyšších výkonnostných tried (B, A, S)")
+                featureRow(icon: "paintbrush.fill", title: "Prispôsobenie & Parket Optima (Košice)", subtitle: "Exkluzívne ikony appky, luxusné motívy Wallet karty a parket z Košíc")
             } else {
-                featureRow(icon: "checkmark.seal.fill", title: "Všetko z balíka Plus", subtitle: "Všetky funkcie pre neobmedzenú tvorbu choreografií a vlastných bodov")
-                featureRow(icon: "person.3.sequence.fill", title: "Sledovanie bodov iných párov (Roster)", subtitle: "Majte prehľad o postupoch a výsledkoch svojich zverencov a priateľov")
-                featureRow(icon: "building.2.crop.circle.fill", title: "Trénerský manažment žiakov", subtitle: "Priraďovanie figúr a revízia choreografií pre celý tanečný klub")
-                featureRow(icon: "bell.badge.fill", title: "KSIS Notifikácie a alerty", subtitle: "Upozornenia na nové výsledky a postupové zmeny vašich párov")
-                featureRow(icon: "star.shield.fill", title: "Prioritná technická podpora", subtitle: "Priamy kontakt na vývojársky tím Encore")
+                featureRow(icon: "checkmark.seal.fill", title: "Všetko z balíka Plus", subtitle: "Kompletné neobmedzené zostavy, kalendár, priority a KSIS kalkulačka")
+                featureRow(icon: "antenna.radiowaves.left.and.right", title: "KSIS Radar súperov & priateľov", subtitle: "Sledovanie iných párov a okamžité push notifikácie o ich výsledkoch")
+                featureRow(icon: "waveform.path", title: "Biomechanická video analýza", subtitle: "Detekcia tanečného rámu a sklonu ramien priamo vo videách")
+                featureRow(icon: "play.rectangle.on.rectangle.fill", title: "Video Duel (Porovnávač dvoch videí)", subtitle: "Synchrónne prehrávanie vlastného tanca vedľa vzoru so slow-motion")
+                featureRow(icon: "person.3.sequence.fill", title: "Trénerský manažment a denník", subtitle: "Roster párov s poznámkou 'Čo sme robili naposledy' a Zero-Delete ochranou")
             }
         }
         .padding(18)
@@ -400,10 +403,13 @@ public struct SubscriptionPaywallView: View {
             return
         }
         
+        AnalyticsManager.shared.subscriptionUpgradeInitiated(tier: selectedTier.rawValue, isAnnual: isAnnual)
+        
         Task {
             do {
                 let success = try await subscriptionManager.purchase(product: product)
                 if success {
+                    AnalyticsManager.shared.subscriptionPurchased(tier: selectedTier.rawValue, isAnnual: isAnnual)
                     dismiss()
                 }
             } catch {
@@ -411,4 +417,10 @@ public struct SubscriptionPaywallView: View {
             }
         }
     }
+}
+
+// MARK: - Xcode Canvas Preview
+#Preview("SubscriptionPaywallView - Plus & Studio") {
+    SubscriptionPaywallView(initialTier: .studio)
+        .previewWithSampleData()
 }

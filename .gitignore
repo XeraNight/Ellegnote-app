@@ -6,6 +6,18 @@
 Encore/SupabaseConfig.swift
 Encore/Secrets.xcconfig
 
+# ── Apple Certificates, Keys & Provisioning (NEVER commit) ──
+*.p12
+*.p8
+*.pem
+*.cer
+*.mobileprovision
+*.provisionprofile
+*.keystore
+pass_cert.pem
+pass_key.pem
+pass_signer.pem
+
 # ── Web app secrets & build output (NEVER commit) ────────────
 web/.env.local
 web/.env*.local

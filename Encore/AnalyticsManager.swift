@@ -126,4 +126,64 @@ extension AnalyticsManager {
         capture("account_deleted")
         reset()
     }
+    
+    // ── Predplatné, Paywall & Limity ──────────────────────────────────────────
+    func paywallViewed(source: String, initialTier: String) {
+        capture("paywall_viewed", properties: [
+            "source": source,
+            "initial_tier": initialTier
+        ])
+    }
+
+    func routineLimitHit(danceName: String) {
+        capture("routine_limit_hit", properties: [
+            "dance_name": danceName,
+            "rule": "1_routine_per_dance_free_limit"
+        ])
+    }
+
+    func subscriptionUpgradeInitiated(tier: String, isAnnual: Bool) {
+        capture("subscription_upgrade_initiated", properties: [
+            "tier": tier,
+            "is_annual": isAnnual
+        ])
+    }
+
+    func subscriptionPurchased(tier: String, isAnnual: Bool) {
+        capture("subscription_purchased", properties: [
+            "tier": tier,
+            "is_annual": isAnnual
+        ])
+    }
+
+    // ── Studio Tier & Pro Funkcie ─────────────────────────────────────────────
+    func radarCoupleFollowed(coupleId: String) {
+        capture("radar_couple_followed", properties: [
+            "couple_id": coupleId
+        ])
+    }
+
+    func videoDuelLaunched() {
+        capture("video_duel_launched")
+    }
+
+    func guestCoachKeyGenerated(routineId: String) {
+        capture("guest_coach_key_generated", properties: [
+            "routine_id": routineId
+        ])
+    }
+
+    func top3PrioritiesSaved(danceName: String) {
+        capture("top3_priorities_saved", properties: [
+            "dance_name": danceName
+        ])
+    }
+
+    func walletPassDownloaded() {
+        capture("wallet_pass_downloaded")
+    }
+
+    func walletPassSharedProximity() {
+        capture("wallet_pass_shared_proximity")
+    }
 }

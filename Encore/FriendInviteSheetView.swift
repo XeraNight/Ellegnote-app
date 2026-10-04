@@ -78,6 +78,15 @@ struct FriendInviteSheetView: View {
                                 _ = friendManager.addFriend(from: invite)
                                 isAccepted = true
                             }
+                            
+                            // Synchronizácia s novým ConnectionManager pre zdieľanie zostáv
+                            Task {
+                                if let targetUUID = UUID(uuidString: invite.userId) {
+                                    try? await ConnectionManager.shared.sendRequest(targetUserId: targetUUID, type: .partner)
+                                } else if invite.userId.starts(with: "DNC-") {
+                                    try? await ConnectionManager.shared.sendRequestByDancerCode(code: invite.userId, type: .partner)
+                                }
+                            }
                         } label: {
                             HStack(spacing: 8) {
                                 Image(systemName: "person.badge.plus.fill")

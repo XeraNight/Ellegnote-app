@@ -1,9 +1,28 @@
 # 💃 ENCORE — Kompletný Prehľad Aplikácie, Brandu, UI a Architektúry
 
 > **Súbor:** `app.md`  
-> **Dátum:** September 2026  
-> **Stav projektu:** Jadro + rozšírené moduly 100 % implementované, čistý Xcode build (`** BUILD SUCCEEDED **`)  
-> **Účel dokumentu:** Prehľadný referenčný manuál pre diskusiu mimo vývojového prostredia (brainstorming, branding, prezentácia partnerom, investorom a trénerom, plánovanie nových pomôcok).
+> **Dátum:** Október 2026  
+> **Stav projektu:** Jadro + StoreKit 2 platby + Opravené audio a domovská obrazovka, čistý Xcode build (`** BUILD SUCCEEDED **`)  
+> **Účel dokumentu:** Kompletný referenčný stav kódu aplikácie pre vývojára a Claude AI asistenta.
+
+---
+
+## 🚦 Aktuálny Stav Kódu (Posledné Opravy & Pripravenosť)
+
+1. **✅ Opravená domovská obrazovka (Hit-testing & Diktovanie):**
+   - Vyriešený problém, kde nešlo písať text ani uložiť hlasovú poznámku. Radiálne menu `EncoreRadialHubView` malo statický neviditeľný 300pt rámček s `.zIndex(100)`, ktorý blokoval dotyky. Upravené na dynamickú veľkosť + pridaný `@FocusState` a `.onTapGesture` pre okamžité vysunutie klávesnice.
+   - Hlasový záznam sa ukladá priamo do SwiftData `InstantNote` s vizuálnym zeleným toastom.
+2. **✅ Odstránený konflikt audia v kamere:**
+   - Z `DanceCameraManager` bol odstránený konfliktný VU meter a `AVCaptureAudioDataOutput`, ktorý spôsoboval pád audio session (error -19224) a predbiehal sa s mikrofónom.
+   - Mikrofón je teraz zapojený priamo do natívneho `AVCaptureMovieFileOutput` (rovnako ako oficiálna Apple Camera), nahráva čistý 60 FPS zvuk a video bez zásekov.
+3. **✅ Model predplatného (StoreKit 2 & Offline testovanie za 0 €):**
+   - Vytvorený súbor `EncoreProducts.storekit` a zapojený do Xcode schémy `Encore.xcscheme`. Všetky nákupy na simulátore aj cez USB kábel sú zadarmo.
+   - **Free plán:** 1 zostava na každý konkrétny tanec (1× Waltz, 1× Tango, 1× Samba...).
+   - **Plus plán (€5.99/mes, €49.99/rok):** Neobmedzené zostavy, synchronizácia s Apple Kalendárom, Top 3 priority po lekcii, parket Optima Košice.
+   - **Studio plán (€14.99/mes, €129.99/rok):** KSIS Radar súperov so živými notifikáciami, Posture línie vo videu, Video Duel.
+   - **Rola Trénera (Coach):** Roster zverencov, poznámka "Čo sme robili naposledy", Zero-Delete politika (tréner nikdy nemôže zmazať žiakovi choreografiu).
+4. **✅ Overenie kompilácie:**
+   - Projekt sa kompiluje bez jedinej chyby (`** BUILD SUCCEEDED **`).
 
 ---
 

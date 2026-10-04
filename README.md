@@ -1,60 +1,53 @@
-# Encore — Tanečná Aplikácia & Súťažný Denník KSIS
+# 💃 ENCORE — Tanečný Asistent & Choreografický Systém
+### *Oficiálna dokumentácia a architektonický rozcestník*
 
-Encore je prémiová natívna iOS aplikácia pre tanečný šport (Standard & Latin) vytvorená v SwiftUI s backendom na Supabase.
+Encore je prémiová natívna iOS aplikácia (SwiftUI + SwiftData + Supabase) navrhnutá pre súťažných tanečníkov (Standard & Latin), trénerov a tanečné kluby. 
 
----
-
-## KSIS Súťažný Denník & Sledovanie Postupov (Fáza 1)
-
-Encore importuje oficiálne výsledky súťaží zo slovenského tanečného portálu KSIS (`szts.ksis.eu`) do osobného súťažného denníka tanečníka s automatickým výpočtom postupových bodov a finálových umiestnení.
-
-### Architektúra & Bezpečnostné Princípy
-- **Edge Functions & Service Role:** Všetky zápisy, aktualizácie a mazania prebiehajú výhradne cez zabezpečené Supabase Edge Functions (`ksis-manage-couples`, `ksis-import`, `ksis-manage-results`).
-- **Klient Iba na Čítanie (RLS):** Všetky tabuľky majú zapnuté striktné RLS (Row Level Security). Pre roly `anon` a `authenticated` sú príkazy `INSERT`, `UPDATE`, `DELETE` explicitne odvolané (`REVOKE`). Používateľ má prístup len k vlastným záznamom (`auth.uid() = user_id`).
-- **Čestný User-Agent:** Každá požiadavka na KSIS odosiela transparentnú hlavičku `User-Agent: EncoreApp/1.0 (contact: jakubkalina05@gmail.com)`. Žiadne obchádzanie Cloudflare.
-- **SSRF Ochrana:** Vstupné parametre `sutaz_id` a `couple_id` sú striktne validované ako kladné celé čísla. URL sa skladá výhradne na strane servera.
-- **Ochrana Súkromia & GDPR:** Aplikácia nikdy neukladá ani nevracia celé HTML stránky ani mená cudzích tanečníkov. Ukladá sa výlučne riadok priradený k prepojenému páru používateľa.
-- **Rate Limiting:** Atómový cooldown na úrovni databázy (10 sekúnd na pár, 30 sekúnd na IP/používateľa) s hlavičkou `Retry-After: N` a HTTP 429 pre zabránenie preťaženia servera KSIS.
-- **Zdroj Pravdy:** Kumulatívny stav bodov a finále sa berie z oficiálneho zápisu KSIS (napr. `"89/5F"`). Importujú sa len oficiálne potvrdené výsledky (`is_official = true`).
+Hlavným poslaním Encore je **zrýchliť progres tanečníka a odstrániť stratu času** — umožniť po lekcii za 5 sekúnd zapísať alebo nadiktovať poznámky k figúre, priradiť video a nestratiť priestorovú orientáciu na tanečnom parkete.
 
 ---
 
-## SZTŠ Gate Checklist (Pred Ostrou Prevádzkou)
+## 🧭 Prehľad Dokumentácie (Rozcestník pre Vývoj & Claude)
 
-Pred spustením ostrej prevádzky pre verejných používateľov musí byť splnený tento kontrolný zoznam:
+Pre maximálny prehľad je projekt rozdelený do špecializovaných dokumentov:
 
-- [x] **1. Čestný a identifikovateľný User-Agent:**
-  - Všetky požiadavky na `szts.ksis.eu` nesú hlavičku `EncoreApp/1.0 (contact: jakubkalina05@gmail.com)`.
-- [x] **2. RLS & Server-Side Ochrana:**
-  - Tabuľky `user_couples`, `competition_results`, `advancement_rules`, `import_cooldowns` majú striktné RLS politiky.
-  - Všetky mutácie prebiehajú výhradne cez Edge Functions s `service_role`.
-- [x] **3. GDPR & Súhlas Partnera:**
-  - Pri prepojení tanečného páru (`ksis-manage-couples`) sa vyžaduje explicitné potvrdenie súhlasu partnera so spracovaním súťažných údajov (`partner_consent: true`).
-  - Žiadne citlivé ani cudzie osobné údaje z KSIS protokolov sa neukladajú do databázy.
-- [x] **4. Rate Limiting & Cooldowny:**
-  - 10 sekúnd na pár, 30 sekúnd na používateľa.
-  - V aplikácii je implementovaný interaktívny odpočet a deaktivácia tlačidla pri HTTP 429.
-- [x] **5. Mazanie Účtu (Právo na Výmaz):**
-  - Kaskádové mazanie (`ON DELETE CASCADE`) na tabuľkách `user_couples` a `competition_results` pri zmazaní profilu používateľa.
-- [ ] **6. Notifikácia Správcu KSIS / SZTŠ:**
-  - Odoslať informačný e-mail správcovi KSIS s popisom účelu Encore (čítanie verejných protokolov pre osobný denník páru s rate limitom a kontaktným e-mailom).
+| Dokument | Účel & Obsah |
+| :--- | :--- |
+| **[`app.md`](file:///Users/jakub/Documents/New%20project/app.md)** | **Kompletný stav kódu a architektúra:** Čo všetko je v appke hotové, ako funguje jadro (Core Loop), prehľad obrazoviek, opravené chyby (mikrofón, hit-testing). |
+| **[`LEGAL_AND_COMPLIANCE_CHECKLIST.md`](file:///Users/jakub/Documents/New%20project/LEGAL_AND_COMPLIANCE_CHECKLIST.md)** | **App Store Release & Právna ochrana:** Apple Developer účet, TestFlight, StoreKit 2 platby, GDPR, riziká obrázkov z Pinterestu a ich legálna náhrada. |
+| **[`BRAND_GUIDELINES.md`](file:///Users/jakub/Documents/New%20project/BRAND_GUIDELINES.md)** | **Brand & Dizajnový systém:** Farby (Obsidian, Gold, Velvet Crimson), typografia, UI komponenty, filozofia "Jedna hlavná vec" a UI/UX pravidlá. |
+| **[`SECURITY.md`](file:///Users/jakub/Documents/New%20project/SECURITY.md)** | **Bezpečnosť & Supabase:** RLS pravidlá, **ako grantnúť kamarátom Studio tier zadarmo cez SQL**, Apple Wallet certifikáty a ochrana dát. |
+| **[`MOZNE_CHYBY.md`](file:///Users/jakub/Documents/New%20project/MOZNE_CHYBY.md)** | **Register 90 zraniteľných scenárov:** Riešenie pádov, plného disku, offline režimu, konfliktov audia a stresových situácií na súťaži. |
+| **[`docs/DEVOPS_AND_ANALYTICS_PLAYBOOK.md`](file:///Users/jakub/Documents/New%20project/docs/DEVOPS_AND_ANALYTICS_PLAYBOOK.md)** | **PostHog Analytika & Monitoring:** Sledovanie používateľov, konverzie predplatného, pádové logy a škálovanie na 1000+ používateľov. |
 
 ---
 
-## Spustenie a Vývoj
+## ⚡ Rýchly Manuál: Čo urobiť teraz
 
-### Požiadavky
-- macOS s Xcode 16+
-- Supabase CLI (`supabase`)
-- Deno 2.x (pre lokálne testy parsera: `deno test supabase/functions/_shared/ksis-parser.test.ts`)
-
-### Lokálne Testovanie
-```bash
-# Spustenie testov parsera
-deno test supabase/functions/_shared/ksis-parser.test.ts
-
-# Nasadenie Edge Functions
-supabase functions deploy ksis-manage-couples
-supabase functions deploy ksis-import
-supabase functions deploy ksis-manage-results
+### 1. Ako grantnúť kamarátovi Studio Tier (Zadarmo):
+V Supabase SQL Editore stačí spustiť:
+```sql
+INSERT INTO public.user_entitlements (user_id, tier, source, expires_at, notes)
+VALUES (
+    (SELECT id FROM auth.users WHERE email = 'kamarát@email.com'),
+    'studio',
+    'owner_grant',
+    NULL, -- Doživotne (Lifetime)
+    'Kamarát / VIP tanečník'
+)
+ON CONFLICT (user_id) DO UPDATE 
+SET tier = 'studio', source = 'owner_grant', expires_at = NULL, notes = EXCLUDED.notes;
 ```
+
+### 2. Ako testovať nákupy za 0 € na tvojom iPhone:
+1. V Xcode otvor projekt a zvoľ schému **Encore**.
+2. Vďaka pripojenému `EncoreProducts.storekit` sa všetky nákupy v Simulatori aj na pripojenom kábli správajú ako bezplatné testovacie nákupy.
+3. Pre reálny TestFlight a App Store je nutné aktivovať **Apple Developer Program ($99/rok)**.
+
+---
+
+## 🛠️ Technický Stack
+- **iOS:** Swift 5.10 / Swift 6, SwiftUI, SwiftData, AVFoundation, Speech, StoreKit 2, PassKit.
+- **Backend:** Supabase (PostgreSQL, Row Level Security, Auth, Storage, Edge Functions v Deno).
+- **Web:** Next.js 15, TypeScript, Tailwind CSS, Vercel.
+- **Analytika:** PostHog EU, Xcode Organizer.

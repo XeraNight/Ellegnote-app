@@ -12,11 +12,11 @@ public enum SubscriptionTier: String, CaseIterable, Codable, Sendable {
     public var shortDescription: String {
         switch self {
         case .free:
-            return "Základné tréningové plátno, 2 vlastné zostavy, metronóm"
+            return "Základné tréningové plátno, 1 zostava na každý tanec, metronóm"
         case .plus:
-            return "Neobmedzené zostavy, cloud záloha, zdieľanie s partnerom, vlastné body"
+            return "Neobmedzené zostavy na tanec, Apple Kalendár sync, Top 3 priority, hosťovský kľúč trénera, KSIS kalkulačka, Optima parket (Košice)"
         case .studio:
-            return "Trénerský roster, zverenci, KSIS alerty, hromadné figúry, body cudzích párov"
+            return "KSIS Radar súperov & priateľov s notifikáciami, biomechanická video analýza držania tela, Video Duel, trénerský denník"
         }
     }
     
@@ -50,6 +50,21 @@ public enum SubscriptionTier: String, CaseIterable, Codable, Sendable {
         case .plus: return "crown.fill"
         case .studio: return "building.columns.fill"
         }
+    }
+}
+
+// MARK: - Comparable Conformance for Priority Comparison
+extension SubscriptionTier: Comparable {
+    public var rank: Int {
+        switch self {
+        case .free: return 0
+        case .plus: return 1
+        case .studio: return 2
+        }
+    }
+    
+    public static func < (lhs: SubscriptionTier, rhs: SubscriptionTier) -> Bool {
+        lhs.rank < rhs.rank
     }
 }
 

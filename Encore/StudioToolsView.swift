@@ -5,7 +5,7 @@ import SwiftUI
 // elevate specialized coach/studio tools into a dedicated, premium view.
 struct StudioToolsView: View {
     @Environment(\.dismiss) private var dismiss
-    
+    @State private var showCoachRoster = false
     @State private var showFinalSimulator = false
     @State private var showMusicSpeedTrainer = false
     @State private var showSeminarSplitter = false
@@ -38,6 +38,18 @@ struct StudioToolsView: View {
                     }
                     .padding(.horizontal, 20)
                     .padding(.top, 16)
+                    
+                    // -1. Trénerský Roster Zverencov (Studio Tier)
+                    StudioToolCard(
+                        icon: "person.3.sequence.fill",
+                        iconColor: Color.gold400,
+                        title: "Trénerský Roster Zverencov",
+                        subtitle: "Prehľad párov a zverencov, kontrola zostáv a priraďovanie figúr z trénerskej knižnice.",
+                        badge: "Zverenci & Zostavy"
+                    ) {
+                        showCoachRoster = true
+                    }
+                    .padding(.horizontal, 20)
                     
                     // 0. Clean Dance Mirror (Čisté Tanečné Zrkadlo s animovanou ikonou bez pozadia)
                     StudioToolCard(
@@ -180,6 +192,11 @@ struct StudioToolsView: View {
         }
         .sheet(isPresented: $showCompetitionOrganizer) {
             CompetitionOrganizerView()
+        }
+        .sheet(isPresented: $showCoachRoster) {
+            NavigationStack {
+                StudioCoachRosterView()
+            }
         }
         .sheet(isPresented: $showDanceMetronome) {
             DanceMetronomeView()

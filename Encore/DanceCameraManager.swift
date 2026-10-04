@@ -5,21 +5,17 @@ import CoreMotion
 import SwiftUI
 import OSLog
 
-// MARK: - Dance Camera Manager (AVFoundation + CoreMotion + Live AVCapture Audio Metering)
-final class DanceCameraManager: NSObject, ObservableObject, @unchecked Sendable, AVCaptureFileOutputRecordingDelegate, AVCaptureAudioDataOutputSampleBufferDelegate {
+// MARK: - Dance Camera Manager (AVFoundation + CoreMotion)
+final class DanceCameraManager: NSObject, ObservableObject, @unchecked Sendable, AVCaptureFileOutputRecordingDelegate {
     let session = AVCaptureSession()
     private let movieOutput = AVCaptureMovieFileOutput()
-    private let audioDataOutput = AVCaptureAudioDataOutput()
     private var videoDeviceInput: AVCaptureDeviceInput?
     private let sessionQueue = DispatchQueue(label: "com.encore.camera.sessionQueue")
-    private let audioQueue = DispatchQueue(label: "com.encore.camera.audioQueue")
     
     // State
     @Published var isRecording: Bool = false
     @Published var recordingDuration: Int = 0
     @Published var recordedVideoURL: URL? = nil
-    
-    // Audio Level Metering (Live Ambient Sound)
     @Published var audioLevel: Float = 0.0
     
     // CoreMotion Gyroscope Level State (Funkcia 2)
@@ -96,15 +92,9 @@ final class DanceCameraManager: NSObject, ObservableObject, @unchecked Sendable,
             self.session.addInput(audioInput)
         }
         
-        // Movie File Output
+        // Movie File Output (Čistý audio a video záznam bez konfliktných audio bufferov)
         if self.session.canAddOutput(self.movieOutput) {
             self.session.addOutput(self.movieOutput)
-        }
-        
-        // Real-time Audio Data Output for live Ambient Level VU Meter
-        if self.session.canAddOutput(self.audioDataOutput) {
-            self.audioDataOutput.setSampleBufferDelegate(self, queue: audioQueue)
-            self.session.addOutput(self.audioDataOutput)
         }
         
         self.session.commitConfiguration()
@@ -212,37 +202,6 @@ final class DanceCameraManager: NSObject, ObservableObject, @unchecked Sendable,
             DispatchQueue.main.async {
                 self.recordedVideoURL = outputFileURL
             }
-        }
-    }
-    
-    // MARK: - AVCaptureAudioDataOutputSampleBufferDelegate (Live Ambient Audio Metering)
-    nonisolated func captureOutput(_ output: AVCaptureOutput, didOutput sampleBuffer: CMSampleBuffer, from connection: AVCaptureConnection) {
-        guard output is AVCaptureAudioDataOutput else { return }
-        guard let blockBuffer = CMSampleBufferGetDataBuffer(sampleBuffer) else { return }
-        
-        var lengthAtOffset = 0
-        var totalLength = 0
-        var dataPointer: UnsafeMutablePointer<Int8>?
-        
-        guard CMBlockBufferGetDataPointer(blockBuffer, atOffset: 0, lengthAtOffsetOut: &lengthAtOffset, totalLengthOut: &totalLength, dataPointerOut: &dataPointer) == noErr,
-              let dataPointer = dataPointer, totalLength > 0 else { return }
-        
-        let sampleCount = totalLength / 2
-        let samples = UnsafeBufferPointer(start: dataPointer.withMemoryRebound(to: Int16.self, capacity: sampleCount) { $0 }, count: sampleCount)
-        
-        var sumSquares: Float = 0.0
-        for sample in samples {
-            let floatSample = Float(sample) / 32768.0
-            sumSquares += floatSample * floatSample
-        }
-        
-        let rms = sqrt(sumSquares / max(1.0, Float(sampleCount)))
-        // Sensitivity scale from ambient whisper to loud music (0.0 to 1.0)
-        let linearLevel = max(0.0, min(1.0, rms * 6.0))
-        
-        DispatchQueue.main.async { [weak self] in
-            guard let self = self else { return }
-            self.audioLevel = self.audioLevel * 0.3 + linearLevel * 0.7
         }
     }
     

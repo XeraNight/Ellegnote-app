@@ -37,9 +37,18 @@ enum MediaStorageManager {
         return getFreeDiskSpaceMB() >= minMB
     }
     
+    nonisolated static func excludeFromBackup(url: URL) {
+        var mutableURL = url
+        var resourceValues = URLResourceValues()
+        resourceValues.isExcludedFromBackup = true
+        try? mutableURL.setResourceValues(resourceValues)
+    }
+    
     nonisolated static func store(data: Data, prefix: String, fileExtension: String) throws -> String {
         let filename = "\(prefix)_\(UUID().uuidString).\(fileExtension)"
-        try data.write(to: url(for: filename), options: .atomic)
+        let targetURL = url(for: filename)
+        try data.write(to: targetURL, options: .atomic)
+        excludeFromBackup(url: targetURL)
         return filename
     }
     
@@ -50,6 +59,7 @@ enum MediaStorageManager {
             try FileManager.default.removeItem(at: destinationURL)
         }
         try FileManager.default.copyItem(at: sourceURL, to: destinationURL)
+        excludeFromBackup(url: destinationURL)
         return filename
     }
     
@@ -60,6 +70,7 @@ enum MediaStorageManager {
             try FileManager.default.removeItem(at: destinationURL)
         }
         try FileManager.default.moveItem(at: sourceURL, to: destinationURL)
+        excludeFromBackup(url: destinationURL)
         return filename
     }
     

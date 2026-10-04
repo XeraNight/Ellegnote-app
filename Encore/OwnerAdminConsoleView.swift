@@ -7,6 +7,13 @@ struct OwnerAdminConsoleView: View {
     @ObservedObject private var subscriptionManager = SubscriptionManager.shared
     @ObservedObject private var authManager = AuthManager.shared
     
+    enum AdminMode: String, CaseIterable {
+        case directEmail = "Podľa e-mailu"
+        case searchProfile = "Vyhľadať profil"
+    }
+    
+    @State private var adminMode: AdminMode = .directEmail
+    @State private var directEmail: String = ""
     @State private var searchQuery: String = ""
     @State private var isSearching: Bool = false
     @State private var searchResults: [AdminUserSearchItem] = []
@@ -34,12 +41,23 @@ struct OwnerAdminConsoleView: View {
                         // 1. Owner Status Card
                         ownerHeaderCard
                         
-                        // 2. Search Section (Vyhľadávanie používateľov)
-                        userSearchSection
+                        // 2. Mode Switcher
+                        Picker("Režim administrácie", selection: $adminMode) {
+                            ForEach(AdminMode.allCases, id: \.self) { mode in
+                                Text(mode.rawValue).tag(mode)
+                            }
+                        }
+                        .pickerStyle(.segmented)
                         
-                        // 3. Selected User Management Card
-                        if let user = selectedUser {
-                            userManagementCard(for: user)
+                        // 3. Mode Content
+                        if adminMode == .directEmail {
+                            directEmailGrantSection
+                        } else {
+                            userSearchSection
+                            
+                            if let user = selectedUser {
+                                userManagementCard(for: user)
+                            }
                         }
                     }
                     .padding(.horizontal, 16)
@@ -92,7 +110,7 @@ struct OwnerAdminConsoleView: View {
                         .cornerRadius(6)
                 }
                 
-                Text(authManager.userEmail.isEmpty ? "jakub@encore-dance.com" : authManager.userEmail)
+                Text(authManager.userEmail.isEmpty ? "jakubkalina05@gmail.com" : authManager.userEmail)
                     .font(.system(size: 12))
                     .foregroundColor(.white.opacity(0.6))
             }
@@ -103,6 +121,113 @@ struct OwnerAdminConsoleView: View {
         .background(Color.white.opacity(0.06))
         .cornerRadius(18)
         .overlay(RoundedRectangle(cornerRadius: 18).stroke(Color.gold500.opacity(0.3), lineWidth: 1))
+    }
+    
+    // MARK: - Direct Email Grant Section
+    private var directEmailGrantSection: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(spacing: 8) {
+                Image(systemName: "envelope.badge.shield.half.filled")
+                    .foregroundColor(Color.gold400)
+                    .font(.system(size: 16, weight: .bold))
+                Text("Priame VIP udelenie cez E-mail")
+                    .font(.system(size: 15, weight: .bold, design: .rounded))
+                    .foregroundColor(.white)
+            }
+            
+            Text("Zadaj e-mail kamaráta, partnerky alebo trénera. Po potvrdení sa mu okamžite odomkne zvolený plán bez platenia.")
+                .font(.system(size: 12))
+                .foregroundColor(.white.opacity(0.65))
+                .lineSpacing(2)
+
+            VStack(alignment: .leading, spacing: 6) {
+                Text("E-mail používateľa v Encore")
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundColor(Color.gold400)
+                
+                TextField("napr. jakubkali69420@gmail.com", text: $directEmail)
+                    .font(.system(size: 14))
+                    .foregroundColor(.white)
+                    .padding(12)
+                    .background(Color.white.opacity(0.08))
+                    .cornerRadius(10)
+                    .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.white.opacity(0.15), lineWidth: 1))
+                    .autocorrectionDisabled()
+                    .textInputAutocapitalization(.never)
+                    .keyboardType(.emailAddress)
+            }
+
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Úroveň predplatného")
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundColor(Color.gold400)
+                
+                Picker("Plán", selection: $grantTier) {
+                    Text("Studio (VIP)").tag(SubscriptionTier.studio)
+                    Text("Plus").tag(SubscriptionTier.plus)
+                    Text("Free (Zrušiť VIP)").tag(SubscriptionTier.free)
+                }
+                .pickerStyle(.segmented)
+            }
+
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Trvanie prístupu")
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundColor(Color.gold400)
+                
+                Picker("Trvanie", selection: $grantDurationMonths) {
+                    Text("Doživotne").tag(0)
+                    Text("1 Rok").tag(12)
+                    Text("6 Mesiacov").tag(6)
+                    Text("1 Mesiac").tag(1)
+                }
+                .pickerStyle(.segmented)
+            }
+
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Interná poznámka")
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundColor(Color.gold400)
+                
+                TextField("Poznámka (napr. Skúšobný účet / VIP kamarát)", text: $grantNote)
+                    .font(.system(size: 13))
+                    .foregroundColor(.white)
+                    .padding(10)
+                    .background(Color.white.opacity(0.06))
+                    .cornerRadius(8)
+            }
+
+            Button {
+                executeDirectEmailGrant()
+            } label: {
+                HStack(spacing: 8) {
+                    if isActionInProgress {
+                        ProgressView().tint(Color.black)
+                    } else {
+                        Image(systemName: "crown.fill")
+                        Text("Udeliť VIP Prístup")
+                    }
+                }
+                .font(.system(size: 14, weight: .bold, design: .rounded))
+                .foregroundColor(Color.black)
+                .frame(maxWidth: .infinity)
+                .frame(height: 46)
+                .background(
+                    LinearGradient(
+                        colors: [Color.gold400, Color.gold500],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .cornerRadius(12)
+            }
+            .disabled(isActionInProgress || directEmail.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            .opacity(directEmail.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? 0.6 : 1.0)
+        }
+        .padding(16)
+        .background(Color.white.opacity(0.05))
+        .cornerRadius(18)
+        .overlay(RoundedRectangle(cornerRadius: 18).stroke(Color.gold500.opacity(0.25), lineWidth: 1))
     }
     
     // MARK: - User Search Section
@@ -378,6 +503,31 @@ struct OwnerAdminConsoleView: View {
     }
     
     // MARK: - Actions
+    private func executeDirectEmailGrant() {
+        let email = directEmail.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !email.isEmpty else { return }
+        isActionInProgress = true
+        
+        Task {
+            defer { isActionInProgress = false }
+            do {
+                let months = grantDurationMonths == 0 ? nil : grantDurationMonths
+                let msg = try await subscriptionManager.grantEntitlementByEmailAsOwner(
+                    targetEmail: email,
+                    tier: grantTier,
+                    durationMonths: months,
+                    notes: grantNote
+                )
+                statusAlertMessage = msg
+                showStatusAlert = true
+                directEmail = ""
+            } catch {
+                statusAlertMessage = "Chyba: \(error.localizedDescription)"
+                showStatusAlert = true
+            }
+        }
+    }
+    
     private func executeGrantEntitlement(for user: AdminUserSearchItem) {
         isActionInProgress = true
         Task {

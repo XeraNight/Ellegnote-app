@@ -5,6 +5,32 @@ Tento dokument definuje oficiálnu vizuálnu identitu, farebnú paletu, typograf
 
 ---
 
+## 🎯 0. Produktová Filozofia: „Rob jednu vec 10× lepšie“ (The Core Loop)
+
+> **Zlaté pravidlo Encore:**  
+> Aplikácia nesmie byť preplácaná miliónom zbytočných funkcií, ktoré zdržujú. Hlavnou misiou Encore je **zrýchliť progres tanečníka a ušetriť mu drahocenný čas na tréningu.**
+
+### Hlavná slučka používateľa (The Core Loop):
+```
+[ Zídenie z parketu po figúre / lekcii ]
+                 │
+                 ▼
+[ Otvorenie Encore – max 2 sekundy ]
+                 │
+                 ▼
+[ 1-Tap zaznamenanie: Hlasový diktát poznámky / 15s video / text ]
+                 │
+                 ▼
+[ Automatické priradenie k figúre a tancu bez hľadania v galérii ]
+```
+
+### Ako sa to premieta do UI/UX:
+1. **Frikcia na nule:** Textové pole a tlačidlo mikrofónu na domovskej obrazovke musia reagovať na prvý dotyk bez zdržiavania dialógmi.
+2. **Satelitné funkcie nesmú zavadzať:** Funkcie ako Súťažný radar, Video duel, či Apple Wallet karta sú prémiové "satelity", ktoré sa otvárajú až na vyžiadanie (v radiálnom menu alebo v záložkách), nie uprostred hlavnej cesty zapisovania figúr.
+3. **Ergonómia v sále:** Tanečník má často spotené ruky, telefón je na lavičke alebo statíve. Tlačidlá musia mať veľkorysé dotykové plochy (min. 44×44 pt), kontrastné písmo a jednoznačnú haptickú odozvu (`UIImpactFeedbackGenerator`).
+
+---
+
 ## 👑 1. Oficiálne Logo & Emblém (Sculptural Ribbon Mark)
 
 Oficiálnym symbolom Encore je **Sculptural Ribbon Mark (Variant 3B)**:

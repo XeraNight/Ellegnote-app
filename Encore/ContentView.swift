@@ -36,6 +36,7 @@ struct ContentView: View {
     // Central Capture Area State
     @State private var activeCaptureMode: CaptureInputMode = .text
     @State private var noteDraftText: String = ""
+    @FocusState private var isTextEditorFocused: Bool
     @State private var selectedNoteTag: String? = nil
     @State private var showSavedFeedback: Bool = false
     
@@ -111,12 +112,13 @@ struct ContentView: View {
                             // ── 1. Top Minimal Header & Interactive Radial Hub ──
                             workspaceTopHeader(logoSize: logoSize)
                                 .padding(.top, safeTop - 24)
-                                .zIndex(100)
+                                .zIndex(isRadialHubOpen ? 100 : 1)
                             
                             // ── 2. Central Workspace (The White Box Area: Text / Voice / Video) ──
                             centralCaptureContent
                                 .frame(height: workspaceHeight)
                                 .padding(.horizontal, 4)
+                                .zIndex(isRadialHubOpen ? 0 : 2)
                             
                             // ── 3. Centered Mode Switcher (The 3 Centered Lines below Workspace) ──
                             modeSwitcherBar
@@ -261,6 +263,9 @@ struct ContentView: View {
             }, message: {
                 Text("Zostava \"\(scannedRoutineName)\" bola úspešne naimportovaná.")
             })
+            .onAppear {
+                speechManager.requestPermissions()
+            }
         }
     }
     
@@ -380,7 +385,9 @@ struct ContentView: View {
                     HapticFeedback.light()
                     withAnimation(.spring(response: 0.32, dampingFraction: 0.78)) {
                         activeCaptureMode = mode
-                        if mode != .voice && speechManager.isRecording {
+                        if mode == .voice {
+                            speechManager.requestPermissions()
+                        } else if speechManager.isRecording {
                             speechManager.stopTranscribing()
                         }
                     }
@@ -595,10 +602,15 @@ struct ContentView: View {
                 }
                 
                 TextEditor(text: $noteDraftText)
+                    .focused($isTextEditorFocused)
                     .scrollContentBackground(.hidden)
                     .font(.system(size: 16, weight: .medium))
                     .foregroundColor(.white)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+            .contentShape(Rectangle())
+            .onTapGesture {
+                isTextEditorFocused = true
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             
@@ -727,6 +739,11 @@ struct ContentView: View {
                 }
             }
             .padding(.bottom, 8)
+        }
+        .onChange(of: speechManager.transcript) { _, newTranscript in
+            if !newTranscript.isEmpty {
+                noteDraftText = newTranscript
+            }
         }
     }
     
@@ -1070,15 +1087,23 @@ struct ContentView: View {
         
         HapticFeedback.medium()
         noteDraftText = ""
+        isTextEditorFocused = false
         triggerSavedFeedback()
     }
     
     private func saveVoiceNote() {
-        let transcript = speechManager.transcript.isEmpty ? noteDraftText : speechManager.transcript
+        if speechManager.isRecording {
+            let captured = speechManager.stopTranscribing()
+            if !captured.isEmpty {
+                noteDraftText = captured
+            }
+        }
+        let transcript = !noteDraftText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            ? noteDraftText
+            : speechManager.transcript
         let trimmed = transcript.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
         
-        speechManager.stopTranscribing()
         let newNote = InstantNote(text: trimmed)
         modelContext.insert(newNote)
         try? modelContext.save()
@@ -1103,6 +1128,7 @@ struct ContentView: View {
                 noteDraftText = captured
             }
         } else {
+            speechManager.requestPermissions()
             speechManager.transcript = ""
             speechManager.startTranscribing()
         }
@@ -2053,6 +2079,7 @@ struct DanceDetailView: View {
     @Query private var allFigures: [FigureLibraryItem]
     
     @State private var showCreateRoutineSheet = false
+    @State private var showPaywallSheet = false
     @State private var newRoutineName = ""
     @State private var cacheTrigger = false
     @AppStorage("profileName") private var userName = "Tanečník"
@@ -2149,7 +2176,14 @@ struct DanceDetailView: View {
                                     .font(.system(size: 18, weight: .bold, design: .serif))
                                     .foregroundColor(.white)
                                 Spacer()
-                                Button(action: { showCreateRoutineSheet = true }) {
+                                Button(action: {
+                                    if !SubscriptionManager.shared.canCreateRoutine(existingCountForDance: routinesForDance.count) {
+                                        AnalyticsManager.shared.routineLimitHit(danceName: dance.name)
+                                        showPaywallSheet = true
+                                    } else {
+                                        showCreateRoutineSheet = true
+                                    }
+                                }) {
                                     HStack(spacing: 4) {
                                         Image(systemName: "plus")
                                         Text("Nová")
@@ -2161,6 +2195,37 @@ struct DanceDetailView: View {
                                     .background(accentColor)
                                     .cornerRadius(10)
                                 }
+                            }
+                            
+                            if !SubscriptionManager.shared.canCreateRoutine(existingCountForDance: routinesForDance.count) {
+                                HStack(spacing: 8) {
+                                    Image(systemName: "crown.fill")
+                                        .font(.system(size: 13, weight: .bold))
+                                        .foregroundColor(LuxuryTheme.gold400)
+                                    Text("Free účet: 1 zostava na tanec aktívna.")
+                                        .font(.system(size: 12, weight: .semibold))
+                                        .foregroundColor(.white.opacity(0.85))
+                                    Spacer()
+                                    Button {
+                                        AnalyticsManager.shared.paywallViewed(source: "dance_detail_limit_banner", initialTier: "Plus")
+                                        showPaywallSheet = true
+                                    } label: {
+                                        Text("Odomknúť Plus")
+                                            .font(.system(size: 11, weight: .bold))
+                                            .foregroundColor(LuxuryTheme.obsidian900)
+                                            .padding(.horizontal, 10)
+                                            .padding(.vertical, 5)
+                                            .background(LuxuryTheme.gold400)
+                                            .clipShape(Capsule())
+                                    }
+                                }
+                                .padding(12)
+                                .background(LuxuryTheme.obsidian800.opacity(0.85))
+                                .cornerRadius(12)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 12)
+                                        .stroke(LuxuryTheme.gold500.opacity(0.35), lineWidth: 1)
+                                )
                             }
                             
                             if routinesForDance.isEmpty {
@@ -2445,6 +2510,9 @@ struct DanceDetailView: View {
         }
         .sheet(isPresented: $showEditDance) {
             EditDanceSheet(dance: dance)
+        }
+        .sheet(isPresented: $showPaywallSheet) {
+            SubscriptionPaywallView(initialTier: .plus)
         }
         .confirmationDialog(
             "Určite vymazať zostavu?",

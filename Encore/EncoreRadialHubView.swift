@@ -348,8 +348,11 @@ public struct EncoreRadialHubView: View {
             // ── Central Pure Gold Logo (Seamless 3D Emblem, Sheen Glint, Halo Shockwaves & Gyro Tilt) ──
             centerPureGoldButton
         }
-        .frame(width: max(logoSize + 195, 310), height: max(logoSize + 185, 300))
-        .contentShape(Rectangle())
+        .frame(
+            width: isOpen ? max(logoSize + 195, 310) : (logoSize + 30),
+            height: isOpen ? max(logoSize + 185, 300) : (logoSize + 20)
+        )
+        .contentShape(isOpen ? AnyShape(Rectangle()) : AnyShape(Circle()))
         .animation(.spring(response: 0.32, dampingFraction: 0.70), value: isOpen)
         .animation(.spring(response: 0.20, dampingFraction: 0.68), value: hoveredAction)
         .animation(.spring(response: 0.18, dampingFraction: 0.65), value: goldScale)

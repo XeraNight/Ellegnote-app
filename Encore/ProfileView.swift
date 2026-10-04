@@ -34,6 +34,7 @@ struct ProfileView: View {
     @State private var showOwnerAdminSheet = false
     @State private var showPaywallSheet = false
     @ObservedObject private var subscriptionManager = SubscriptionManager.shared
+    @ObservedObject private var connectionManager = ConnectionManager.shared
     
     // Storage loaded async to avoid file I/O on main thread
     @State private var storageUsageBytes: Int64 = 0
@@ -240,7 +241,7 @@ struct ProfileView: View {
 
     @ViewBuilder private var communitySection: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text("Tanečná Komunita & Priatelia").sectionHeader()
+            Text("Tanečné Prepojenia & Komunita").sectionHeader()
             NavigationLink(destination: FriendsListView()) {
                 HStack(spacing: 14) {
                     ZStack {
@@ -256,10 +257,28 @@ struct ProfileView: View {
                     )
                     
                     VStack(alignment: .leading, spacing: 3) {
-                        Text("Moji Priatelia")
-                            .font(.system(size: 15, weight: .bold))
-                            .foregroundColor(.white)
-                        Text("\(friendManager.friends.count) priateľov • Skenovanie a zdieľanie")
+                        HStack(spacing: 6) {
+                            Text("Partneri & Tréneri")
+                                .font(.system(size: 15, weight: .bold))
+                                .foregroundColor(.white)
+                            
+                            if !connectionManager.incomingRequests.isEmpty {
+                                Text("\(connectionManager.incomingRequests.count) nové")
+                                    .font(.system(size: 9, weight: .black))
+                                    .foregroundColor(.white)
+                                    .padding(.horizontal, 5)
+                                    .padding(.vertical, 2)
+                                    .background(Color.latinCrimson)
+                                    .clipShape(Capsule())
+                            }
+                        }
+                        
+                        let totalActive = connectionManager.activePartners.count + connectionManager.activeCoaches.count + connectionManager.activeStudents.count
+                        let subtitleText = totalActive > 0 
+                            ? "\(connectionManager.activePartners.count) partnerov • \(connectionManager.activeCoaches.count) trénerov"
+                            : "Prepojiť partnera a trénera cez Dancer ID"
+                        
+                        Text(subtitleText)
                             .font(.system(size: 12, weight: .medium))
                             .foregroundColor(Color.gold300.opacity(0.7))
                     }

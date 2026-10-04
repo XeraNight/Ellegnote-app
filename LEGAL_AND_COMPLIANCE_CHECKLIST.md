@@ -8,18 +8,52 @@
 
 | Oblasť | Stav v kóde | Čo je hotové | Čo treba urobiť pred App Store |
 | :--- | :---: | :--- | :--- |
+| **Apple Developer Účet ($99/rok)** | 🟡 **POVINNÉ** | Kód je 100% pripravený v Xcode | Zakúpiť účet na `developer.apple.com` pre TestFlight & produkčné platby |
+| **TestFlight Distribúcia** | 🟡 **PRÍPRAVA** | Build kompiluje bez chýb | Nahrať prvý Archive z Xcode po aktivácii Developer účtu |
+| **Predplatné (StoreKit 2)** | 🟢 **HOTOVO** | `EncoreProducts.storekit` (Plus & Studio, 0 € testovanie) | Nastaviť rovnaké Product ID v App Store Connect |
+| **Obrázky & Pozadia (Pinterest riziko)** | 🔴 **POZOR** | Obrázky sú v assetoch (`bg_fluid`, `EncoreStageBackground`) | **Nahradiť 100% legálnymi procedurálnymi gradientmi alebo vlastnými assetmi!** |
 | **Sign in with Apple** | 🟢 **HOTOVO** | `SignInWithAppleButton` je v `AuthSheetView.swift` paralelne s Google | Otestovať reálne prihlásenie na fyzickom iPhone |
-| **Zmazanie účtu v appke** | 🟢 **HOTOVO** | `deleteAccount()` v `AuthManager.swift` + potvrdzovací dialóg v `ProfileView.swift` | Overiť, že RPC funkcia `delete_user_account` je nasadená v Supabase |
-| **Autorské práva k hudbe** | 🟢 **ČISTÉ** | Metronóm generuje syntetický PCM zvuk v RAM (`DanceMetronomeEngine.swift`), Speed Trainer prehráva iba lokálne súbory používateľa | Žiadna nelegálna hudba nie je v bundle appky |
-| **Licencie k fontom** | 🟢 **ČISTÉ** | Používajú sa 100% natívne Apple fonty (SF Pro, New York, SF Mono, Zapfino, Snell Roundhand) | Žiadne cudzie fonty (TTF/OTF) s rizikom licenčných poplatkov |
-| **Encryption export tag** | 🟢 **HOTOVO** | `ITSAppUsesNonExemptEncryption = false` je pridané v `Info.plist` | Hotovo, žiadne papierovanie v App Store Connect |
-| **Privacy Policy & EULA v appke** | 🟢 **HOTOVO** | Odkaz + interaktívny prehliadač v `ProfileView`, `AuthSheetView`, `LegalComplianceView` a `SubscriptionPaywallView` | Vložiť verejný odkaz do App Store Connect pred odoslaním na review |
-| **Predplatné (StoreKit 2 IAP)** | 🟢 **HOTOVO** | `SubscriptionManager.swift`, `SubscriptionModels.swift`, `SubscriptionPaywallView.swift` (Plus & Studio) | Nastaviť rovnaké Product ID v App Store Connect |
-| **Majiteľská konzola & VIP dary** | 🟢 **HOTOVO** | God Mode pre Jakuba, udelenie VIP tierov zadarmo partnerke/trénerovi (`OwnerAdminConsoleView`) | Spustiť migračný SQL skript `AdminAndEntitlements.sql` v Supabase |
+| **Zmazanie účtu v appke** | 🟢 **HOTOVO** | `deleteAccount()` v `AuthManager.swift` + dialóg v `ProfileView.swift` | Overiť, že RPC funkcia `delete_user_account` je nasadená v Supabase |
+| **Autorské práva k hudbe** | 🟢 **ČISTÉ** | Metronóm generuje syntetický PCM zvuk v RAM (`DanceMetronomeEngine.swift`), Speed Trainer iba lokálne súbory | Žiadna nelegálna hudba nie je v bundle appky |
+| **Licencie k fontom** | 🟢 **ČISTÉ** | Používajú sa 100% natívne Apple fonty (SF Pro, New York, SF Mono) | Žiadne cudzie fonty s rizikom licenčných poplatkov |
+| **Encryption export tag** | 🟢 **HOTOVO** | `ITSAppUsesNonExemptEncryption = false` je v `Info.plist` | Hotovo, žiadne papierovanie v App Store Connect |
+| **Privacy Policy & EULA v appke** | 🟢 **HOTOVO** | Odkaz + interaktívny prehliadač v `ProfileView`, `AuthSheetView`, `LegalComplianceView` | Vložiť verejný odkaz do App Store Connect pred odoslaním na review |
+| **Majiteľská konzola & VIP dary** | 🟢 **HOTOVO** | God Mode pre Jakuba, udelenie VIP tierov zadarmo kamarátom v Supabase SQL | Spustené v Supabase SQL (`AdminAndEntitlements.sql`) |
 | **Moderácia & Blokovanie účtov** | 🟢 **HOTOVO** | Možnosť zablokovať účet priamo z appky + interceptor `AccountBannedNoticeView` | Právne ošetrené v ToS čl. 2.5 a Privacy Policy čl. 1.7 |
 | **Súťažné body (Gating)** | 🟢 **HOTOVO** | Plus = vlastný pár a body, Studio = zverenci / roster viacerých párov (`CompetitionTrackerView`) | Spracovanie podložené Oprávneným záujmom (GDPR) |
-| **Supabase RLS pravidlá** | 🟡 **NASADENIE** | RLS je zapnuté, pripravený skript `AdminAndEntitlements.sql` | Spustiť v Supabase SQL editore pred spustením pre verejnosť |
 | **SZTŠ / ksis.eu dáta** | 🟡 **STRATÉGIA** | Prebieha cez Supabase Edge Function s rate limitom | Poslať informačný e-mail / žiadosť o partnerstvo na SZTŠ |
+
+---
+
+## 0. 🍎 Apple Developer Program ($99/rok) & TestFlight
+
+### 0.1 Prečo je Developer účet nevyhnutný?
+Na to, aby si appku dostal medzi ľudí (kamarátov, trénerov a verejnosť), **musíš si aktivovať Apple Developer Program** ($99 USD / cca 99 € ročne na [developer.apple.com](https://developer.apple.com/programs/)):
+1. **TestFlight:** Bez plateného účtu nie je možné nahrať build do TestFlightu. Cez TestFlight vieš poslať link až 10 000 testerom a appku si nainštalujú priamo do iPhonu bez pripájania k Macu.
+2. **App Store Connect & In-App Purchases:** Všetky platobné zmluvy (Paid Applications Agreement), daňové formuláre (W-8BEN-E) a bankový účet na vyplácanie ziskov z predplatného sa nastavujú v App Store Connect.
+3. **Apple Wallet Certifikáty (`pass.cer`):** Generovanie kariet do Apple Peňaženky vyžaduje oficiálny Pass Type ID certifikát z Apple Developer Portálu.
+4. **Push Notifikácie (APNs):** Automatické aktualizácie Wallet kariet a notifikácie o výsledkoch vyžadujú APNs certifikát/kľúč.
+
+> 💡 **Ako môžeš testovať HNEĎ TERAZ zadarmo na svojom iPhone:**  
+> Pomocou bezplatného Apple ID v Xcode pripoj iPhone káblom, zvoľ svoje zariadenie a stlač `⌘+R`. Xcode nainštaluje Encore s dočasným certifikátom (platí 7 dní). Vďaka nášmu `EncoreProducts.storekit` fungujú všetky nákupy zadarmo za 0 €!
+
+---
+
+## 0.2 ⚠️ Pozadia z Pinterestu — Právne riziko a okamžité riešenie
+
+V assetoch aplikácie sa nachádzajú obrázkové pozadia (`bg_fluid`, `EncoreStageBackground`, `dance_parquet_floor`).
+
+### Riziká náhodných obrázkov z Pinterestu:
+1. **Zamietnutie pri Apple App Store Review (Guideline 5.2.1 — Intellectual Property):** Apple schvaľovací tím kontroluje obrázky a ikony. Ak obrázok patrí tretej strane, Apple vyžiada doklad o komerčnej licencii. Ak ho nemáš, build zamietnu.
+2. **Autorskoprávna žaloba / DMCA Takedown:** Ak autor pôvodnej grafiky zistí, že jeho dielo je v komerčnej aplikácii s predplatným, môže požadovať stiahnutie aplikácie alebo finančnú kompenzáciu.
+
+### Riešenie pre Encore (100% čisté a legálne):
+1. **Procedurálne SwiftUI Gradienty (Najlepšia voľba):**  
+   Namiesto ťažkých rastrových JPG/PNG obrázkov používame natívny `MeshGradient` / `LinearGradient` z našej palety (`Obsidian #050505` + `Satin Gold #D4AF37` + `Velvet Crimson #780514`).
+   - Výhoda: 0 MB veľkosť, ostré na každom Retina displeji, 120 FPS plynulosť, 0% právne riziko.
+2. **Parketová podlaha (`DanceParquetFloor`):**
+   - Nahradiť procedurálnym SVG / SwiftUI Canvas vzorom parkiet, alebo použiť textúru s oficiálnou Royalty-Free komerčnou licenciou (Unsplash / Envato / Midjourney s plnými komerčnými právami).
+3. **Zásada pre kód:** Žiaden asset v projekte nesmie pochádzať z vyhľadávania na Google Obrázky alebo z Pinterestu bez overenej komerčnej licencie.
 
 ---
 

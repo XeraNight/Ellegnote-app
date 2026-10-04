@@ -14,7 +14,7 @@ export async function GET() {
       details: [
         {
           appID: `${teamId}.${bundleId}`,
-          paths: ['/add/*', '/u/*']
+          paths: ['/add*', '/add/*', '/u/*']
         }
       ]
     },

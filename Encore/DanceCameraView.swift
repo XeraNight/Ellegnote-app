@@ -201,16 +201,11 @@ struct DanceCameraView: View {
                         .padding(.bottom, 6)
                 }
                 
-                // Live VU Meter & Recording Status Pill
-                HStack(spacing: 10) {
-                    if camera.isRecording {
-                        recordingStatusPill
-                    }
-                    
-                    // Live Audio VU Meter (Funkcia 7: Reálny ambientný mikrofón)
-                    CameraVUMeterView(audioLevel: camera.audioLevel)
+                // Recording Status Pill
+                if camera.isRecording {
+                    recordingStatusPill
+                        .padding(.bottom, 8)
                 }
-                .padding(.bottom, 8)
                 
                 // Zoom Quick Switcher (Funkcia 3: 0.5x, 1x, 2x)
                 zoomSwitcherBar
@@ -280,14 +275,6 @@ struct DanceCameraView: View {
         }
         .onChange(of: metronome.tempoMultiplier) { _, _ in
             updateRecordingLiveActivity(force: true)
-        }
-        .onChange(of: camera.audioLevel) { _, newLevel in
-            guard camera.isRecording else { return }
-            let now = Date()
-            if abs(newLevel - lastReportedAudioLevel) >= 0.08 && now.timeIntervalSince(lastLiveActivityUpdate) >= 0.5 {
-                lastReportedAudioLevel = newLevel
-                updateRecordingLiveActivity()
-            }
         }
         .onChange(of: metronome.isPulse) { _, pulsing in
             // Golden screen flash only on downbeat (beat 1) when metronome is active

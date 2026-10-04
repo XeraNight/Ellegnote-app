@@ -23,7 +23,10 @@ public struct CompetitionTrackerView: View {
             EllegancePageBackground()
 
             ScrollView(showsIndicators: false) {
-                VStack(spacing: 20) {
+                VStack(spacing: 16) {
+                    // 0. Prominent Membership & Tier Status Bar
+                    membershipStatusHeader
+
                     // 1. Couple Header Card
                     coupleSelectorHeaderCard
 
@@ -53,10 +56,11 @@ public struct CompetitionTrackerView: View {
                     .padding(.top, 16)
                     .padding(.horizontal, 16)
 
-                    Spacer().frame(height: 80)
+                    // Generous bottom clearance so floating dock never obscures cards
+                    Spacer().frame(height: 120)
                 }
                 .padding(.horizontal, 18)
-                .padding(.top, 16)
+                .padding(.top, 10)
             }
         }
         .navigationTitle("Súťažný Denník")
@@ -116,6 +120,109 @@ public struct CompetitionTrackerView: View {
         }
     }
 
+    // MARK: - 0. Prominent Membership & Tier Status Header
+    @ViewBuilder
+    private var membershipStatusHeader: some View {
+        Button {
+            showPaywallSheet = true
+        } label: {
+            HStack(spacing: 10) {
+                // Tier Icon Disc
+                ZStack {
+                    Circle()
+                        .fill(
+                            subscriptionManager.currentTier == .studio
+                                ? LinearGradient(colors: [LuxuryTheme.gold400, LuxuryTheme.gold500], startPoint: .topLeading, endPoint: .bottomTrailing)
+                                : (subscriptionManager.currentTier == .plus
+                                    ? LinearGradient(colors: [Color.amberGold, LuxuryTheme.gold400], startPoint: .topLeading, endPoint: .bottomTrailing)
+                                    : LinearGradient(colors: [Color.white.opacity(0.14), Color.white.opacity(0.08)], startPoint: .topLeading, endPoint: .bottomTrailing))
+                        )
+                        .frame(width: 28, height: 28)
+
+                    Image(systemName: subscriptionManager.currentTier.iconName)
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundColor(subscriptionManager.currentTier == .free ? .white : LuxuryTheme.obsidian900)
+                }
+
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack(spacing: 6) {
+                        Text(
+                            subscriptionManager.currentTier == .studio
+                                ? "ENCORE STUDIO"
+                                : (subscriptionManager.currentTier == .plus ? "ENCORE PLUS" : "ENCORE FREE")
+                        )
+                        .font(.system(size: 12, weight: .black, design: .rounded))
+                        .tracking(0.6)
+                        .foregroundColor(subscriptionManager.currentTier == .free ? .white.opacity(0.9) : LuxuryTheme.gold300)
+
+                        if subscriptionManager.isAppOwner {
+                            Text("DEVELOPER")
+                                .font(.system(size: 8, weight: .black, design: .rounded))
+                                .foregroundColor(LuxuryTheme.obsidian900)
+                                .padding(.horizontal, 5)
+                                .padding(.vertical, 2)
+                                .background(LuxuryTheme.gold400)
+                                .clipShape(Capsule())
+                        } else if subscriptionManager.entitlementSource == .ownerGrant {
+                            Text("VIP")
+                                .font(.system(size: 8, weight: .black, design: .rounded))
+                                .foregroundColor(LuxuryTheme.obsidian900)
+                                .padding(.horizontal, 5)
+                                .padding(.vertical, 2)
+                                .background(Color.syncEmerald)
+                                .clipShape(Capsule())
+                        }
+                    }
+
+                    Text(
+                        subscriptionManager.currentTier == .studio
+                            ? "Plný prístup • KSIS Radar súperov, Roster a Posture duel"
+                            : (subscriptionManager.currentTier == .plus
+                                ? "Odomknuté • Sledovanie bodov & Apple Kalendár súťaží"
+                                : "Základný denník • Ťuknite pre odomknutie postupových bodov")
+                    )
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundColor(Color.white.opacity(0.55))
+                    .lineLimit(1)
+                }
+
+                Spacer()
+
+                // Action Tag
+                HStack(spacing: 3) {
+                    Text(subscriptionManager.currentTier == .free ? "UPGRADE" : "VÝHODY")
+                        .font(.system(size: 10, weight: .bold, design: .rounded))
+                        .tracking(0.5)
+                        .foregroundColor(subscriptionManager.currentTier == .free ? LuxuryTheme.gold400 : Color.white.opacity(0.65))
+
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 8, weight: .bold))
+                        .foregroundColor(Color.white.opacity(0.4))
+                }
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(Color.white.opacity(0.06))
+                .clipShape(Capsule())
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 9)
+            .background(
+                RoundedRectangle(cornerRadius: 14)
+                    .fill(LuxuryTheme.obsidian800.opacity(0.85))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 14)
+                    .stroke(
+                        subscriptionManager.currentTier == .free
+                            ? Color.white.opacity(0.12)
+                            : LuxuryTheme.gold500.opacity(0.35),
+                        lineWidth: 1
+                    )
+            )
+        }
+        .buttonStyle(.plain)
+    }
+
     // MARK: - 1. Couple Selector Header Card (Obsidian & Gold)
     @ViewBuilder
     private var coupleSelectorHeaderCard: some View {
@@ -172,57 +279,65 @@ public struct CompetitionTrackerView: View {
                     HStack(spacing: 12) {
                         ZStack {
                             Circle()
-                                .fill(LuxuryTheme.gold500.opacity(0.18))
-                                .frame(width: 46, height: 46)
+                                .fill(LuxuryTheme.gold500.opacity(0.12))
+                                .frame(width: 44, height: 44)
                             Image(systemName: "trophy.fill")
-                                .font(.system(size: 19, weight: .bold))
+                                .font(.system(size: 18, weight: .bold))
                                 .foregroundColor(LuxuryTheme.gold400)
                         }
-                        .overlay(Circle().stroke(LuxuryTheme.gold500.opacity(0.4), lineWidth: 1))
+                        .overlay(Circle().stroke(LuxuryTheme.gold500.opacity(0.25), lineWidth: 1))
 
-                        VStack(alignment: .leading, spacing: 3) {
+                        VStack(alignment: .leading, spacing: 4) {
                             Text(coupleTitle)
-                                .font(.system(size: 16, weight: .bold))
+                                .font(.system(size: 16, weight: .bold, design: .rounded))
                                 .foregroundColor(.white)
 
                             HStack(spacing: 6) {
                                 Text("Pár #\(couple.coupleId)")
-                                    .font(.system(size: 11, weight: .bold))
+                                    .font(.system(size: 11, weight: .bold, design: .rounded))
                                     .foregroundColor(LuxuryTheme.gold300)
-                                    .padding(.horizontal, 6)
-                                    .padding(.vertical, 2)
-                                    .background(LuxuryTheme.gold500.opacity(0.18))
-                                    .cornerRadius(6)
+                                    .padding(.horizontal, 7)
+                                    .padding(.vertical, 2.5)
+                                    .background(LuxuryTheme.gold500.opacity(0.12))
+                                    .clipShape(Capsule())
+                                    .overlay(Capsule().stroke(LuxuryTheme.gold500.opacity(0.25), lineWidth: 0.8))
 
                                 if couple.isAllDisciplines {
                                     Text("STT")
-                                        .font(.system(size: 10, weight: .bold))
-                                        .foregroundColor(.white)
+                                        .font(.system(size: 10, weight: .bold, design: .rounded))
+                                        .foregroundColor(Color(red: 147/255, green: 197/255, blue: 253/255))
                                         .padding(.horizontal, 6)
-                                        .padding(.vertical, 2)
-                                        .background(Color.standardBlue.opacity(0.85))
-                                        .cornerRadius(5)
+                                        .padding(.vertical, 2.5)
+                                        .background(Color.standardBlue.opacity(0.30))
+                                        .clipShape(Capsule())
+                                        .overlay(Capsule().stroke(Color.standardBlue.opacity(0.4), lineWidth: 0.8))
 
                                     Text("LAT")
-                                        .font(.system(size: 10, weight: .bold))
-                                        .foregroundColor(.white)
+                                        .font(.system(size: 10, weight: .bold, design: .rounded))
+                                        .foregroundColor(Color(red: 253/255, green: 164/255, blue: 175/255))
                                         .padding(.horizontal, 6)
-                                        .padding(.vertical, 2)
-                                        .background(Color.latinCrimson.opacity(0.85))
-                                        .cornerRadius(5)
+                                        .padding(.vertical, 2.5)
+                                        .background(Color.latinCrimson.opacity(0.30))
+                                        .clipShape(Capsule())
+                                        .overlay(Capsule().stroke(Color.latinCrimson.opacity(0.4), lineWidth: 0.8))
                                 } else {
                                     Text(couple.discipline)
-                                        .font(.system(size: 10, weight: .bold))
+                                        .font(.system(size: 10, weight: .bold, design: .rounded))
                                         .foregroundColor(.white)
                                         .padding(.horizontal, 6)
-                                        .padding(.vertical, 2)
+                                        .padding(.vertical, 2.5)
                                         .background(LuxuryTheme.obsidian700)
-                                        .cornerRadius(5)
+                                        .clipShape(Capsule())
                                 }
 
-                                Text("• Prepojený pár")
-                                    .font(.system(size: 11, weight: .semibold))
-                                    .foregroundColor(Color.syncEmerald)
+                                HStack(spacing: 4) {
+                                    Circle()
+                                        .fill(Color.syncEmerald)
+                                        .frame(width: 5, height: 5)
+                                    Text("Prepojený pár")
+                                        .font(.system(size: 11, weight: .semibold))
+                                        .foregroundColor(Color.syncEmerald)
+                                }
                             }
                         }
 
@@ -235,10 +350,10 @@ public struct CompetitionTrackerView: View {
                             Image(systemName: "slider.horizontal.3")
                                 .font(.system(size: 13, weight: .bold))
                                 .foregroundColor(LuxuryTheme.gold400)
-                                .padding(8)
+                                .padding(9)
                                 .background(LuxuryTheme.obsidian700)
                                 .clipShape(Circle())
-                                .overlay(Circle().stroke(LuxuryTheme.gold500.opacity(0.3), lineWidth: 1))
+                                .overlay(Circle().stroke(LuxuryTheme.gold500.opacity(0.25), lineWidth: 1))
                         }
                     }
 
@@ -257,7 +372,7 @@ public struct CompetitionTrackerView: View {
                                     manager.activeCouple = c
                                 } label: {
                                     Text("#\(c.coupleId) (\(c.discipline))")
-                                        .font(.system(size: 11, weight: .bold))
+                                        .font(.system(size: 11, weight: .bold, design: .rounded))
                                         .foregroundColor(manager.activeCouple?.coupleId == c.coupleId ? LuxuryTheme.obsidian900 : Color.white.opacity(0.8))
                                         .padding(.horizontal, 8)
                                         .padding(.vertical, 4)
@@ -274,13 +389,13 @@ public struct CompetitionTrackerView: View {
                     }
                 }
                 .padding(16)
-                .background(LuxuryTheme.obsidian800.opacity(0.95))
+                .background(LuxuryTheme.obsidian800.opacity(0.92))
                 .cornerRadius(18)
                 .overlay(
                     RoundedRectangle(cornerRadius: 18)
-                        .stroke(LuxuryTheme.gold500.opacity(0.35), lineWidth: 1.2)
+                        .stroke(LuxuryTheme.gold500.opacity(0.28), lineWidth: 1)
                 )
-                .shadow(color: Color.black.opacity(0.4), radius: 10, x: 0, y: 4)
+                .shadow(color: Color.black.opacity(0.35), radius: 10, x: 0, y: 4)
             }
         }
     }
@@ -345,13 +460,14 @@ public struct CompetitionTrackerView: View {
 
         VStack(spacing: 14) {
             HStack {
-                VStack(alignment: .leading, spacing: 2) {
+                VStack(alignment: .leading, spacing: 3) {
                     Text("STAV POSTUPU V TRIEDE")
-                        .font(.system(size: 11, weight: .black))
+                        .font(.system(size: 10, weight: .heavy, design: .rounded))
+                        .tracking(1.1)
                         .foregroundColor(LuxuryTheme.gold400)
 
                     Text(adv.ruleName)
-                        .font(.system(size: 15, weight: .bold))
+                        .font(.system(size: 15, weight: .bold, design: .rounded))
                         .foregroundColor(.white)
                 }
 
@@ -359,85 +475,96 @@ public struct CompetitionTrackerView: View {
 
                 if adv.isAdvancementEarned {
                     Text("SPLNENÉ 🎉")
-                        .font(.system(size: 11, weight: .black))
+                        .font(.system(size: 11, weight: .black, design: .rounded))
                         .foregroundColor(LuxuryTheme.obsidian900)
                         .padding(.horizontal, 10)
-                        .padding(.vertical, 4)
+                        .padding(.vertical, 4.5)
                         .background(LuxuryTheme.gold400)
-                        .cornerRadius(8)
+                        .clipShape(Capsule())
                 } else {
-                    Text("EŠTE \(adv.pointsNeeded) B")
-                        .font(.system(size: 11, weight: .bold))
-                        .foregroundColor(LuxuryTheme.gold300)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .background(LuxuryTheme.obsidian700)
-                        .cornerRadius(8)
+                    HStack(spacing: 4) {
+                        Text("EŠTE")
+                            .font(.system(size: 10, weight: .bold))
+                            .foregroundColor(Color.white.opacity(0.6))
+                        Text("\(adv.pointsNeeded) B")
+                            .font(.system(size: 11, weight: .black, design: .rounded))
+                            .foregroundColor(LuxuryTheme.gold300)
+                    }
+                    .padding(.horizontal, 9)
+                    .padding(.vertical, 4.5)
+                    .background(LuxuryTheme.obsidian700)
+                    .clipShape(Capsule())
+                    .overlay(Capsule().stroke(LuxuryTheme.gold400.opacity(0.25), lineWidth: 0.8))
                 }
             }
 
-            // Discipline Switcher for Advancement Card (STT vs LAT)
-            HStack(spacing: 8) {
+            // Sleek Unified Segmented Control (STT vs LAT) - No Emojis
+            HStack(spacing: 0) {
                 Button {
                     advancementDiscipline = "STT"
                 } label: {
-                    HStack(spacing: 4) {
-                        Text("🩰 Štandard (STT)")
-                    }
-                    .font(.system(size: 12, weight: .bold))
-                    .foregroundColor(advancementDiscipline == "STT" ? LuxuryTheme.obsidian900 : Color.white.opacity(0.8))
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 7)
-                    .background(
-                        advancementDiscipline == "STT"
-                            ? LinearGradient(colors: [LuxuryTheme.gold500, LuxuryTheme.gold400], startPoint: .leading, endPoint: .trailing)
-                            : LinearGradient(colors: [LuxuryTheme.obsidian700, LuxuryTheme.obsidian700], startPoint: .leading, endPoint: .trailing)
-                    )
-                    .cornerRadius(8)
+                    Text("Štandard (STT)")
+                        .font(.system(size: 12, weight: .bold, design: .rounded))
+                        .foregroundColor(advancementDiscipline == "STT" ? LuxuryTheme.obsidian900 : Color.white.opacity(0.75))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 8)
+                        .background(
+                            advancementDiscipline == "STT"
+                                ? LinearGradient(colors: [LuxuryTheme.gold400, LuxuryTheme.gold500], startPoint: .topLeading, endPoint: .bottomTrailing)
+                                : LinearGradient(colors: [Color.clear, Color.clear], startPoint: .leading, endPoint: .trailing)
+                        )
+                        .clipShape(Capsule())
                 }
                 .buttonStyle(.plain)
 
                 Button {
                     advancementDiscipline = "LAT"
                 } label: {
-                    HStack(spacing: 4) {
-                        Text("🔥 Latina (LAT)")
-                    }
-                    .font(.system(size: 12, weight: .bold))
-                    .foregroundColor(advancementDiscipline == "LAT" ? LuxuryTheme.obsidian900 : Color.white.opacity(0.8))
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 7)
-                    .background(
-                        advancementDiscipline == "LAT"
-                            ? LinearGradient(colors: [LuxuryTheme.gold500, LuxuryTheme.gold400], startPoint: .leading, endPoint: .trailing)
-                            : LinearGradient(colors: [LuxuryTheme.obsidian700, LuxuryTheme.obsidian700], startPoint: .leading, endPoint: .trailing)
-                    )
-                    .cornerRadius(8)
+                    Text("Latina (LAT)")
+                        .font(.system(size: 12, weight: .bold, design: .rounded))
+                        .foregroundColor(advancementDiscipline == "LAT" ? LuxuryTheme.obsidian900 : Color.white.opacity(0.75))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 8)
+                        .background(
+                            advancementDiscipline == "LAT"
+                                ? LinearGradient(colors: [LuxuryTheme.gold400, LuxuryTheme.gold500], startPoint: .topLeading, endPoint: .bottomTrailing)
+                                : LinearGradient(colors: [Color.clear, Color.clear], startPoint: .leading, endPoint: .trailing)
+                        )
+                        .clipShape(Capsule())
                 }
                 .buttonStyle(.plain)
             }
+            .padding(3)
+            .background(Color.black.opacity(0.35))
+            .clipShape(Capsule())
+            .overlay(Capsule().stroke(Color.white.opacity(0.12), lineWidth: 0.8))
 
-            Divider().background(Color.gold500.opacity(0.15))
+            Divider().background(Color.white.opacity(0.08))
 
             // Points Progress Bar
             VStack(alignment: .leading, spacing: 6) {
                 HStack {
                     Text("Body na postup (\(advancementDiscipline))")
-                        .font(.system(size: 13, weight: .medium))
-                        .foregroundColor(Color.white.opacity(0.8))
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(Color.white.opacity(0.75))
 
                     Spacer()
 
-                    Text("\(adv.currentPoints) / \(adv.requiredPoints) b")
-                        .font(.system(size: 13, weight: .bold))
-                        .foregroundColor(adv.currentPoints >= adv.requiredPoints ? Color.syncEmerald : LuxuryTheme.gold400)
+                    HStack(spacing: 4) {
+                        Text("\(adv.currentPoints)")
+                            .font(.system(size: 13, weight: .black, design: .rounded))
+                            .foregroundColor(adv.currentPoints >= adv.requiredPoints ? Color.syncEmerald : LuxuryTheme.gold300)
+                        Text("/ \(adv.requiredPoints) b")
+                            .font(.system(size: 12, weight: .semibold, design: .rounded))
+                            .foregroundColor(Color.white.opacity(0.55))
+                    }
                 }
 
                 GeometryReader { geo in
                     ZStack(alignment: .leading) {
                         Capsule()
-                            .fill(LuxuryTheme.obsidian700)
-                            .frame(height: 8)
+                            .fill(Color.white.opacity(0.08))
+                            .frame(height: 7)
 
                         Capsule()
                             .fill(
@@ -447,31 +574,42 @@ public struct CompetitionTrackerView: View {
                                     endPoint: .trailing
                                 )
                             )
-                            .frame(width: max(8, geo.size.width * CGFloat(adv.pointsProgress)), height: 8)
+                            .frame(width: max(7, geo.size.width * CGFloat(min(1.0, adv.pointsProgress))), height: 7)
+                            .shadow(color: LuxuryTheme.gold500.opacity(0.3), radius: 3, x: 0, y: 1)
                     }
                 }
-                .frame(height: 8)
+                .frame(height: 7)
             }
 
             // Finals Progress Bar
             VStack(alignment: .leading, spacing: 6) {
                 HStack {
                     Text("Finálové umiestnenia (\(advancementDiscipline))")
-                        .font(.system(size: 13, weight: .medium))
-                        .foregroundColor(Color.white.opacity(0.8))
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(Color.white.opacity(0.75))
 
                     Spacer()
 
-                    Text("\(adv.currentFinals) / \(adv.requiredFinals) finále")
-                        .font(.system(size: 13, weight: .bold))
-                        .foregroundColor(adv.currentFinals >= adv.requiredFinals ? Color.syncEmerald : LuxuryTheme.gold400)
+                    HStack(spacing: 4) {
+                        Text("\(adv.currentFinals)")
+                            .font(.system(size: 13, weight: .black, design: .rounded))
+                            .foregroundColor(Color.syncEmerald)
+                        Text("/ \(adv.requiredFinals) finále")
+                            .font(.system(size: 12, weight: .semibold, design: .rounded))
+                            .foregroundColor(Color.white.opacity(0.55))
+                        if adv.currentFinals >= adv.requiredFinals {
+                            Text("✓")
+                                .font(.system(size: 11, weight: .bold))
+                                .foregroundColor(Color.syncEmerald)
+                        }
+                    }
                 }
 
                 GeometryReader { geo in
                     ZStack(alignment: .leading) {
                         Capsule()
-                            .fill(LuxuryTheme.obsidian700)
-                            .frame(height: 8)
+                            .fill(Color.white.opacity(0.08))
+                            .frame(height: 7)
 
                         Capsule()
                             .fill(
@@ -481,10 +619,11 @@ public struct CompetitionTrackerView: View {
                                     endPoint: .trailing
                                 )
                             )
-                            .frame(width: max(8, geo.size.width * CGFloat(adv.finalsProgress)), height: 8)
+                            .frame(width: max(7, geo.size.width * CGFloat(min(1.0, adv.finalsProgress))), height: 7)
+                            .shadow(color: Color.syncEmerald.opacity(0.3), radius: 3, x: 0, y: 1)
                     }
                 }
-                .frame(height: 8)
+                .frame(height: 7)
             }
 
             HStack {
@@ -496,57 +635,65 @@ public struct CompetitionTrackerView: View {
                     .foregroundColor(Color.white.opacity(0.5))
                 Spacer()
             }
-            .padding(.top, 4)
+            .padding(.top, 2)
         }
-        .padding(18)
-        .background(LuxuryTheme.obsidian800.opacity(0.95))
+        .padding(16)
+        .background(LuxuryTheme.obsidian800.opacity(0.92))
         .cornerRadius(18)
         .overlay(
             RoundedRectangle(cornerRadius: 18)
                 .stroke(
                     LinearGradient(
-                        colors: [LuxuryTheme.gold500.opacity(0.4), LuxuryTheme.gold400.opacity(0.15)],
+                        colors: [LuxuryTheme.gold500.opacity(0.35), LuxuryTheme.gold400.opacity(0.12)],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
                     ),
-                    lineWidth: 1.2
+                    lineWidth: 1
                 )
         )
-        .shadow(color: Color.black.opacity(0.45), radius: 10, x: 0, y: 4)
+        .shadow(color: Color.black.opacity(0.35), radius: 10, x: 0, y: 4)
     }
 
     // MARK: - 3. Action and Filter Section
     @ViewBuilder
     private var actionAndFilterSection: some View {
         VStack(spacing: 12) {
-            // Primary Import CTA
+            // Primary Import CTA - Satin Champagne & Obsidian
             Button {
                 showImportSheet = true
             } label: {
                 HStack(spacing: 8) {
                     if manager.cooldownRemaining > 0 {
                         Image(systemName: "clock.arrow.circlepath")
+                            .font(.system(size: 14, weight: .bold))
                         Text("KSIS Cooldown (\(manager.cooldownRemaining)s)")
+                            .font(.system(size: 14, weight: .bold, design: .rounded))
                     } else {
                         Image(systemName: "arrow.down.doc.fill")
+                            .font(.system(size: 14, weight: .bold))
                         Text("Importovať Výsledok zo Súťaže")
+                            .font(.system(size: 14, weight: .bold, design: .rounded))
                     }
                 }
-                .font(.system(size: 15, weight: .bold))
-                .foregroundColor(manager.cooldownRemaining > 0 ? Color.white.opacity(0.6) : LuxuryTheme.obsidian900)
+                .foregroundColor(manager.cooldownRemaining > 0 ? Color.white.opacity(0.5) : LuxuryTheme.obsidian900)
                 .frame(maxWidth: .infinity)
-                .padding(.vertical, 14)
+                .padding(.vertical, 13)
                 .background(
                     manager.cooldownRemaining > 0
-                        ? LinearGradient(colors: [LuxuryTheme.obsidian700, LuxuryTheme.obsidian800], startPoint: .leading, endPoint: .trailing)
-                        : LinearGradient(colors: [LuxuryTheme.gold500, LuxuryTheme.gold400], startPoint: .leading, endPoint: .trailing)
+                        ? LinearGradient(colors: [LuxuryTheme.obsidian800, LuxuryTheme.obsidian700], startPoint: .leading, endPoint: .trailing)
+                        : LinearGradient(colors: [LuxuryTheme.gold400, LuxuryTheme.gold500], startPoint: .topLeading, endPoint: .bottomTrailing)
                 )
-                .cornerRadius(16)
+                .clipShape(RoundedRectangle(cornerRadius: 14))
                 .overlay(
-                    RoundedRectangle(cornerRadius: 16)
-                        .stroke(LuxuryTheme.gold400.opacity(0.35), lineWidth: 1)
+                    RoundedRectangle(cornerRadius: 14)
+                        .stroke(
+                            manager.cooldownRemaining > 0
+                                ? Color.white.opacity(0.1)
+                                : LuxuryTheme.gold300.opacity(0.6),
+                            lineWidth: 1
+                        )
                 )
-                .shadow(color: LuxuryTheme.gold500.opacity(0.2), radius: 8, x: 0, y: 3)
+                .shadow(color: manager.cooldownRemaining > 0 ? Color.clear : LuxuryTheme.gold500.opacity(0.22), radius: 10, x: 0, y: 3)
             }
             .buttonStyle(.plain)
             .disabled(manager.cooldownRemaining > 0)
@@ -558,18 +705,23 @@ public struct CompetitionTrackerView: View {
                         selectedDisciplineFilter = discipline
                     } label: {
                         Text(discipline)
-                            .font(.system(size: 12, weight: .bold))
-                            .foregroundColor(selectedDisciplineFilter == discipline ? LuxuryTheme.obsidian900 : Color.white.opacity(0.8))
+                            .font(.system(size: 12, weight: .bold, design: .rounded))
+                            .foregroundColor(selectedDisciplineFilter == discipline ? LuxuryTheme.obsidian900 : Color.white.opacity(0.75))
                             .padding(.horizontal, 14)
-                            .padding(.vertical, 7)
+                            .padding(.vertical, 6)
                             .background(
                                 selectedDisciplineFilter == discipline
-                                    ? LinearGradient(colors: [LuxuryTheme.gold500, LuxuryTheme.gold400], startPoint: .leading, endPoint: .trailing)
-                                    : LinearGradient(colors: [LuxuryTheme.obsidian700, LuxuryTheme.obsidian800], startPoint: .leading, endPoint: .trailing)
+                                    ? LinearGradient(colors: [LuxuryTheme.gold400, LuxuryTheme.gold500], startPoint: .topLeading, endPoint: .bottomTrailing)
+                                    : LinearGradient(colors: [Color.white.opacity(0.06), Color.white.opacity(0.06)], startPoint: .leading, endPoint: .trailing)
                             )
                             .clipShape(Capsule())
                             .overlay(
-                                Capsule().stroke(Color.white.opacity(0.15), lineWidth: 1)
+                                Capsule().stroke(
+                                    selectedDisciplineFilter == discipline
+                                        ? LuxuryTheme.gold300.opacity(0.5)
+                                        : Color.white.opacity(0.12),
+                                    lineWidth: 0.8
+                                )
                             )
                     }
                     .buttonStyle(.plain)
@@ -583,10 +735,16 @@ public struct CompetitionTrackerView: View {
                     } label: {
                         HStack(spacing: 4) {
                             Image(systemName: "archivebox")
+                                .font(.system(size: 11))
                             Text("Archív (\(manager.archivedResults.count))")
+                                .font(.system(size: 11, weight: .semibold, design: .rounded))
                         }
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundColor(LuxuryTheme.gold300.opacity(0.75))
+                        .foregroundColor(LuxuryTheme.gold300.opacity(0.8))
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 5)
+                        .background(Color.white.opacity(0.05))
+                        .clipShape(Capsule())
+                        .overlay(Capsule().stroke(Color.white.opacity(0.1), lineWidth: 0.8))
                     }
                     .buttonStyle(.plain)
                 }
@@ -611,13 +769,14 @@ public struct CompetitionTrackerView: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Text("HISTÓRIA VÝSLEDKOV")
-                    .font(.system(size: 11, weight: .black))
+                    .font(.system(size: 11, weight: .black, design: .rounded))
+                    .tracking(1.0)
                     .foregroundColor(Color.white.opacity(0.5))
 
                 Spacer()
 
                 Text("\(filteredResults.count) záznamov")
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.system(size: 12, weight: .semibold, design: .rounded))
                     .foregroundColor(Color.white.opacity(0.5))
             }
 
@@ -671,55 +830,41 @@ public struct CompetitionResultRowView: View {
     public var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .top) {
-                VStack(alignment: .leading, spacing: 3) {
+                VStack(alignment: .leading, spacing: 4) {
                     Text(result.eventName)
-                        .font(.system(size: 15, weight: .bold))
+                        .font(.system(size: 15, weight: .bold, design: .rounded))
                         .foregroundColor(.white)
+                        .lineLimit(2)
 
-                    Text(result.categoryName)
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundColor(LuxuryTheme.gold400)
+                    HStack(spacing: 6) {
+                        Text(result.categoryName)
+                            .font(.system(size: 12, weight: .semibold, design: .rounded))
+                            .foregroundColor(LuxuryTheme.gold300)
+                    }
                 }
 
                 Spacer()
 
                 // Placement Badge
-                VStack(alignment: .trailing, spacing: 2) {
-                    Text(result.displayPlacement)
-                        .font(.system(size: 14, weight: .black))
-                        .foregroundColor(result.isFinalPlacement ? LuxuryTheme.obsidian900 : .white)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .background(
-                            result.isFinalPlacement
-                                ? LinearGradient(colors: [LuxuryTheme.gold400, LuxuryTheme.gold500], startPoint: .leading, endPoint: .trailing)
-                                : LinearGradient(colors: [LuxuryTheme.obsidian700, LuxuryTheme.obsidian700], startPoint: .leading, endPoint: .trailing)
-                        )
-                        .cornerRadius(8)
-
-                    if let total = result.coupleCount {
-                        Text("z \(total) párov")
-                            .font(.system(size: 10, weight: .medium))
-                            .foregroundColor(Color.white.opacity(0.5))
-                    }
-                }
+                placementBadgeView
             }
 
-            Divider().background(Color.white.opacity(0.08))
+            Divider().background(Color.white.opacity(0.06))
 
             HStack {
                 // Date & City
                 HStack(spacing: 4) {
                     Image(systemName: "calendar")
-                        .font(.system(size: 11))
+                        .font(.system(size: 10))
                         .foregroundColor(Color.white.opacity(0.4))
                     Text(result.formattedDate)
                         .font(.system(size: 11, weight: .medium))
-                        .foregroundColor(Color.white.opacity(0.6))
+                        .foregroundColor(Color.white.opacity(0.55))
                     if let place = result.place, !place.isEmpty {
                         Text("• \(place)")
                             .font(.system(size: 11, weight: .medium))
-                            .foregroundColor(Color.white.opacity(0.6))
+                            .foregroundColor(Color.white.opacity(0.55))
+                            .lineLimit(1)
                     }
                 }
 
@@ -728,18 +873,19 @@ public struct CompetitionResultRowView: View {
                 // Points & Cumulative Stats
                 if let pts = result.pointsEarned {
                     Text("+\(pts) b")
-                        .font(.system(size: 12, weight: .bold))
-                        .foregroundColor(LuxuryTheme.gold400)
+                        .font(.system(size: 12, weight: .black, design: .rounded))
+                        .foregroundColor(LuxuryTheme.gold300)
                 }
 
                 if let stats = result.cumulativeStats {
                     Text("Stav: \(stats)")
-                        .font(.system(size: 11, weight: .bold))
+                        .font(.system(size: 10, weight: .bold, design: .rounded))
                         .foregroundColor(Color.syncEmerald)
                         .padding(.horizontal, 6)
-                        .padding(.vertical, 2)
-                        .background(Color.syncEmerald.opacity(0.12))
-                        .cornerRadius(6)
+                        .padding(.vertical, 2.5)
+                        .background(Color.syncEmerald.opacity(0.15))
+                        .clipShape(Capsule())
+                        .overlay(Capsule().stroke(Color.syncEmerald.opacity(0.3), lineWidth: 0.8))
                 }
 
                 // Delete Menu
@@ -751,19 +897,94 @@ public struct CompetitionResultRowView: View {
                     }
                 } label: {
                     Image(systemName: "ellipsis")
-                        .font(.system(size: 14, weight: .bold))
-                        .foregroundColor(Color.white.opacity(0.4))
-                        .padding(.leading, 6)
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundColor(Color.white.opacity(0.45))
+                        .frame(width: 28, height: 28)
+                        .contentShape(Rectangle())
                 }
             }
         }
         .padding(14)
-        .background(LuxuryTheme.obsidian800.opacity(0.9))
-        .cornerRadius(16)
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(LuxuryTheme.obsidian800.opacity(0.85))
+        )
         .overlay(
             RoundedRectangle(cornerRadius: 16)
-                .stroke(Color.white.opacity(0.1), lineWidth: 1)
+                .stroke(Color.white.opacity(0.08), lineWidth: 1)
         )
+    }
+
+    private var isTopThree: Bool {
+        guard let p = result.placement else { return false }
+        return result.isFinalPlacement && p <= 3
+    }
+
+    private func placementMedalColor(placement: Int?) -> Color {
+        guard let p = placement else { return LuxuryTheme.gold300 }
+        switch p {
+        case 1:
+            return LuxuryTheme.gold300
+        case 2:
+            return Color(red: 220/255, green: 220/255, blue: 230/255)
+        default:
+            return Color(red: 205/255, green: 127/255, blue: 50/255)
+        }
+    }
+
+    @ViewBuilder
+    private var placementBadgeBackground: some View {
+        if result.isFinalPlacement {
+            if let p = result.placement, p <= 3 {
+                LinearGradient(
+                    colors: [LuxuryTheme.gold400, LuxuryTheme.gold500],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+            } else {
+                LinearGradient(
+                    colors: [Color.syncEmerald, Color.syncEmerald.opacity(0.85)],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+            }
+        } else {
+            LinearGradient(
+                colors: [Color.white.opacity(0.12), Color.white.opacity(0.06)],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        }
+    }
+
+    @ViewBuilder
+    private var placementBadgeView: some View {
+        VStack(alignment: .trailing, spacing: 2) {
+            HStack(spacing: 3) {
+                if isTopThree {
+                    Image(systemName: "medal.fill")
+                        .font(.system(size: 11, weight: .black))
+                        .foregroundColor(placementMedalColor(placement: result.placement))
+                }
+                Text(result.displayPlacement)
+                    .font(.system(size: 13, weight: .black, design: .rounded))
+            }
+            .foregroundColor(result.isFinalPlacement ? LuxuryTheme.obsidian900 : .white)
+            .padding(.horizontal, 9)
+            .padding(.vertical, 4)
+            .background(placementBadgeBackground)
+            .clipShape(RoundedRectangle(cornerRadius: 7))
+            .overlay(
+                RoundedRectangle(cornerRadius: 7)
+                    .stroke(result.isFinalPlacement ? LuxuryTheme.gold300.opacity(0.5) : Color.white.opacity(0.12), lineWidth: 0.8)
+            )
+
+            if let total = result.coupleCount {
+                Text("z \(total) párov")
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundColor(Color.white.opacity(0.45))
+            }
+        }
     }
 }
 

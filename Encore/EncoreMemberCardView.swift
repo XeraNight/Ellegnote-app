@@ -18,6 +18,7 @@ struct EncoreMemberCardView: View {
     @State private var renderedCardImage: UIImage? = nil
     
     @ObservedObject private var walletManager = AppleWalletPassManager.shared
+    @ObservedObject private var friendManager = FriendManager.shared
     
     // Custom Carmine & Wine Leather Palette
     private let leatherDeepCarmine = Color(red: 0.52, green: 0.05, blue: 0.11) // #850D1C
@@ -157,16 +158,16 @@ struct EncoreMemberCardView: View {
                         .disabled(walletManager.isLoadingPass)
                     }
                     
-                    // Flip & Share Secondary Controls
-                    HStack(spacing: 10) {
+                    // Flip, Proximity Gesture / AirDrop & QR Refresh Controls
+                    HStack(spacing: 8) {
                         Button {
                             toggleFlip()
                         } label: {
-                            HStack(spacing: 6) {
+                            HStack(spacing: 4) {
                                 Image(systemName: "arrow.triangle.2.circlepath")
-                                    .font(.system(size: 12, weight: .bold))
-                                Text(isFlipped ? "Predná strana" : "Zadná strana")
-                                    .font(.system(size: 12, weight: .bold))
+                                    .font(.system(size: 11, weight: .bold))
+                                Text(isFlipped ? "Predná" : "Zadná")
+                                    .font(.system(size: 11, weight: .bold))
                             }
                             .foregroundColor(Color.gold300)
                             .frame(maxWidth: .infinity)
@@ -178,13 +179,13 @@ struct EncoreMemberCardView: View {
                         .buttonStyle(.plain)
                         
                         Button {
-                            shareCardImage()
+                            shareViaProximityAirDrop()
                         } label: {
-                            HStack(spacing: 6) {
-                                Image(systemName: "square.and.arrow.up")
+                            HStack(spacing: 4) {
+                                Image(systemName: "wave.3.forward.circle.fill")
                                     .font(.system(size: 12, weight: .bold))
-                                Text("Zdieľať kartu")
-                                    .font(.system(size: 12, weight: .bold))
+                                Text("Priblížiť / AirDrop")
+                                    .font(.system(size: 11, weight: .bold))
                             }
                             .foregroundColor(Color.gold300)
                             .frame(maxWidth: .infinity)
@@ -194,10 +195,38 @@ struct EncoreMemberCardView: View {
                             .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.gold500.opacity(0.3), lineWidth: 1))
                         }
                         .buttonStyle(.plain)
+                        
+                        Button {
+                            Task {
+                                await FriendManager.shared.refreshInviteToken()
+                            }
+                        } label: {
+                            HStack(spacing: 4) {
+                                if FriendManager.shared.isRefreshingToken {
+                                    ProgressView().tint(Color.gold300).scaleEffect(0.7)
+                                } else {
+                                    Image(systemName: "arrow.clockwise")
+                                        .font(.system(size: 11, weight: .bold))
+                                }
+                                Text("Obnoviť QR")
+                                    .font(.system(size: 11, weight: .bold))
+                            }
+                            .foregroundColor(Color.gold300)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 10)
+                            .background(Color.obsidian800)
+                            .cornerRadius(12)
+                            .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.gold500.opacity(0.3), lineWidth: 1))
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(FriendManager.shared.isRefreshingToken)
                     }
                 }
                 .frame(maxWidth: 360)
             }
+        }
+        .sheet(isPresented: $friendManager.showInviteSheet) {
+            FriendInviteModalSheet()
         }
         // Apple Wallet Informative Alert Dialog
         .alert(isPresented: $walletManager.showErrorAlert) {
@@ -223,57 +252,88 @@ struct EncoreMemberCardView: View {
         HapticFeedback.light()
     }
     
-    // MARK: - Card Front View (Luxury Matte Red Leather & Metallic Gold)
+    // MARK: - Card Front View (Luxury Matte Red Leather, Bottom-Right QR & Gilded Name)
     private var cardFrontView: some View {
         ZStack {
             // 1. Handcrafted Red Leather Base Surface with Saddle Stitching
             LeatherCardSurface(isFront: true)
             
             // 2. Card Content Layers
-            VStack {
-                // Top Row: QR Code in Top Right Corner
+            VStack(alignment: .leading) {
+                // Top Row: Dance Club Name & Mini Crest
                 HStack(alignment: .top) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(club.isEmpty ? "ENCORE DANCE CLUB" : club.uppercased())
+                            .font(.system(size: 10, weight: .black, design: .rounded))
+                            .tracking(1.2)
+                            .foregroundColor(Color(red: 0.96, green: 0.85, blue: 0.50))
+                            .shadow(color: Color.black.opacity(0.85), radius: 2)
+                        
+                        Text("PREMIUM DANCE PASS")
+                            .font(.system(size: 7.5, weight: .bold))
+                            .tracking(0.8)
+                            .foregroundColor(Color.white.opacity(0.65))
+                    }
+                    
                     Spacer()
                     
+                    Image("EncoreLogo")
+                        .resizable()
+                        .renderingMode(.template)
+                        .scaledToFit()
+                        .frame(width: 20, height: 20)
+                        .foregroundStyle(Color(red: 0.96, green: 0.85, blue: 0.50).opacity(0.85))
+                }
+                .padding(.horizontal, 18)
+                .padding(.top, 16)
+                
+                Spacer()
+                
+                // Bottom Row: Calligraphic Name (Left) + Scannable QR Code (Right Bottom)
+                HStack(alignment: .bottom) {
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text("TANEČNÍK")
+                            .font(.system(size: 8, weight: .bold))
+                            .tracking(0.8)
+                            .foregroundColor(Color(red: 0.90, green: 0.78, blue: 0.45).opacity(0.85))
+                        
+                        Text(name.isEmpty ? "Jakub Kalina" : name)
+                            .font(calligraphicFont)
+                            .foregroundColor(Color(red: 0.98, green: 0.90, blue: 0.60))
+                            .shadow(color: Color.black.opacity(0.9), radius: 3, x: 1, y: 1.5)
+                            .shadow(color: Color(red: 0.92, green: 0.78, blue: 0.38).opacity(0.4), radius: 6)
+                    }
+                    .padding(.leading, 18)
+                    .padding(.bottom, 16)
+                    
+                    Spacer()
+                    
+                    // QR Code placed in Bottom Right corner
                     if let qrImage = QRGenerator.generateQRCode(from: targetQRString) {
                         ZStack {
                             RoundedRectangle(cornerRadius: 8, style: .continuous)
                                 .fill(Color.white)
-                                .frame(width: 58, height: 58)
+                                .frame(width: 56, height: 56)
                             
                             Image(uiImage: qrImage)
                                 .interpolation(.none)
                                 .resizable()
                                 .scaledToFit()
-                                .frame(width: 52, height: 52)
+                                .frame(width: 50, height: 50)
                             
                             // Center tiny Encore seal
                             Circle()
                                 .fill(leatherDeepCarmine)
-                                .frame(width: 10, height: 10)
+                                .frame(width: 9, height: 9)
                                 .overlay(
                                     Circle()
                                         .stroke(Color.white, lineWidth: 1)
                                 )
                         }
-                        .padding(16)
-                        .shadow(color: Color.black.opacity(0.45), radius: 6, x: 0, y: 3)
+                        .padding(.trailing, 16)
+                        .padding(.bottom, 14)
+                        .shadow(color: Color.black.opacity(0.50), radius: 6, x: 0, y: 3)
                     }
-                }
-                
-                Spacer()
-                
-                // Bottom Row: Calligraphic cursive name in Gilded Embossed Gold
-                HStack {
-                    Spacer()
-                    
-                    Text(name.isEmpty ? "Jakub Kalina" : name)
-                        .font(calligraphicFont)
-                        .foregroundColor(Color(red: 0.96, green: 0.85, blue: 0.50))
-                        .shadow(color: Color.black.opacity(0.85), radius: 3, x: 1, y: 1.5)
-                        .shadow(color: Color(red: 0.92, green: 0.78, blue: 0.38).opacity(0.4), radius: 6)
-                        .padding(.trailing, 20)
-                        .padding(.bottom, 16)
                 }
             }
             
@@ -337,14 +397,14 @@ struct EncoreMemberCardView: View {
         }
     }
     
-    // MARK: - Card Back View (Matte Leather & Normal Left-to-Right Orientation)
+    // MARK: - Card Back View (KSIS ID, Dancer Groups & Normal Left-to-Right Orientation)
     private var cardBackView: some View {
         ZStack {
             // 1. Leather Surface
             LeatherCardSurface(isFront: false)
             
             // 2. Information Layout (Normal Left-to-Right Reading)
-            VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: 10) {
                 // Header Row
                 HStack {
                     VStack(alignment: .leading, spacing: 2) {
@@ -361,7 +421,7 @@ struct EncoreMemberCardView: View {
                         .resizable()
                         .renderingMode(.template)
                         .scaledToFit()
-                        .frame(width: 24, height: 24)
+                        .frame(width: 22, height: 22)
                         .foregroundStyle(
                             LinearGradient(
                                 colors: [Color(red: 1.0, green: 0.92, blue: 0.70), Color(red: 0.85, green: 0.68, blue: 0.28)],
@@ -373,50 +433,75 @@ struct EncoreMemberCardView: View {
                 
                 Divider().background(Color.gold500.opacity(0.35))
                 
-                // Dancer Details
-                HStack(spacing: 24) {
-                    VStack(alignment: .leading, spacing: 4) {
+                // Dancer Details: Tanečník & Klub
+                HStack(spacing: 20) {
+                    VStack(alignment: .leading, spacing: 3) {
                         Text("TANEČNÍK")
                             .font(.system(size: 8, weight: .bold))
                             .tracking(0.8)
                             .foregroundColor(Color(red: 0.90, green: 0.78, blue: 0.45).opacity(0.8))
                         Text(name.isEmpty ? "Jakub Kalina" : name)
-                            .font(.system(size: 14, weight: .bold, design: .serif))
+                            .font(.system(size: 13, weight: .bold, design: .serif))
                             .foregroundColor(.white)
                     }
                     
-                    VStack(alignment: .leading, spacing: 4) {
+                    VStack(alignment: .leading, spacing: 3) {
                         Text("KLUB")
                             .font(.system(size: 8, weight: .bold))
                             .tracking(0.8)
                             .foregroundColor(Color(red: 0.90, green: 0.78, blue: 0.45).opacity(0.8))
                         Text(club.isEmpty ? "Individuálny" : club)
-                            .font(.system(size: 14, weight: .bold, design: .serif))
+                            .font(.system(size: 13, weight: .bold, design: .serif))
                             .foregroundColor(.white)
                     }
                     
                     Spacer()
                 }
                 
+                // Moje aktuálne tanečné skupiny
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("TANEČNÉ SKUPINY")
+                        .font(.system(size: 8, weight: .bold))
+                        .tracking(0.8)
+                        .foregroundColor(Color(red: 0.90, green: 0.78, blue: 0.45).opacity(0.8))
+                    
+                    HStack(spacing: 6) {
+                        ForEach(UserProfileStore.shared.dancerGroups, id: \.self) { group in
+                            Text(group)
+                                .font(.system(size: 9, weight: .bold, design: .rounded))
+                                .foregroundColor(.white)
+                                .padding(.horizontal, 7)
+                                .padding(.vertical, 3)
+                                .background(Color.black.opacity(0.35))
+                                .cornerRadius(5)
+                                .overlay(RoundedRectangle(cornerRadius: 5).stroke(Color.gold500.opacity(0.25), lineWidth: 0.8))
+                        }
+                    }
+                }
+                
                 Spacer()
                 
-                // Bottom Pass Code / Member UID & Invite Code
+                // Bottom: Public ID (KSIS ID / Dancer ID - NO internal DB ID!)
                 HStack(alignment: .bottom) {
-                    VStack(alignment: .leading, spacing: 2) {
-                        let code = UserProfileStore.shared.currentInviteCode
-                        let displayCode = code.isEmpty ? String(userId.prefix(8)).uppercased() : code
-                        Text("POZVÁNKA KÓD: \(displayCode)")
-                            .font(.system(size: 10, weight: .bold, design: .monospaced))
-                            .foregroundColor(Color(red: 0.96, green: 0.85, blue: 0.50))
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2)
-                            .background(Color.black.opacity(0.40))
-                            .cornerRadius(4)
-                        
-                        Text("UID: \(userId.prefix(8).uppercased())")
-                            .font(.system(size: 8, weight: .medium, design: .monospaced))
-                            .foregroundColor(Color.white.opacity(0.45))
+                    let publicId = UserProfileStore.shared.publicCardId
+                    Button {
+                        UIPasteboard.general.string = publicId
+                        HapticFeedback.light()
+                    } label: {
+                        HStack(spacing: 4) {
+                            Text(publicId)
+                                .font(.system(size: 10, weight: .bold, design: .monospaced))
+                            Image(systemName: "doc.on.doc")
+                                .font(.system(size: 8))
+                        }
+                        .foregroundColor(Color(red: 0.96, green: 0.85, blue: 0.50))
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 3)
+                        .background(Color.black.opacity(0.45))
+                        .cornerRadius(5)
+                        .overlay(RoundedRectangle(cornerRadius: 5).stroke(Color.gold500.opacity(0.3), lineWidth: 0.8))
                     }
+                    .buttonStyle(.plain)
                     
                     Spacer()
                     
@@ -428,7 +513,7 @@ struct EncoreMemberCardView: View {
                     }
                 }
             }
-            .padding(20)
+            .padding(18)
         }
     }
     
@@ -455,6 +540,23 @@ struct EncoreMemberCardView: View {
                let root = scene.windows.first?.rootViewController {
                 root.present(av, animated: true)
             }
+        }
+    }
+    
+    // MARK: - Proximity AirDrop & Universal Link Share (iOS 17 Proximity Gesture)
+    private func shareViaProximityAirDrop() {
+        HapticFeedback.medium()
+        let shareText = "Tanečné spojenie v Encore: \(name.isEmpty ? "Tanečník" : name)"
+        let items: [Any]
+        if let url = URL(string: targetQRString) {
+            items = [shareText, url]
+        } else {
+            items = [shareText, targetQRString]
+        }
+        let av = UIActivityViewController(activityItems: items, applicationActivities: nil)
+        if let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+           let root = scene.windows.first?.rootViewController {
+            root.present(av, animated: true)
         }
     }
 }

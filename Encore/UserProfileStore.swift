@@ -15,8 +15,20 @@ final class UserProfileStore: ObservableObject {
     @Published var currentClub: String = ""
     @Published var currentAvatarPath: String? = nil
     @Published var currentInviteCode: String = ""
+    @Published var dancerCode: String = "DNC-0000"
+    @Published var currentKsisId: String = ""
+    @Published var dancerGroups: [String] = ["Štandardné tance", "Latinskoamerické tance"]
+    @Published var cardTheme: String = "carmine_gold"
     @Published var currentLanguage: String = "sk-SK"
     @Published var currentPlaybackRate: Double = 1.0
+    
+    var publicCardId: String {
+        let cleanKsis = currentKsisId.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !cleanKsis.isEmpty {
+            return "KSIS ID: \(cleanKsis)"
+        }
+        return "DANCER ID: \(dancerCode)"
+    }
     
     private var cancellables = Set<AnyCancellable>()
     
@@ -104,27 +116,42 @@ final class UserProfileStore: ObservableObject {
             currentPlaybackRate = legacyRate > 0 ? legacyRate : 1.0
         }
         
-        // 6. Invite Code
+        // 6. Invite Code, Dancer Code & KSIS ID
         let savedInvite = defaults.string(forKey: "profileInviteCode_\(uid)")
         currentInviteCode = savedInvite ?? ""
+        let savedDancerCode = defaults.string(forKey: "profileDancerCode_\(uid)")
+        if let dc = savedDancerCode, !dc.isEmpty {
+            dancerCode = dc
+        }
+        let savedKsis = defaults.string(forKey: "profileKsisId_\(uid)")
+        currentKsisId = savedKsis ?? ""
+        if let groups = defaults.stringArray(forKey: "profileDancerGroups_\(uid)"), !groups.isEmpty {
+            dancerGroups = groups
+        }
+        let savedTheme = defaults.string(forKey: "profileCardTheme_\(uid)")
+        cardTheme = savedTheme ?? "carmine_gold"
+        
         Task {
-            await self.fetchInviteCode()
+            await self.fetchProfileCloudData()
         }
     }
     
-    /// Fetches the user's official invite code from Supabase
-    func fetchInviteCode() async {
+    /// Fetches the user's official invite code, Dancer ID and KSIS ID from Supabase
+    func fetchProfileCloudData() async {
         let uid = activeUserId
         guard uid != "guest", let uuid = UUID(uuidString: uid) else { return }
         
         do {
             let client = SupabaseConfig.client
-            struct ProfileInviteData: Decodable {
+            struct ProfileCloudDTO: Decodable {
                 let invite_code: String?
+                let dancer_code: String?
+                let ksis_id: String?
+                let dancer_groups: [String]?
             }
-            let res: ProfileInviteData = try await client
+            let res: ProfileCloudDTO = try await client
                 .from("profiles")
-                .select("invite_code")
+                .select("invite_code, dancer_code, ksis_id, dancer_groups")
                 .eq("id", value: uuid)
                 .single()
                 .execute()
@@ -134,8 +161,37 @@ final class UserProfileStore: ObservableObject {
                 self.currentInviteCode = code
                 UserDefaults.standard.set(code, forKey: "profileInviteCode_\(uid)")
             }
+            
+            if let ksis = res.ksis_id, !ksis.isEmpty {
+                self.currentKsisId = ksis
+                UserDefaults.standard.set(ksis, forKey: "profileKsisId_\(uid)")
+            }
+            
+            if let groups = res.dancer_groups, !groups.isEmpty {
+                self.dancerGroups = groups
+                UserDefaults.standard.set(groups, forKey: "profileDancerGroups_\(uid)")
+            }
+            
+            if let dCode = res.dancer_code, !dCode.isEmpty {
+                self.dancerCode = dCode
+                UserDefaults.standard.set(dCode, forKey: "profileDancerCode_\(uid)")
+            } else {
+                // Generate a fresh unique Dancer ID and save to Supabase
+                let newCode = "DNC-" + String(format: "%04d", Int.random(in: 1000...9999))
+                self.dancerCode = newCode
+                UserDefaults.standard.set(newCode, forKey: "profileDancerCode_\(uid)")
+                
+                struct UpdateCodeDTO: Encodable {
+                    let dancer_code: String
+                }
+                try? await client
+                    .from("profiles")
+                    .update(UpdateCodeDTO(dancer_code: newCode))
+                    .eq("id", value: uuid)
+                    .execute()
+            }
         } catch {
-            print("Supabase fetchInviteCode notice: \(error.localizedDescription)")
+            print("Supabase fetchProfileCloudData notice: \(error.localizedDescription)")
         }
     }
     

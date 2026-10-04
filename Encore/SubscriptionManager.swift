@@ -21,9 +21,7 @@ final class SubscriptionManager: ObservableObject {
     
     // Known Developer / Owner emails with automatic God-mode access
     public static let ownerEmails: Set<String> = [
-        "jakubkalina61@gmail.com",
-        "kalinajakub19@gmail.com",
-        "admin@encore-dance.com"
+        "jakubkalina05@gmail.com"
     ]
     
     // Product IDs for Apple App Store (StoreKit 2)
@@ -66,11 +64,8 @@ final class SubscriptionManager: ObservableObject {
     // MARK: - Owner Check
     public var isAppOwner: Bool {
         let email = AuthManager.shared.userEmail.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        if Self.ownerEmails.contains(email) { return true }
-        if let metaRole = AuthManager.shared.currentUser?.userMetadata["role"] {
-            if case let .string(r) = metaRole, r.lowercased() == "owner" { return true }
-        }
-        return false
+        guard !email.isEmpty else { return false }
+        return Self.ownerEmails.contains(email)
     }
     
     // MARK: - Capability Matrix
@@ -94,11 +89,34 @@ final class SubscriptionManager: ObservableObject {
         isAppOwner || currentTier == .plus || currentTier == .studio
     }
     
-    /// Maximálny počet vytvorených zostáv (Free = 2, Plus/Studio = neobmedzene)
-    public var maxRoutinesAllowed: Int {
-        (isAppOwner || currentTier == .plus || currentTier == .studio) ? 9999 : 2
+    /// Maximálny počet vytvorených zostáv na jeden tanec (Free = 1 na tanec, Plus/Studio = neobmedzene)
+    public var maxRoutinesPerDanceAllowed: Int {
+        (isAppOwner || currentTier == .plus || currentTier == .studio) ? 9999 : 1
     }
     
+    /// Kontrola, či používateľ môže vytvoriť novú zostavu pre daný tanec.
+    /// Free tier: 1 zostava na každý konkrétny tanec (1x Waltz, 1x Tango, 1x Samba...).
+    /// Plus & Studio: Neobmedzený počet verzií/zostáv pre každý tanec.
+    public func canCreateRoutine(existingCountForDance: Int) -> Bool {
+        if isAppOwner || currentTier == .plus || currentTier == .studio {
+            return true
+        }
+        return existingCountForDance < 1
+    }
+    
+    /// Kontrola na základe zoznamu existujúcich zostáv používateľa
+    public func canCreateRoutine(forDance danceName: String, existingRoutines: [Routine]) -> Bool {
+        if isAppOwner || currentTier == .plus || currentTier == .studio {
+            return true
+        }
+        let normalized = danceName.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        let matchingCount = existingRoutines.filter {
+            $0.danceName.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == normalized
+        }.count
+        return matchingCount < 1
+    }
+    
+    // MARK: - Entitlements Refresh & Verification
     // MARK: - Entitlements Refresh & Verification
     public func refreshEntitlements() async {
         isCheckingEntitlements = true
@@ -109,6 +127,7 @@ final class SubscriptionManager: ObservableObject {
             currentTier = .studio
             entitlementSource = .appOwner
             isAccountBanned = false
+            saveCachedEntitlement(tier: .studio, source: .appOwner)
             return
         }
         
@@ -117,38 +136,85 @@ final class SubscriptionManager: ObservableObject {
         if isAccountBanned {
             currentTier = .free
             entitlementSource = .none
+            saveCachedEntitlement(tier: .free, source: .none)
             return
         }
         
-        // 3. Skontrolovať manuálny VIP / Comped grant zo Supabase
-        if let supabaseGrant = await fetchSupabaseEntitlement() {
-            if supabaseGrant.isValid {
-                currentTier = supabaseGrant.tier
-                entitlementSource = supabaseGrant.source
-                return
+        // 3. Paralelné overenie Apple StoreKit 2 a manuálneho VIP grantu zo Supabase
+        let storeKitTier = await checkStoreKitEntitlements()
+        let supabaseGrant = await fetchSupabaseEntitlement()
+        
+        var effectiveTier: SubscriptionTier = .free
+        var effectiveSource: EntitlementSource = .none
+        
+        // StoreKit aktívne predplatné
+        if storeKitTier > .free {
+            effectiveTier = storeKitTier
+            effectiveSource = .storeKit
+        }
+        
+        // Supabase VIP grant (Darovanie od majiteľa)
+        if let grant = supabaseGrant, grant.isValid, grant.tier > .free {
+            if grant.tier >= effectiveTier {
+                effectiveTier = grant.tier
+                effectiveSource = grant.source
             }
         }
         
-        // 4. Skontrolovať Apple StoreKit 2 nákupy
-        let storeKitTier = await checkStoreKitEntitlements()
-        if storeKitTier != .free {
-            currentTier = storeKitTier
-            entitlementSource = .storeKit
+        if effectiveTier > .free {
+            currentTier = effectiveTier
+            entitlementSource = effectiveSource
+            saveCachedEntitlement(tier: effectiveTier, source: effectiveSource)
+            return
+        }
+        
+        // 4. Offline Fallback (ak je zariadenie offline a malo platnú licenciu)
+        if supabaseGrant == nil, let cached = loadCachedEntitlement(), cached.tier > .free {
+            currentTier = cached.tier
+            entitlementSource = cached.source
             return
         }
         
         // 5. Fallback na Free plán
         currentTier = .free
         entitlementSource = .none
+        saveCachedEntitlement(tier: .free, source: .none)
+    }
+    
+    // MARK: - Offline Entitlements Cache
+    private func saveCachedEntitlement(tier: SubscriptionTier, source: EntitlementSource) {
+        let uid = AuthManager.shared.currentUser?.id.uuidString ?? "guest"
+        UserDefaults.standard.set(tier.rawValue, forKey: "encore_cached_tier_\(uid)")
+        UserDefaults.standard.set(source.rawValue, forKey: "encore_cached_source_\(uid)")
+        UserDefaults.standard.set(Date().timeIntervalSince1970, forKey: "encore_cached_time_\(uid)")
+    }
+    
+    private func loadCachedEntitlement() -> (tier: SubscriptionTier, source: EntitlementSource)? {
+        let uid = AuthManager.shared.currentUser?.id.uuidString ?? "guest"
+        guard let tierRaw = UserDefaults.standard.string(forKey: "encore_cached_tier_\(uid)"),
+              let tier = SubscriptionTier(rawValue: tierRaw),
+              let sourceRaw = UserDefaults.standard.string(forKey: "encore_cached_source_\(uid)"),
+              let source = EntitlementSource(rawValue: sourceRaw) else {
+            return nil
+        }
+        let timestamp = UserDefaults.standard.double(forKey: "encore_cached_time_\(uid)")
+        let daysOffline = (Date().timeIntervalSince1970 - timestamp) / 86400
+        if daysOffline < 30 {
+            return (tier, source)
+        }
+        return nil
     }
     
     // MARK: - StoreKit 2 Transactions Listener
     private func listenForTransactions() -> Task<Void, Error> {
-        return Task.detached {
+        return Task.detached { [weak self] in
             for await result in Transaction.updates {
                 do {
                     let transaction = try Self.checkVerified(result)
-                    await self.refreshEntitlements()
+                    if let self = self {
+                        await self.syncStoreKitTransactionToSupabase(transaction: transaction)
+                        await self.refreshEntitlements()
+                    }
                     await transaction.finish()
                 } catch {
                     Logger.auth.error("StoreKit transaction update failed verification: \(error.localizedDescription, privacy: .public)")
@@ -166,8 +232,9 @@ final class SubscriptionManager: ObservableObject {
         }
     }
     
-    // MARK: - Check StoreKit 2 Entitlements
+    // MARK: - Check StoreKit 2 Entitlements (Returns highest active tier)
     private func checkStoreKitEntitlements() async -> SubscriptionTier {
+        var highestTier: SubscriptionTier = .free
         for await result in Transaction.currentEntitlements {
             guard let transaction = try? Self.checkVerified(result) else { continue }
             
@@ -175,13 +242,13 @@ final class SubscriptionManager: ObservableObject {
             if transaction.revocationDate == nil {
                 let pid = transaction.productID
                 if pid == ProductID.studioMonthly || pid == ProductID.studioAnnual {
-                    return .studio
+                    return .studio // Studio is highest possible
                 } else if pid == ProductID.plusMonthly || pid == ProductID.plusAnnual {
-                    return .plus
+                    highestTier = .plus
                 }
             }
         }
-        return .free
+        return highestTier
     }
     
     // MARK: - Load Products
@@ -199,10 +266,16 @@ final class SubscriptionManager: ObservableObject {
         isPurchasing = true
         defer { isPurchasing = false }
         
-        let result = try await product.purchase()
+        var options: Set<Product.PurchaseOption> = []
+        if let userUUID = AuthManager.shared.currentUser?.id {
+            options.insert(.appAccountToken(userUUID))
+        }
+        
+        let result = try await product.purchase(options: options)
         switch result {
         case .success(let verification):
             let transaction = try Self.checkVerified(verification)
+            await syncStoreKitTransactionToSupabase(transaction: transaction)
             await transaction.finish()
             await refreshEntitlements()
             return true
@@ -212,6 +285,42 @@ final class SubscriptionManager: ObservableObject {
             return false
         @unknown default:
             return false
+        }
+    }
+    
+    // MARK: - Sync StoreKit Transaction to Supabase Cloud
+    private func syncStoreKitTransactionToSupabase(transaction: StoreKit.Transaction) async {
+        guard AuthManager.shared.currentUser?.id != nil else { return }
+        let client = SupabaseConfig.client
+        let pid = transaction.productID
+        let tier: SubscriptionTier
+        if pid == ProductID.studioMonthly || pid == ProductID.studioAnnual {
+            tier = .studio
+        } else if pid == ProductID.plusMonthly || pid == ProductID.plusAnnual {
+            tier = .plus
+        } else {
+            tier = .free
+        }
+        
+        let expIso: String? = transaction.expirationDate.map { ISO8601DateFormatter().string(from: $0) }
+        
+        struct RecordParams: Encodable {
+            let p_tier: String
+            let p_product_id: String
+            let p_expires_at: String?
+        }
+        
+        do {
+            try await client
+                .rpc("record_app_store_transaction", params: RecordParams(
+                    p_tier: tier.rawValue.lowercased(),
+                    p_product_id: pid,
+                    p_expires_at: expIso
+                ))
+                .execute()
+            Logger.auth.info("Synced StoreKit transaction to Supabase successfully.")
+        } catch {
+            Logger.auth.warning("Syncing StoreKit transaction to Supabase notice: \(error.localizedDescription, privacy: .public)")
         }
     }
     
@@ -344,29 +453,81 @@ final class SubscriptionManager: ObservableObject {
             .execute()
     }
     
+    /// Priame udelenie predplatného na základe e-mailu používateľa (cez Supabase RPC)
+    public func grantEntitlementByEmailAsOwner(
+        targetEmail: String,
+        tier: SubscriptionTier,
+        durationMonths: Int?,
+        notes: String
+    ) async throws -> String {
+        guard isAppOwner else {
+            throw NSError(domain: "EncoreAdmin", code: 403, userInfo: [NSLocalizedDescriptionKey: "Nemáš oprávnenie majiteľa aplikácie."])
+        }
+        
+        let client = SupabaseConfig.client
+        struct GrantParams: Encodable {
+            let p_email: String
+            let p_tier: String
+            let p_duration_months: Int?
+            let p_note: String
+        }
+        struct GrantResponse: Decodable {
+            let success: Bool
+            let message: String?
+            let error_code: String?
+        }
+        
+        let cleanEmail = targetEmail.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        let res: GrantResponse = try await client
+            .rpc("admin_grant_entitlement_by_email", params: GrantParams(
+                p_email: cleanEmail,
+                p_tier: tier.rawValue.lowercased(),
+                p_duration_months: durationMonths,
+                p_note: notes
+            ))
+            .execute()
+            .value
+            
+        if !res.success {
+            throw NSError(domain: "EncoreAdmin", code: 400, userInfo: [NSLocalizedDescriptionKey: res.message ?? "Nepodarilo sa udeliť predplatné."])
+        }
+        return res.message ?? "Plán bol úspešne udelený."
+    }
+    
     /// Zablokovať alebo odblokovať používateľský účet
+    /// Zablokovať alebo odblokovať používateľský účet (cez RPC funkciu majiteľa)
     public func setAccountBanStatusAsOwner(
         targetUserId: UUID,
         isBanned: Bool,
         reason: String
     ) async throws {
-        guard isAppOwner else { throw NSError(domain: "EncoreAdmin", code: 403, userInfo: [NSLocalizedDescriptionKey: "Nemáš oprávnenie majiteľa aplikácie."]) }
+        guard isAppOwner else {
+            throw NSError(domain: "EncoreAdmin", code: 403, userInfo: [NSLocalizedDescriptionKey: "Nemáš oprávnenie majiteľa aplikácie."])
+        }
         let client = SupabaseConfig.client
         
-        struct UpdatePayload: Encodable {
-            let account_status: String
-            let ban_reason: String?
+        struct BanParams: Encodable {
+            let p_user: UUID
+            let p_banned: Bool
+            let p_reason: String?
+        }
+        struct BanResponse: Decodable {
+            let success: Bool
+            let error_code: String?
+            let message: String?
         }
         
-        let payload = UpdatePayload(
-            account_status: isBanned ? "banned" : "active",
-            ban_reason: isBanned ? reason : nil
-        )
-        
-        try await client
-            .from("profiles")
-            .update(payload)
-            .eq("id", value: targetUserId)
+        let res: BanResponse = try await client
+            .rpc("admin_set_account_status", params: BanParams(
+                p_user: targetUserId,
+                p_banned: isBanned,
+                p_reason: isBanned ? reason : nil
+            ))
             .execute()
+            .value
+            
+        if !res.success {
+            throw NSError(domain: "EncoreAdmin", code: 400, userInfo: [NSLocalizedDescriptionKey: res.message ?? "Zmena stavu účtu zlyhala."])
+        }
     }
 }
