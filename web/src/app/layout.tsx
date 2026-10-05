@@ -1,10 +1,11 @@
 import type { Metadata } from 'next'
-import { Inter } from 'next/font/google'
+import { Inter, Playfair_Display } from 'next/font/google'
 import './globals.css'
 import { PostHogProvider } from '@/components/PostHogProvider'
 import { Analytics } from '@vercel/analytics/next'
 
-const inter = Inter({ subsets: ['latin'], display: 'swap' })
+const inter = Inter({ subsets: ['latin'], display: 'swap', variable: '--font-sans' })
+const playfair = Playfair_Display({ subsets: ['latin'], display: 'swap', variable: '--font-serif' })
 
 export const metadata: Metadata = {
   title: {
@@ -21,8 +22,8 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="sk" className="dark">
-      <body className={inter.className}>
+    <html lang="sk" className={`dark ${inter.variable} ${playfair.variable}`}>
+      <body className={`${inter.className} font-sans antialiased bg-[#050507] text-white selection:bg-[#D4AF37]/30 selection:text-white`}>
         <PostHogProvider>
           {children}
         </PostHogProvider>

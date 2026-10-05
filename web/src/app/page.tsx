@@ -7,6 +7,7 @@ import BentoFeatures from '@/components/landing/BentoFeatures'
 import PricingSection from '@/components/landing/PricingSection'
 import DownloadCTA from '@/components/landing/DownloadCTA'
 import LandingFooter from '@/components/landing/LandingFooter'
+import FloatingDownloadBar from '@/components/landing/FloatingDownloadBar'
 
 export const metadata: Metadata = {
   title: 'Encore — Umenie tanca. Dokonalosť tréningu.',
@@ -202,6 +203,7 @@ export default function HomePage() {
       </main>
 
       {/* ── FOOTER & LEGAL ────────────────────────────────────────────── */}
+      <FloatingDownloadBar />
       <LandingFooter />
 
     </div>
