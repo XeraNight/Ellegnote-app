@@ -24,7 +24,7 @@ nonisolated struct DBRoutineRow: Codable, Sendable {
     let last_modified_by: String?
 }
 
-nonisolated struct DBCanvasNodeRow: Codable, Sendable {
+nonisolated struct DBCanvasNodeRow: Identifiable, Codable, Sendable {
     let id: UUID
     let routine_id: UUID
     let x: Double

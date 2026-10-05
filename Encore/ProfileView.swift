@@ -33,6 +33,7 @@ struct ProfileView: View {
     @State private var showLegalSheet = false
     @State private var showOwnerAdminSheet = false
     @State private var showPaywallSheet = false
+    @State private var showChangePasswordSheet = false
     @ObservedObject private var subscriptionManager = SubscriptionManager.shared
     @ObservedObject private var connectionManager = ConnectionManager.shared
     
@@ -461,43 +462,62 @@ struct ProfileView: View {
                 Divider().background(Color.gold500.opacity(0.15))
                 
                 HStack(spacing: 12) {
-                    Image(systemName: "faceid")
+                    Image(systemName: authManager.biometrySystemImage)
                         .foregroundColor(.gold400)
                         .font(.system(size: 16, weight: .bold))
                         .frame(width: 28, height: 28)
                         .background(Color.gold500.opacity(0.12))
                         .clipShape(Circle())
-                    Text("Prihlásenie cez Face ID")
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundColor(.white)
-                    Spacer()
-                    Button(action: {
-                        if let url = URL(string: UIApplication.openSettingsURLString) {
-                            UIApplication.shared.open(url)
-                        }
-                    }) {
-                        HStack(spacing: 4) {
-                            Text("Nastavenia")
-                                .font(.system(size: 12, weight: .bold))
-                            Image(systemName: "arrow.up.forward.app")
-                                .font(.system(size: 11))
-                        }
-                        .foregroundColor(.gold400)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 6)
-                        .background(Color.gold500.opacity(0.12))
-                        .cornerRadius(8)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 8)
-                                .stroke(Color.gold500.opacity(0.35), lineWidth: 1)
-                        )
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Prihlásenie cez \(authManager.biometryName)")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundColor(.white)
+                        Text(authManager.isBiometricsEnabled
+                             ? (authManager.canUseBiometricLogin ? "Aktívne pre rýchle prihlásenie" : "Zapnuté")
+                             : "Vypnuté")
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundColor(authManager.isBiometricsEnabled ? Color.gold400 : Color.white.opacity(0.45))
                     }
+                    Spacer()
+                    Toggle("", isOn: $authManager.isBiometricsEnabled)
+                        .labelsHidden()
+                        .tint(Color.gold500)
                 }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 12)
                 .background(Color.obsidian800)
+                
+                if authManager.canChangePassword {
+                    Divider().background(Color.gold500.opacity(0.15))
+                    
+                    Button(action: { showChangePasswordSheet = true }) {
+                        HStack(spacing: 12) {
+                            Image(systemName: "lock.rotation")
+                                .foregroundColor(.gold400)
+                                .font(.system(size: 15, weight: .bold))
+                                .frame(width: 28, height: 28)
+                                .background(Color.gold500.opacity(0.12))
+                                .clipShape(Circle())
+                            Text("Zmeniť heslo")
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundColor(.white)
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundColor(Color.white.opacity(0.35))
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 12)
+                        .background(Color.obsidian800)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                }
             }
             .luxuryProfileCard(cornerRadius: 18)
+            .sheet(isPresented: $showChangePasswordSheet) {
+                PasswordUpdateSheet(mode: .change)
+            }
         }
     }
 

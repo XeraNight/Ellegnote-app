@@ -7,19 +7,48 @@ export const dynamic = 'force-static'
 export async function GET() {
   const teamId = process.env.APPLE_TEAM_IDENTIFIER || '2MD5BS4DLM'
   const bundleId = process.env.APPLE_BUNDLE_IDENTIFIER || 'com.jakub.encore'
+  const appID = `${teamId}.${bundleId}`
 
   const aasa = {
     applinks: {
       apps: [],
       details: [
         {
-          appID: `${teamId}.${bundleId}`,
-          paths: ['/add*', '/add/*', '/u/*']
+          appID,
+          paths: [
+            '/add*',
+            '/add/*',
+            '/u/*',
+            '/auth/*',
+            '/download*',
+            '/routine/*',
+            '/invite/*'
+          ],
+          components: [
+            {
+              '/': '/add/*'
+            },
+            {
+              '/': '/u/*'
+            },
+            {
+              '/': '/auth/*'
+            },
+            {
+              '/': '/download*'
+            },
+            {
+              '/': '/routine/*'
+            },
+            {
+              '/': '/invite/*'
+            }
+          ]
         }
       ]
     },
     webcredentials: {
-      apps: [`${teamId}.${bundleId}`]
+      apps: [appID]
     }
   }
 

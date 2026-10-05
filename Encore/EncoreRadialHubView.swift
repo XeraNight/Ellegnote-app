@@ -128,35 +128,12 @@ public struct EncoreGoldenEmblemView: View {
                     .opacity(Double(1.0 - shockwaveProgress) * 0.6)
             }
             
-            // ── 2. Ambient Gold Core Halo ──
-            Circle()
-                .fill(
-                    RadialGradient(
-                        colors: [
-                            Color.gold400.opacity(0.25 + glowIntensity * 0.40),
-                            Color.gold500.opacity(0.08),
-                            Color.clear
-                        ],
-                        center: .center,
-                        startRadius: 4,
-                        endRadius: size * 0.75
-                    )
-                )
-                .frame(width: size * 1.3, height: size * 1.3)
-                .scaleEffect(1.0 + CGFloat(glowIntensity * 0.3))
-            
-            // ── 3. Pristine Pure Gold Emblem (100% Intact Silhouette - No Broken Scissors Cut!) ──
+            // ── 2. Emblem ──
             Image("EncoreLogo")
                 .resizable()
                 .renderingMode(.original)
                 .scaledToFit()
                 .frame(width: size, height: size)
-                .shadow(
-                    color: Color.gold400.opacity(0.35 + glowIntensity * 0.45),
-                    radius: 10 + CGFloat(glowIntensity * 12),
-                    x: 0,
-                    y: 2
-                )
             
             // ── 4. Specular Liquid Gold Sheen Beam (Light glint traversing the logo) ──
             if sheenProgress > -0.4 && sheenProgress < 1.4 {

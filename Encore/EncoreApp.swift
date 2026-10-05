@@ -53,11 +53,16 @@ struct EncoreApp: App {
             RootAppView()
                 .preferredColorScheme(.dark)
                 .onOpenURL { url in
-                    _ = GIDSignIn.sharedInstance.handle(url)
-                    Task {
-                        await AuthManager.shared.handleDeepLink(url)
-                        _ = FriendManager.shared.handleIncomingURL(url)
+                    // 1. Google Sign-In redirect
+                    if GIDSignIn.sharedInstance.handle(url) { return }
+                    // 2. Supabase auth callbacks (e-mail confirm, OAuth, password recovery).
+                    //    These carry a `code` query item that FriendManager would misread as an invite code.
+                    if url.scheme == "encore", url.host == "auth-callback" {
+                        Task { await AuthManager.shared.handleDeepLink(url) }
+                        return
                     }
+                    // 3. Friend invites / profile links
+                    Task { _ = FriendManager.shared.handleIncomingURL(url) }
                 }
                 .onContinueUserActivity(NSUserActivityTypeBrowsingWeb) { userActivity in
                     if let url = userActivity.webpageURL {
@@ -180,6 +185,9 @@ struct RootAppView: View {
         }
         .sheet(isPresented: $friendManager.showDeferredInvitePrompt) {
             DeferredInvitePasteSheet()
+        }
+        .sheet(isPresented: $authManager.showPasswordRecoverySheet) {
+            PasswordUpdateSheet(mode: .recovery)
         }
         .task {
             await remoteConfig.syncConfig()

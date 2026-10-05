@@ -81,7 +81,6 @@ public final class ConnectionManager: ObservableObject {
             // Fetch profiles for other users
             var profilesDict: [UUID: DancerSearchResult] = [:]
             if !otherUserIds.isEmpty {
-                let idList = otherUserIds.map { $0.uuidString.lowercased() }.joined(separator: ",")
                 struct ProfileDTO: Decodable {
                     let id: UUID
                     let dancer_code: String?

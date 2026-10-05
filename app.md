@@ -255,7 +255,7 @@ Nápady na rozšírenie nastavení a ďalšie nástroje pripravené na realizác
 
 ## 8. Plánovaná UX Transformácia: Domovský Radiálny Hub & Multi-Routine Deck
 
-> **Detailná špecifikácia a Rive návod:** [docs/HOME_RADIAL_HUB_AND_RIVE_SPECIFICATION.md](file:///Users/jakub/Documents/New%20project/docs/HOME_RADIAL_HUB_AND_RIVE_SPECIFICATION.md)
+> **Detailná špecifikácia a Rive návod:** [docs/HOME_RADIAL_HUB_AND_RIVE_SPECIFICATION.md](./docs/HOME_RADIAL_HUB_AND_RIVE_SPECIFICATION.md)
 
 * **Interaktívne Hero Logo (Radial Satellite Menu):**
   * Namiesto otvárania modálneho sheetu sa po kliknutí na stredové logo Encore logo zväčší (scale 1.18×) a dookola neho sa orbitálne rozvinú 4 satelitné akcie:

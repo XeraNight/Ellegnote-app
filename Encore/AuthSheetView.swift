@@ -81,6 +81,7 @@ struct AuthSheetView: View {
     @State private var password = ""
     @State private var nickname = ""
     @State private var showLegalSheet = false
+    @State private var showForgotPassword = false
     
     var body: some View {
         NavigationStack {
@@ -295,14 +296,18 @@ struct AuthSheetView: View {
                                     .padding(.top, 18)
                                     
                                     // ── Forgot Password ──
-                                    Button(action: {
-                                        authManager.authErrorMessage = "Pre obnovenie hesla kontaktuj správcu alebo skontroluj email."
-                                    }) {
-                                        Text("Forgot password?")
-                                            .font(.system(size: 12, weight: .medium))
-                                            .foregroundColor(.white.opacity(0.5))
+                                    if selectedTab == .signIn {
+                                        Button(action: {
+                                            authManager.authErrorMessage = nil
+                                            authManager.authSuccessMessage = nil
+                                            showForgotPassword = true
+                                        }) {
+                                            Text("Zabudnuté heslo?")
+                                                .font(.system(size: 12, weight: .medium))
+                                                .foregroundColor(.white.opacity(0.6))
+                                        }
+                                        .padding(.top, 14)
                                     }
-                                    .padding(.top, 14)
                                     
                                     // ── Mode Switcher ──
                                     Button(action: {
@@ -351,13 +356,13 @@ struct AuthSheetView: View {
                                         )
                                         .shadow(color: Color.gold500.opacity(0.12), radius: 8)
                                         
-                                        if selectedTab == .signIn {
+                                        if selectedTab == .signIn && authManager.canUseBiometricLogin {
                                             Button(action: handleFaceIDAuth) {
                                                 HStack(spacing: 8) {
-                                                    Image(systemName: "faceid")
+                                                    Image(systemName: authManager.biometrySystemImage)
                                                         .font(.system(size: 16))
                                                         .foregroundColor(.gold400)
-                                                    Text("Prihlásenie cez Face ID")
+                                                    Text("Prihlásenie cez \(authManager.biometryName)")
                                                         .font(.system(size: 12, weight: .semibold))
                                                 }
                                                 .foregroundColor(.white.opacity(0.85))
@@ -408,6 +413,9 @@ struct AuthSheetView: View {
             .sheet(isPresented: $showLegalSheet) {
                 LegalComplianceView()
             }
+            .sheet(isPresented: $showForgotPassword) {
+                ForgotPasswordSheet(prefillEmail: email)
+            }
             .onAppear {
                 if email.isEmpty, let saved = authManager.savedEmail {
                     email = saved
@@ -440,7 +448,13 @@ struct AuthSheetView: View {
         Task {
             if selectedTab == .signUp {
                 let success = await authManager.signUp(email: email, pass: password, name: nickname)
-                if success && isSheet { dismiss() }
+                if success {
+                    if isSheet { dismiss() }
+                } else if authManager.authSuccessMessage != nil {
+                    withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
+                        selectedTab = .signIn
+                    }
+                }
             } else {
                 let success = await authManager.signIn(email: email, pass: password)
                 if success && isSheet { dismiss() }
@@ -474,9 +488,23 @@ struct AuthSheetView: View {
                 authManager.authErrorMessage = "Nepodarilo sa získať Apple prihlasovací token."
                 return
             }
+            
+            let fullName: String? = {
+                if let name = credential.fullName {
+                    let parts = [name.givenName, name.familyName].compactMap { $0 }.filter { !$0.isEmpty }
+                    return parts.isEmpty ? nil : parts.joined(separator: " ")
+                }
+                return nil
+            }()
+            let appleEmail = credential.email
+            
             UIImpactFeedbackGenerator(style: .light).impactOccurred()
             Task {
-                let success = await authManager.signInWithApple(idToken: idTokenString)
+                let success = await authManager.signInWithApple(
+                    idToken: idTokenString,
+                    fullName: fullName,
+                    email: appleEmail
+                )
                 if success && isSheet { dismiss() }
             }
         case .failure(let error):

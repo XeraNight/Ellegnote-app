@@ -41,7 +41,7 @@ final class DanceCameraManager: NSObject, ObservableObject, @unchecked Sendable,
             try audioSession.setCategory(
                 .playAndRecord,
                 mode: .videoRecording,
-                options: [.defaultToSpeaker, .mixWithOthers, .allowBluetooth, .allowBluetoothA2DP]
+                options: [.defaultToSpeaker, .mixWithOthers, .allowBluetoothHFP, .allowBluetoothA2DP]
             )
             try audioSession.setActive(true)
         } catch {

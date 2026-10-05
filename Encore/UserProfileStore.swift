@@ -184,7 +184,7 @@ final class UserProfileStore: ObservableObject {
                 struct UpdateCodeDTO: Encodable {
                     let dancer_code: String
                 }
-                try? await client
+                _ = try? await client
                     .from("profiles")
                     .update(UpdateCodeDTO(dancer_code: newCode))
                     .eq("id", value: uuid)

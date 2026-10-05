@@ -51,9 +51,6 @@
             ReferencedContainer = "container:Encore.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
-      <StoreKitConfigurationFileReference
-      identifier = "../../Encore/EncoreProducts.storekit">
-   </StoreKitConfigurationFileReference>
       <EnvironmentVariables>
          <EnvironmentVariable
             key = "IDEPreferLogStreaming"
@@ -61,6 +58,9 @@
             isEnabled = "YES">
          </EnvironmentVariable>
       </EnvironmentVariables>
+      <StoreKitConfigurationFileReference
+         identifier = "../../Encore/EncoreProducts.storekit">
+      </StoreKitConfigurationFileReference>
    </LaunchAction>
    <ProfileAction
       buildConfiguration = "Release"

@@ -185,7 +185,7 @@ public final class DanceMetronomeEngine: ObservableObject {
             try AVAudioSession.sharedInstance().setCategory(
                 .playAndRecord,
                 mode: .default,
-                options: [.defaultToSpeaker, .mixWithOthers, .allowBluetooth, .allowBluetoothA2DP]
+                options: [.defaultToSpeaker, .mixWithOthers, .allowBluetoothHFP, .allowBluetoothA2DP]
             )
             try AVAudioSession.sharedInstance().setActive(true, options: .notifyOthersOnDeactivation)
         } catch {

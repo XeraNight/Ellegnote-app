@@ -63,7 +63,9 @@ final class SubscriptionManager: ObservableObject {
     
     // MARK: - Owner Check
     public var isAppOwner: Bool {
-        let email = AuthManager.shared.userEmail.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        let email = (AuthManager.shared.currentUser?.email ?? AuthManager.shared.userEmail)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased()
         guard !email.isEmpty else { return false }
         return Self.ownerEmails.contains(email)
     }

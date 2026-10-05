@@ -1,0 +1,24 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git status:*)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(rg:*)",
+      "Bash(DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild:*)",
+      "Bash(xcrun simctl list:*)"
+    ],
+    "deny": [
+      "Read(./web/node_modules/**)",
+      "Read(./web/.next/**)",
+      "Read(./.archive/**)",
+      "Read(./brand_assets/**)",
+      "Read(./scratch/**)",
+      "Read(./Encore/Secrets.xcconfig)",
+      "Read(./**/*.png)",
+      "Read(./**/*.gif)",
+      "Read(./**/*.svg)",
+      "Read(./**/DerivedData/**)"
+    ]
+  }
+}

@@ -1,7 +1,5 @@
 import SwiftUI
 
-extension DBCanvasNodeRow: @retroactive Identifiable {}
-
 // MARK: - Student Routine Detail & Coach Inspection View
 struct StudentRoutineDetailView: View {
     @Environment(\.dismiss) private var dismiss

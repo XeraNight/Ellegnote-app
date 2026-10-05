@@ -13,12 +13,12 @@ Pre maximálny prehľad je projekt rozdelený do špecializovaných dokumentov:
 
 | Dokument | Účel & Obsah |
 | :--- | :--- |
-| **[`app.md`](file:///Users/jakub/Documents/New%20project/app.md)** | **Kompletný stav kódu a architektúra:** Čo všetko je v appke hotové, ako funguje jadro (Core Loop), prehľad obrazoviek, opravené chyby (mikrofón, hit-testing). |
-| **[`LEGAL_AND_COMPLIANCE_CHECKLIST.md`](file:///Users/jakub/Documents/New%20project/LEGAL_AND_COMPLIANCE_CHECKLIST.md)** | **App Store Release & Právna ochrana:** Apple Developer účet, TestFlight, StoreKit 2 platby, GDPR, riziká obrázkov z Pinterestu a ich legálna náhrada. |
-| **[`BRAND_GUIDELINES.md`](file:///Users/jakub/Documents/New%20project/BRAND_GUIDELINES.md)** | **Brand & Dizajnový systém:** Farby (Obsidian, Gold, Velvet Crimson), typografia, UI komponenty, filozofia "Jedna hlavná vec" a UI/UX pravidlá. |
-| **[`SECURITY.md`](file:///Users/jakub/Documents/New%20project/SECURITY.md)** | **Bezpečnosť & Supabase:** RLS pravidlá, **ako grantnúť kamarátom Studio tier zadarmo cez SQL**, Apple Wallet certifikáty a ochrana dát. |
-| **[`MOZNE_CHYBY.md`](file:///Users/jakub/Documents/New%20project/MOZNE_CHYBY.md)** | **Register 90 zraniteľných scenárov:** Riešenie pádov, plného disku, offline režimu, konfliktov audia a stresových situácií na súťaži. |
-| **[`docs/DEVOPS_AND_ANALYTICS_PLAYBOOK.md`](file:///Users/jakub/Documents/New%20project/docs/DEVOPS_AND_ANALYTICS_PLAYBOOK.md)** | **PostHog Analytika & Monitoring:** Sledovanie používateľov, konverzie predplatného, pádové logy a škálovanie na 1000+ používateľov. |
+| **[`app.md`](./app.md)** | **Kompletný stav kódu a architektúra:** Čo všetko je v appke hotové, ako funguje jadro (Core Loop), prehľad obrazoviek, opravené chyby (mikrofón, hit-testing). |
+| **[`LEGAL_AND_COMPLIANCE_CHECKLIST.md`](./LEGAL_AND_COMPLIANCE_CHECKLIST.md)** | **App Store Release & Právna ochrana:** Apple Developer účet, TestFlight, StoreKit 2 platby, GDPR, riziká obrázkov z Pinterestu a ich legálna náhrada. |
+| **[`BRAND_GUIDELINES.md`](./BRAND_GUIDELINES.md)** | **Brand & Dizajnový systém:** Farby (Obsidian, Gold, Velvet Crimson), typografia, UI komponenty, filozofia "Jedna hlavná vec" a UI/UX pravidlá. |
+| **[`SECURITY.md`](./SECURITY.md)** | **Bezpečnosť & Supabase:** RLS pravidlá, **ako grantnúť kamarátom Studio tier zadarmo cez SQL**, Apple Wallet certifikáty a ochrana dát. |
+| **[`MOZNE_CHYBY.md`](./MOZNE_CHYBY.md)** | **Register 90 zraniteľných scenárov:** Riešenie pádov, plného disku, offline režimu, konfliktov audia a stresových situácií na súťaži. |
+| **[`docs/DEVOPS_AND_ANALYTICS_PLAYBOOK.md`](./docs/DEVOPS_AND_ANALYTICS_PLAYBOOK.md)** | **PostHog Analytika & Monitoring:** Sledovanie používateľov, konverzie predplatného, pádové logy a škálovanie na 1000+ používateľov. |
 
 ---
 
