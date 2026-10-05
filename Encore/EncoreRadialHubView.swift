@@ -374,6 +374,8 @@ public struct EncoreRadialHubView: View {
                     .font(.system(size: 13, weight: .black, design: .rounded))
                     .foregroundColor(.white)
                     .tracking(2.6)
+                    .lineLimit(1)
+                    .fixedSize()
                 
                 Image(systemName: isOpen ? "xmark" : "chevron.down")
                     .font(.system(size: 9, weight: .bold))

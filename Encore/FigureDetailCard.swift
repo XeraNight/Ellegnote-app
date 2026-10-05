@@ -806,7 +806,8 @@ struct VideoRecorderView: UIViewControllerRepresentable {
 }
 struct InstantNotesInboxSection: View {
     @Environment(\.modelContext) private var modelContext
-    @Query(sort: \InstantNote.createdAt, order: .reverse) private var instantNotes: [InstantNote]
+    @Query(filter: #Predicate<InstantNote> { $0.importedAt == nil },
+           sort: \InstantNote.createdAt, order: .reverse) private var instantNotes: [InstantNote]
     
     let onImportText: (String) -> Void
     let onImportVideo: (String) -> Void
@@ -893,14 +894,9 @@ struct InstantNotesInboxSection: View {
                                     if !note.text.isEmpty {
                                         Button(action: {
                                             onImportText(note.text)
-                                            // Consume block if it doesn't contain video, or delete note
-                                            if note.videoPath == nil {
-                                                modelContext.delete(note)
-                                                try? modelContext.save()
-                                            } else {
-                                                note.text = ""
-                                                try? modelContext.save()
-                                            }
+                                            // Keep the note (undo-able); it just leaves the inbox.
+                                            note.importedAt = Date()
+                                            try? modelContext.save()
                                         }) {
                                             Label("Vložiť text", systemImage: "text.quote")
                                                 .font(.system(size: 11, weight: .bold))
@@ -912,14 +908,8 @@ struct InstantNotesInboxSection: View {
                                     if let videoPath = note.videoPath {
                                         Button(action: {
                                             onImportVideo(videoPath)
-                                            // Consume video or delete note
-                                            if note.text.isEmpty {
-                                                modelContext.delete(note)
-                                                try? modelContext.save()
-                                            } else {
-                                                note.videoPath = nil
-                                                try? modelContext.save()
-                                            }
+                                            note.importedAt = Date()
+                                            try? modelContext.save()
                                         }) {
                                             Label("Použiť video", systemImage: "video.badge.plus")
                                                 .font(.system(size: 11, weight: .bold))

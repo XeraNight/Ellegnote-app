@@ -120,8 +120,8 @@ struct AppSplashView: View {
             withAnimation(.easeOut(duration: 0.2)) {
                 nameOpacity = 1.0
             }
-            // Minimum branded display time (450ms) so user gets smooth luxury feel
-            try? await Task.sleep(for: .milliseconds(450))
+            // Short branded flash; the app must feel instant.
+            try? await Task.sleep(for: .milliseconds(150))
 
             // Wait for auth check to finish resolving if still pending (cap at 800ms)
             var waitCount = 0
@@ -131,11 +131,11 @@ struct AppSplashView: View {
             }
 
             // Smooth exit animation
-            withAnimation(.easeOut(duration: 0.22)) {
+            withAnimation(.easeOut(duration: 0.15)) {
                 scale = 1.02
                 opacity = 0.0
             }
-            try? await Task.sleep(for: .milliseconds(220))
+            try? await Task.sleep(for: .milliseconds(150))
             onComplete()
         }
     }

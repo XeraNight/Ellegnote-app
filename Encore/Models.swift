@@ -336,14 +336,28 @@ final class InstantNote {
     var text: String
     var videoPath: String?
     var imagePath: String?
-    
-    init(id: UUID = UUID(), createdAt: Date = Date(), text: String = "", videoPath: String? = nil, imagePath: String? = nil) {
+    /// Hashtag-style labels, e.g. "#Držanie". Stored as-is.
+    var tags: [String] = []
+    /// Dance the note belongs to (e.g. "Waltz"); nil = general note.
+    var danceName: String? = nil
+    var isPinned: Bool = false
+    var linkedFigureId: UUID? = nil
+    var linkedRoutineId: UUID? = nil
+    /// Set when the note was imported into a figure; the note itself is kept (undo-able).
+    var importedAt: Date? = nil
+
+    init(id: UUID = UUID(), createdAt: Date = Date(), text: String = "", videoPath: String? = nil, imagePath: String? = nil,
+         tags: [String] = [], danceName: String? = nil) {
         self.id = id
         self.createdAt = createdAt
         self.text = text
         self.videoPath = videoPath
         self.imagePath = imagePath
+        self.tags = tags
+        self.danceName = danceName
     }
+
+    var isImported: Bool { importedAt != nil }
 }
 
 import UIKit

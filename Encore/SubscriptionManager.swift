@@ -62,11 +62,14 @@ final class SubscriptionManager: ObservableObject {
     }
     
     // MARK: - Owner Check
+    /// UI-only convenience. Real protection is server-side (`is_app_owner()` in Supabase),
+    /// which also requires a confirmed e-mail, so we mirror that rule here and never trust
+    /// the locally stored `userEmail`.
     public var isAppOwner: Bool {
-        let email = (AuthManager.shared.currentUser?.email ?? AuthManager.shared.userEmail)
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-            .lowercased()
-        guard !email.isEmpty else { return false }
+        guard let user = AuthManager.shared.currentUser,
+              user.emailConfirmedAt != nil,
+              let email = user.email?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased(),
+              !email.isEmpty else { return false }
         return Self.ownerEmails.contains(email)
     }
     

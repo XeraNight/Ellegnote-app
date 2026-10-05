@@ -30,19 +30,24 @@ struct ContentView: View {
     // SwiftData Queries
     @Query(sort: \Dance.name) private var dances: [Dance]
     @Query(sort: \Routine.updatedAt, order: .reverse, animation: .easeInOut) private var routines: [Routine]
-    @Query(sort: \InstantNote.createdAt, order: .reverse) private var recentNotes: [InstantNote]
+    @Query(filter: #Predicate<InstantNote> { $0.importedAt == nil },
+           sort: \InstantNote.createdAt, order: .reverse) private var inboxNotes: [InstantNote]
     @Query(sort: \FigureLibraryItem.name) private var allFigures: [FigureLibraryItem]
     
     // Central Capture Area State
     @State private var activeCaptureMode: CaptureInputMode = .text
     @State private var noteDraftText: String = ""
     @FocusState private var isTextEditorFocused: Bool
-    @State private var selectedNoteTag: String? = nil
+    @State private var selectedNoteTags: [String] = []
+    @State private var selectedDance: String? = nil
+    @State private var savedCounter: Int = 0
+    @State private var sweepTrigger: Int = 0
+    @State private var showNotesInbox: Bool = false
+    @State private var noteToEdit: InstantNote? = nil
+    @Namespace private var modeNamespace
     @State private var showSavedFeedback: Bool = false
     
     // Voice Capture State
-    @StateObject private var speechManager = SpeechRecognizerHelper()
-    @State private var baseVoiceTranscript: String = ""
     
     // Camera Capture State
     @State private var showCameraModal: Bool = false
@@ -76,8 +81,10 @@ struct ContentView: View {
     @State private var compareSlotAPath: String? = nil
     @State private var compareSlotBPath: String? = nil
     
-    // Quick Suggestion Tags for Notes
-    private let quickNoteTags = ["#Držanie", "#Rytmus", "#Waltz", "#Rumba", "#Sway", "#Rotácia", "#Nášľap"]
+    /// Pinned notes first, then newest.
+    private var sortedInbox: [InstantNote] {
+        inboxNotes.sorted { ($0.isPinned ? 1 : 0, $0.createdAt) > ($1.isPinned ? 1 : 0, $1.createdAt) }
+    }
     
     var body: some View {
         NavigationStack {
@@ -101,11 +108,12 @@ struct ContentView: View {
                 GeometryReader { geo in
                     let screenWidth = geo.size.width
                     let isCompact = screenWidth < 380
-                    let logoSize: CGFloat = isCompact ? 95 : 115
-                    let workspaceHeight = max(geo.size.height * 0.40, 290)
+                    let logoSize: CGFloat = isCompact ? 78 : 92
+                    let workspaceHeight = max(geo.size.height * 0.30, 220)
                     let safeTop = max(geo.safeAreaInsets.top, 44)
                     let horizontalMargin = screenWidth * 0.10 // 10% od oboch strán obrazovky
                     
+                    ScrollViewReader { proxy in
                     ScrollView(.vertical, showsIndicators: false) {
                         VStack(spacing: 16) {
                             
@@ -113,9 +121,14 @@ struct ContentView: View {
                             workspaceTopHeader(logoSize: logoSize)
                                 .padding(.top, safeTop - 24)
                                 .zIndex(isRadialHubOpen ? 100 : 1)
+                                // Fade out while it scrolls under the status bar instead of being cut off.
+                                .scrollTransition(.animated(.easeOut(duration: 0.15))) { content, phase in
+                                    content.opacity(phase.isIdentity ? 1 : 0)
+                                }
                             
                             // ── 2. Central Workspace (The White Box Area: Text / Voice / Video) ──
                             centralCaptureContent
+                                .id("capture")
                                 .frame(height: workspaceHeight)
                                 .padding(.horizontal, 4)
                                 .zIndex(isRadialHubOpen ? 0 : 2)
@@ -124,7 +137,15 @@ struct ContentView: View {
                             modeSwitcherBar
                                 .padding(.top, 4)
                             
-                            // ── 4. Recently Edited Routine Card & Figure Content ──
+                            // ── 4. Notes inbox ──
+                            NotesInboxStrip(
+                                notes: sortedInbox,
+                                onOpenAll: { showNotesInbox = true },
+                                onOpenNote: { noteToEdit = $0 }
+                            )
+                            .padding(.top, 6)
+                            
+                            // ── 5. Recently Edited Routine Card & Figure Content ──
                             recentlyEditedRoutineCard
                                 .padding(.top, 6)
                             
@@ -134,6 +155,12 @@ struct ContentView: View {
                         }
                         .padding(.horizontal, horizontalMargin)
                         .frame(maxWidth: .infinity)
+                        // Tapping anywhere outside the field closes the keyboard.
+                        .background {
+                            Color.clear
+                                .contentShape(Rectangle())
+                                .onTapGesture { isTextEditorFocused = false }
+                        }
                     }
                     .scrollDisabled(isRadialHubOpen)
                     .scrollDismissesKeyboard(.interactively)
@@ -174,9 +201,21 @@ struct ContentView: View {
                             }
                         }
                     }
+                    // While typing, the header scrolls up so the field sits at the top.
+                    .onChange(of: isTextEditorFocused) { _, focused in
+                        guard focused else { return }
+                        sweepTrigger += 1
+                        withAnimation(.spring(response: 0.42, dampingFraction: 0.86)) {
+                            proxy.scrollTo("capture", anchor: .top)
+                        }
+                    }
+                    }
                 }
             }
+            .environment(\.locale, Locale(identifier: "sk"))
             .toolbar(.hidden, for: .navigationBar)
+            .sensoryFeedback(.success, trigger: savedCounter)
+            .sensoryFeedback(.selection, trigger: activeCaptureMode)
             // ── Navigation Destinations ──────────────────────────────────
             .navigationDestination(item: $selectedRoutineForNavigation) { routine in
                 RoutineCanvasView(routine: routine)
@@ -199,6 +238,12 @@ struct ContentView: View {
                 )
                 .presentationDetents([.fraction(0.85), .large])
                 .presentationDragIndicator(.visible)
+            }
+            .sheet(isPresented: $showNotesInbox) {
+                NotesInboxSheet()
+            }
+            .sheet(item: $noteToEdit) { note in
+                NoteDetailSheet(note: note)
             }
             .sheet(isPresented: $showNewRoutineCategorySheet) {
                 NavigationStack {
@@ -263,9 +308,6 @@ struct ContentView: View {
             }, message: {
                 Text("Zostava \"\(scannedRoutineName)\" bola úspešne naimportovaná.")
             })
-            .onAppear {
-                speechManager.requestPermissions()
-            }
         }
     }
     
@@ -285,7 +327,9 @@ struct ContentView: View {
             )
         }
         .frame(maxWidth: .infinity)
-        .frame(height: isRadialHubOpen ? logoSize + 160 : logoSize + 36)
+        // Open height must equal the hub's own frame (EncoreRadialHubView) so nothing overflows
+        // onto the text field below; closed, the header stays slim.
+        .frame(height: isRadialHubOpen ? max(logoSize + 185, 300) : logoSize + 36)
         .overlay(alignment: .topTrailing) {
             // Right QR Scanner & Actions Menu (Single Apple 3D Liquid Glass Lens)
             Menu {
@@ -308,16 +352,8 @@ struct ContentView: View {
                 Image(systemName: "qrcode.viewfinder")
                     .font(.system(size: 15, weight: .bold))
                     .foregroundColor(.white)
-                    .frame(width: 38, height: 38)
-                    .background(
-                        ZStack {
-                            Circle()
-                                .fill(Color.obsidian800.opacity(0.85))
-                            Circle()
-                                .stroke(Color.white.opacity(0.18), lineWidth: 1)
-                        }
-                    )
-                    .shadow(color: Color.black.opacity(0.35), radius: 6, x: 0, y: 3)
+                    .frame(width: 44, height: 44)
+                    .glassEffect(.regular.interactive(), in: .circle)
             }
             .padding(.trailing, 2)
             .opacity(isRadialHubOpen ? 0.0 : 1.0)
@@ -348,7 +384,7 @@ struct ContentView: View {
                 textCaptureView
                     .transition(.opacity)
             case .voice:
-                voiceCaptureView
+                VoiceCaptureView { insertNote(text: $0) }
                     .transition(.opacity)
             case .camera:
                 cameraCaptureView
@@ -385,11 +421,6 @@ struct ContentView: View {
                     HapticFeedback.light()
                     withAnimation(.spring(response: 0.32, dampingFraction: 0.78)) {
                         activeCaptureMode = mode
-                        if mode == .voice {
-                            speechManager.requestPermissions()
-                        } else if speechManager.isRecording {
-                            speechManager.stopTranscribing()
-                        }
                     }
                 } label: {
                     HStack(spacing: 6) {
@@ -404,21 +435,11 @@ struct ContentView: View {
                     .padding(.horizontal, 16)
                     .background(
                         ZStack {
+                            Capsule().fill(Color.white.opacity(0.04))
                             if isSelected {
                                 Capsule()
                                     .fill(Color.white.opacity(0.12))
-                                
-                                Capsule()
-                                    .fill(
-                                        LinearGradient(
-                                            colors: [Color.gold400.opacity(0.18), Color.gold500.opacity(0.06)],
-                                            startPoint: .topLeading,
-                                            endPoint: .bottomTrailing
-                                        )
-                                    )
-                            } else {
-                                Capsule()
-                                    .fill(Color.white.opacity(0.04))
+                                    .matchedGeometryEffect(id: "modeSelection", in: modeNamespace)
                             }
                         }
                     )
@@ -440,9 +461,8 @@ struct ContentView: View {
                                 lineWidth: 1
                             )
                     )
-                    .shadow(color: isSelected ? Color.gold500.opacity(0.15) : Color.clear, radius: 8, x: 0, y: 2)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.pressable)
             }
         }
         .frame(maxWidth: .infinity, alignment: .center)
@@ -520,6 +540,16 @@ struct ContentView: View {
                                 .foregroundColor(Color.gold400.opacity(0.7))
                         }
                         
+                        // Floor-direction map of the routine
+                        if recentRoutine.canvasNodes.count > 1 {
+                            let ordered = recentRoutine.canvasNodes.sorted(by: { $0.orderIndex < $1.orderIndex })
+                            RoutinePathThumbnail(points: ordered.map { CGPoint(x: $0.x, y: $0.y) })
+                                .frame(height: 72)
+                                .frame(maxWidth: .infinity)
+                                .background(Color.white.opacity(0.03), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                                .id(recentRoutine.id)
+                        }
+                        
                         // Figures preview pills (if there are figures in the routine)
                         if !recentRoutine.canvasNodes.isEmpty {
                             let sortedNodes = recentRoutine.canvasNodes.sorted(by: { $0.orderIndex < $1.orderIndex })
@@ -582,7 +612,7 @@ struct ContentView: View {
                     )
                     .shadow(color: Color.black.opacity(0.4), radius: 12, x: 0, y: 6)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.pressable)
             }
         }
     }
@@ -613,6 +643,9 @@ struct ContentView: View {
                 isTextEditorFocused = true
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .overlay { FieldEdgeSweep(trigger: sweepTrigger) }
+            
+            noteContextChips
             
             // Floating Save Button (Appears as soon as user types)
             if !noteDraftText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
@@ -641,110 +674,58 @@ struct ContentView: View {
                             LinearGradient(colors: [Color.gold500, Color.gold400], startPoint: .leading, endPoint: .trailing)
                         )
                         .clipShape(Capsule())
-                        .shadow(color: Color.gold500.opacity(0.35), radius: 8)
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(.pressable)
                 }
                 .transition(.opacity.combined(with: .move(edge: .bottom)))
             }
         }
     }
     
-    // MARK: - Capture Mode: Voice Recording & Waveform
-    private var voiceCaptureView: some View {
-        VStack(spacing: 20) {
-            Spacer()
-            
-            // Real-time Responsive Audio Waveform Visualization
-            HStack(spacing: 4) {
-                ForEach(0..<20, id: \.self) { index in
-                    let normalizedIndex = Double(index) / 20.0
-                    let waveFactor = sin(normalizedIndex * .pi)
-                    let barHeight: CGFloat = speechManager.isRecording
-                        ? max(6, 10 + (speechManager.audioLevel * 50 * CGFloat(waveFactor)))
-                        : 6
-                    
-                    Capsule()
-                        .fill(
-                            speechManager.isRecording
-                            ? LinearGradient(colors: [Color.latinCrimson, Color.gold400], startPoint: .top, endPoint: .bottom)
-                            : LinearGradient(colors: [Color.white.opacity(0.18), Color.white.opacity(0.08)], startPoint: .top, endPoint: .bottom)
-                        )
-                        .frame(width: 4, height: barHeight)
-                        .animation(.easeOut(duration: 0.08), value: barHeight)
-                }
-            }
-            .frame(height: 70)
-            
-            // Live Transcription Display
-            if !speechManager.transcript.isEmpty || !noteDraftText.isEmpty {
-                Text(speechManager.transcript.isEmpty ? noteDraftText : speechManager.transcript)
-                    .font(.system(size: 15, weight: .medium))
-                    .foregroundColor(.white)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 16)
-                    .lineLimit(5)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 12)
-                    .background(Color.white.opacity(0.05))
-                    .cornerRadius(14)
-                    .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.white.opacity(0.10), lineWidth: 1))
-            } else {
-                Text(speechManager.isRecording ? "Hovorte zreteľne o choreografii alebo technike..." : "Stlačte mikrofón a začnite diktovať tréningovú poznámku")
-                    .font(.system(size: 14, weight: .regular))
-                    .foregroundColor(.white.opacity(0.45))
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 20)
-            }
-            
-            Spacer()
-            
-            // Record / Stop Control
-            HStack(spacing: 20) {
-                Button {
-                    toggleVoiceRecording()
-                } label: {
-                    ZStack {
-                        Circle()
-                            .fill(speechManager.isRecording ? Color.latinCrimson.opacity(0.20) : Color.gold500.opacity(0.15))
-                            .frame(width: 76, height: 76)
-                        
-                        Circle()
-                            .fill(speechManager.isRecording ? Color.latinCrimson : Color.gold500)
-                            .frame(width: 60, height: 60)
-                            .shadow(color: (speechManager.isRecording ? Color.latinCrimson : Color.gold500).opacity(0.4), radius: 12)
-                        
-                        Image(systemName: speechManager.isRecording ? "stop.fill" : "mic.fill")
-                            .font(.system(size: 22, weight: .bold))
-                            .foregroundColor(speechManager.isRecording ? .white : Color.obsidian900)
+    // MARK: - Dance & tag chips for the note being written
+    private var noteContextChips: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(dances) { dance in
+                    noteChip(dance.name, isOn: selectedDance == dance.name, accent: true) {
+                        selectedDance = (selectedDance == dance.name) ? nil : dance.name
                     }
                 }
-                .buttonStyle(.plain)
-                
-                if !noteDraftText.isEmpty || !speechManager.transcript.isEmpty {
-                    Button {
-                        saveVoiceNote()
-                    } label: {
-                        Text("Uložiť prepis")
-                            .font(.system(size: 14, weight: .bold))
-                            .foregroundColor(Color.obsidian900)
-                            .padding(.horizontal, 18)
-                            .padding(.vertical, 11)
-                            .background(
-                                LinearGradient(colors: [Color.gold500, Color.gold400], startPoint: .leading, endPoint: .trailing)
-                            )
-                            .clipShape(Capsule())
+                Capsule()
+                    .fill(Color.white.opacity(0.15))
+                    .frame(width: 1, height: 16)
+                ForEach(NoteTags.quick, id: \.self) { tag in
+                    noteChip(tag, isOn: selectedNoteTags.contains(tag), accent: false) {
+                        if let i = selectedNoteTags.firstIndex(of: tag) {
+                            selectedNoteTags.remove(at: i)
+                        } else {
+                            selectedNoteTags.append(tag)
+                        }
                     }
-                    .buttonStyle(.plain)
                 }
             }
-            .padding(.bottom, 8)
+            .padding(.vertical, 2)
         }
-        .onChange(of: speechManager.transcript) { _, newTranscript in
-            if !newTranscript.isEmpty {
-                noteDraftText = newTranscript
-            }
+        .scrollClipDisabled()
+        .sensoryFeedback(.selection, trigger: selectedNoteTags)
+        .sensoryFeedback(.selection, trigger: selectedDance)
+    }
+    
+    private func noteChip(_ title: String, isOn: Bool, accent: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(title)
+                .font(.system(size: 12, weight: .semibold))
+                .padding(.horizontal, 11)
+                .padding(.vertical, 6)
+                .foregroundColor(isOn ? Color.obsidian900 : (accent ? Color.white.opacity(0.85) : Color.gold300))
+                .background(
+                    isOn ? Color.gold400 : (accent ? Color.white.opacity(0.07) : Color.gold500.opacity(0.12)),
+                    in: Capsule()
+                )
+                .scaleEffect(isOn ? 1.05 : 1.0)
+                .animation(.spring(response: 0.25, dampingFraction: 0.6), value: isOn)
         }
+        .buttonStyle(.pressable)
     }
     
     // MARK: - Capture Mode: Instant Camera Launch & Video
@@ -774,7 +755,7 @@ struct ContentView: View {
                                 .background(Color.white.opacity(0.12))
                                 .cornerRadius(10)
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(.pressable)
                         
                         Button {
                             MediaStorageManager.removeFile(named: videoPath)
@@ -788,7 +769,7 @@ struct ContentView: View {
                                 .background(Color.latinCrimson.opacity(0.12))
                                 .cornerRadius(10)
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(.pressable)
                     }
                 }
             } else {
@@ -840,238 +821,11 @@ struct ContentView: View {
                             LinearGradient(colors: [Color.gold500, Color.gold400], startPoint: .leading, endPoint: .trailing)
                         )
                         .clipShape(Capsule())
-                        .shadow(color: Color.gold500.opacity(0.35), radius: 10)
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(.pressable)
                     .padding(.bottom, 8)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-            }
-        }
-    }
-    
-    // MARK: - 3. Quick Actions Section (Secondary Workspace Triggers)
-    private var quickActionsSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack {
-                Text("RÝCHLE AKCIE")
-                    .font(.system(size: 11, weight: .black))
-                    .foregroundColor(Color.white.opacity(0.45))
-                    .tracking(1.2)
-                
-                Spacer()
-            }
-            .padding(.horizontal, 4)
-            
-            LazyVGrid(columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)], spacing: 10) {
-                
-                // 1. New Routine
-                Button {
-                    HapticFeedback.light()
-                    showNewRoutineCategorySheet = true
-                } label: {
-                    QuickActionTile(
-                        icon: "plus.circle.fill",
-                        title: "Nová zostava",
-                        subtitle: "Vytvoriť choreografiu",
-                        accentColor: Color.gold500
-                    )
-                }
-                .buttonStyle(.plain)
-                
-                // 2. Compare Mode
-                Button {
-                    HapticFeedback.light()
-                    showCompareModeSheet = true
-                } label: {
-                    QuickActionTile(
-                        icon: "arrow.left.and.right.square.fill",
-                        title: "Porovnať",
-                        subtitle: "Vzor vs. Môj tanec",
-                        accentColor: Color.standardBlue
-                    )
-                }
-                .buttonStyle(.plain)
-                
-                // 3. Library
-                Button {
-                    HapticFeedback.light()
-                    showGlobalLibrarySheet = true
-                } label: {
-                    QuickActionTile(
-                        icon: "books.vertical.fill",
-                        title: "Knižnica",
-                        subtitle: "Figúry, videá, poznámky",
-                        accentColor: Color.syncEmerald
-                    )
-                }
-                .buttonStyle(.plain)
-                
-                // 4. Canvas (All Routines)
-                Button {
-                    HapticFeedback.light()
-                    showAllRoutinesSheet = true
-                } label: {
-                    QuickActionTile(
-                        icon: "square.grid.2x2.fill",
-                        title: "Canvas",
-                        subtitle: "\(routines.count) zostáv na plátne",
-                        accentColor: Color.latinPink
-                    )
-                }
-                .buttonStyle(.plain)
-            }
-        }
-    }
-    
-    // MARK: - 4. Most Recent Edit Section (Direct Canvas Continuation)
-    private var mostRecentEditSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Text("NAPOSLEDY UPRAVOVANÉ")
-                    .font(.system(size: 11, weight: .black))
-                    .foregroundColor(Color.white.opacity(0.45))
-                    .tracking(1.2)
-                
-                Spacer()
-                
-                if !routines.isEmpty {
-                    Button("Zobraziť všetky") {
-                        showAllRoutinesSheet = true
-                    }
-                    .font(.system(size: 11, weight: .bold))
-                    .foregroundColor(Color.gold400)
-                }
-            }
-            .padding(.horizontal, 4)
-            
-            if let latestRoutine = routines.first {
-                NavigationLink(destination: RoutineCanvasView(routine: latestRoutine)) {
-                    VStack(alignment: .leading, spacing: 12) {
-                        HStack(alignment: .top) {
-                            VStack(alignment: .leading, spacing: 5) {
-                                HStack(spacing: 8) {
-                                    HStack(spacing: 4) {
-                                        Image(systemName: latestRoutine.danceCategory.lowercased() == "standard" ? "drop.fill" : "flame.fill")
-                                            .font(.system(size: 9, weight: .bold))
-                                        Text(latestRoutine.danceCategory.uppercased())
-                                            .font(.system(size: 10, weight: .black))
-                                    }
-                                    .padding(.horizontal, 8)
-                                    .padding(.vertical, 3)
-                                    .background(
-                                        latestRoutine.danceCategory.lowercased() == "standard"
-                                        ? Color.standardBlue.opacity(0.25)
-                                        : Color.latinPink.opacity(0.25)
-                                    )
-                                    .foregroundColor(
-                                        latestRoutine.danceCategory.lowercased() == "standard"
-                                        ? Color.standardBlue
-                                        : Color.latinPink
-                                    )
-                                    .cornerRadius(6)
-                                    
-                                    Text("•")
-                                        .foregroundColor(Color.white.opacity(0.25))
-                                    
-                                    Text(latestRoutine.danceName)
-                                        .font(.system(size: 12, weight: .bold))
-                                        .foregroundColor(Color.gold300)
-                                }
-                                
-                                Text(latestRoutine.name)
-                                    .font(.system(size: 17, weight: .bold))
-                                    .foregroundColor(.white)
-                            }
-                            
-                            Spacer()
-                            
-                            HStack(spacing: 4) {
-                                Image(systemName: "square.on.square.dashed")
-                                    .font(.system(size: 11))
-                                Text("\(latestRoutine.canvasNodes.count) figúr")
-                                    .font(.system(size: 11, weight: .bold))
-                            }
-                            .foregroundColor(Color.gold400)
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 4)
-                            .background(Color.gold500.opacity(0.12))
-                            .cornerRadius(8)
-                        }
-                        
-                        Divider()
-                            .background(Color.white.opacity(0.08))
-                        
-                        HStack {
-                            Text("Pokračovať v úpravách na plátne")
-                                .font(.system(size: 13, weight: .bold))
-                                .foregroundColor(Color.gold400)
-                            
-                            Spacer()
-                            
-                            HStack(spacing: 6) {
-                                Text(timeAgo(latestRoutine.updatedAt))
-                                    .font(.system(size: 11))
-                                    .foregroundColor(Color.white.opacity(0.40))
-                                
-                                Image(systemName: "arrow.right.circle.fill")
-                                    .font(.system(size: 16))
-                                    .foregroundColor(Color.gold400)
-                            }
-                        }
-                    }
-                    .padding(16)
-                    .background(
-                        ZStack {
-                            Color.themeCard
-                            Rectangle().fill(.ultraThinMaterial)
-                        }
-                    )
-                    .cornerRadius(18)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 18)
-                            .stroke(
-                                LinearGradient(
-                                    colors: [Color.gold400.opacity(0.25), Color.white.opacity(0.08)],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                ),
-                                lineWidth: 1
-                            )
-                    )
-                    .shadow(color: Color.black.opacity(0.3), radius: 10, x: 0, y: 4)
-                }
-                .buttonStyle(.plain)
-            } else {
-                VStack(spacing: 12) {
-                    Image(systemName: "square.dashed")
-                        .font(.system(size: 28))
-                        .foregroundColor(Color.white.opacity(0.3))
-                    
-                    Text("Zatiaľ nemáte vytvorenú žiadnu zostavu")
-                        .font(.system(size: 13, weight: .medium))
-                        .foregroundColor(Color.white.opacity(0.6))
-                    
-                    Button {
-                        showNewRoutineCategorySheet = true
-                    } label: {
-                        Text("Vytvoriť prvú choreografiu")
-                            .font(.system(size: 12, weight: .bold))
-                            .foregroundColor(Color.obsidian900)
-                            .padding(.horizontal, 14)
-                            .padding(.vertical, 8)
-                            .background(
-                                LinearGradient(colors: [Color.gold500, Color.gold400], startPoint: .leading, endPoint: .trailing)
-                            )
-                            .clipShape(Capsule())
-                    }
-                    .buttonStyle(.plain)
-                }
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 24)
-                .background(Color.themeCard.opacity(0.6))
-                .cornerRadius(16)
-                .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.white.opacity(0.08), lineWidth: 1))
             }
         }
     }
@@ -1081,57 +835,27 @@ struct ContentView: View {
         let trimmed = noteDraftText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
         
-        let newNote = InstantNote(text: trimmed)
-        modelContext.insert(newNote)
-        try? modelContext.save()
-        
-        HapticFeedback.medium()
+        insertNote(text: trimmed)
         noteDraftText = ""
         isTextEditorFocused = false
-        triggerSavedFeedback()
-    }
-    
-    private func saveVoiceNote() {
-        if speechManager.isRecording {
-            let captured = speechManager.stopTranscribing()
-            if !captured.isEmpty {
-                noteDraftText = captured
-            }
-        }
-        let transcript = !noteDraftText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-            ? noteDraftText
-            : speechManager.transcript
-        let trimmed = transcript.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return }
-        
-        let newNote = InstantNote(text: trimmed)
-        modelContext.insert(newNote)
-        try? modelContext.save()
-        
-        HapticFeedback.medium()
-        noteDraftText = ""
-        speechManager.transcript = ""
-        triggerSavedFeedback()
     }
     
     private func saveCapturedVideoNote(videoPath: String) {
-        let newNote = InstantNote(text: "Tréningové video", videoPath: videoPath)
-        modelContext.insert(newNote)
+        modelContext.insert(InstantNote(text: "Tréningové video", videoPath: videoPath, danceName: selectedDance))
         try? modelContext.save()
+        savedCounter += 1
         triggerSavedFeedback()
     }
     
-    private func toggleVoiceRecording() {
-        if speechManager.isRecording {
-            let captured = speechManager.stopTranscribing()
-            if !captured.isEmpty {
-                noteDraftText = captured
-            }
-        } else {
-            speechManager.requestPermissions()
-            speechManager.transcript = ""
-            speechManager.startTranscribing()
+    /// One place that creates a note from the current capture context (dance + tags).
+    private func insertNote(text: String) {
+        withAnimation(.spring(response: 0.38, dampingFraction: 0.8)) {
+            modelContext.insert(InstantNote(text: text, tags: selectedNoteTags, danceName: selectedDance))
         }
+        try? modelContext.save()
+        selectedNoteTags = []
+        savedCounter += 1
+        triggerSavedFeedback()
     }
     
     private func triggerSavedFeedback() {
@@ -1222,13 +946,6 @@ struct ContentView: View {
         showScanError = true
     }
     
-    private func timeAgo(_ date: Date) -> String {
-        let formatter = RelativeDateTimeFormatter()
-        formatter.unitsStyle = .full
-        formatter.locale = Locale(identifier: "sk")
-        return formatter.localizedString(for: date, relativeTo: Date())
-    }
-    
     private var manualCodeImportSheet: some View {
         NavigationStack {
             ZStack {
@@ -1280,44 +997,6 @@ struct ContentView: View {
                 }
             }
         }
-    }
-}
-
-// MARK: - Quick Action Tile Subview
-private struct QuickActionTile: View {
-    let icon: String
-    let title: String
-    let subtitle: String
-    let accentColor: Color
-    
-    var body: some View {
-        HStack(spacing: 12) {
-            ZStack {
-                Circle()
-                    .fill(accentColor.opacity(0.15))
-                    .frame(width: 38, height: 38)
-                
-                Image(systemName: icon)
-                    .font(.system(size: 16, weight: .bold))
-                    .foregroundColor(accentColor)
-            }
-            
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title)
-                    .font(.system(size: 13, weight: .bold))
-                    .foregroundColor(.white)
-                
-                Text(subtitle)
-                    .font(.system(size: 10, weight: .medium))
-                    .foregroundColor(Color.white.opacity(0.5))
-                    .lineLimit(1)
-            }
-            
-            Spacer()
-        }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 12)
-        .luxurySmokedCard(cornerRadius: 16, accentColor: accentColor)
     }
 }
 
