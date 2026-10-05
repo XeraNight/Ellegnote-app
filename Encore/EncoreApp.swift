@@ -24,7 +24,10 @@ struct EncoreApp: App {
             Routine.self,
             CanvasNode.self,
             InstantNote.self,
-            VideoMediaEntry.self
+            VideoMediaEntry.self,
+            TrainingCadence.self,
+            TrainingLogEntry.self,
+            PlannedCompetition.self
         ])
         let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
         do {
