@@ -4,11 +4,14 @@
 
 :root {
   --background: #050505;
-  --foreground: #f8fafc;
+  --foreground: #F5F5F5;
   --gold-primary: #D4AF37;
   --gold-light: #FFE088;
   --gold-dark: #AA820A;
-  --obsidian-surface: #0e0e12;
+  --obsidian-canvas: #050505;
+  --obsidian-sub: #0A0A0A;
+  --obsidian-card: #121216;
+  --obsidian-elevated: #141418;
   --font-DelaGothicOne: 'Dela Gothic One', cursive, sans-serif;
   --font-SpaceMono: 'Space Mono', monospace;
 }
@@ -31,10 +34,64 @@ p {
 
 body {
   background: #050505;
-  color: #f8fafc;
-  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Segoe UI", Roboto, sans-serif;
+  color: #F5F5F5;
+  font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
+}
+
+/* ── Authentic Theatrical Stage Grain ────────────────────────── */
+body::before {
+  content: "";
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  pointer-events: none;
+  z-index: 9999;
+  opacity: 0.032;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+}
+
+/* ── Disciplined Obsidian & Gold Surface Material (Colors.swift 1:1) ── */
+.surface-obsidian {
+  background: #121216;
+  border: 1px solid rgba(255, 224, 136, 0.20);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  transition: border-color 0.25s ease, box-shadow 0.25s ease;
+}
+
+.surface-obsidian:hover {
+  border-color: rgba(255, 224, 136, 0.40);
+  box-shadow: 0 15px 40px rgba(0, 0, 0, 0.85), 0 0 25px rgba(212, 175, 55, 0.10), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.surface-subtle {
+  background: #0A0A0A;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.surface-elevated {
+  background: #141418;
+  border: 1px solid rgba(255, 224, 136, 0.25);
+}
+
+.badge-gold {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.35rem 0.85rem;
+  border-radius: 9999px;
+  background: rgba(212, 175, 55, 0.10);
+  border: 1px solid rgba(255, 224, 136, 0.25);
+  color: #FFE088;
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
 }
 
 /* ── Haute Neo-Elegance Tactile Button System ────────────────────────────── */

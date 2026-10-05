@@ -10,11 +10,9 @@ export default function BentoFeatures() {
       
       {/* ── Section Header ────────────────────────────────────────── */}
       <div className="text-center max-w-3xl mx-auto mb-20 space-y-4">
-        <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-[#D4AF37]/10 border border-[#D4AF37]/30 shadow-[0_0_20px_rgba(212,175,55,0.15)]">
-          <span className="w-2 h-2 rounded-full bg-[#FFE088] animate-pulse" />
-          <span className="text-xs font-mono font-bold uppercase tracking-[0.25em] text-[#FFE088]">
-            Architektúra pre šampiónov
-          </span>
+        <div className="badge-gold mx-auto">
+          <span className="w-1.5 h-1.5 rounded-full bg-[#FFE088] animate-pulse" />
+          <span>Architektúra pre šampiónov</span>
         </div>
 
         <h2 className="text-3xl sm:text-5xl lg:text-6xl font-serif font-black tracking-tight text-white leading-tight">
@@ -29,16 +27,14 @@ export default function BentoFeatures() {
         </p>
       </div>
 
-      {/* ── High-Craft Bento Grid ─────────────────────────────────── */}
+      {/* ── High-Craft Bento Grid (Unified Obsidian & Gold System) ── */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         
         {/* CARD 1: 2D Parket Canvas (2 cols) */}
-        <div className="md:col-span-2 rounded-[32px] p-8 sm:p-10 bg-gradient-to-br from-[#15131e] via-[#0d0c14] to-[#07060a] border-2 border-[#D4AF37]/35 shadow-2xl relative overflow-hidden flex flex-col justify-between group hover:border-[#D4AF37]/70 transition-all duration-300">
-          <div className="absolute top-0 right-0 w-96 h-96 bg-[#D4AF37]/10 rounded-full blur-3xl pointer-events-none group-hover:scale-125 transition-transform duration-500" />
-          
+        <div className="md:col-span-2 rounded-[32px] p-8 sm:p-10 surface-obsidian relative overflow-hidden flex flex-col justify-between group">
           <div className="space-y-4 z-10 max-w-xl">
-            <div className="flex items-center gap-2">
-              <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-[#D4AF37] bg-[#D4AF37]/15 px-3 py-1 rounded-full border border-[#D4AF37]/30">
+            <div className="flex items-center gap-3">
+              <span className="badge-gold">
                 Choreografia & Priestor
               </span>
               <span className="text-[11px] font-mono text-zinc-500">60 / 120 FPS Metal</span>
@@ -54,13 +50,15 @@ export default function BentoFeatures() {
           </div>
 
           {/* Interactive Mini Parquet Visualizer */}
-          <div className="mt-8 p-5 rounded-2xl bg-black/60 border border-zinc-800/90 z-10 space-y-4">
+          <div className="mt-8 p-5 rounded-2xl bg-[#0A0A0A] border border-white/10 z-10 space-y-4">
             <div className="flex justify-between items-center text-xs">
               <div className="flex gap-2">
                 <button
                   onClick={() => setBentoFilter('all')}
                   className={`px-3 py-1 rounded-full font-mono text-[10px] font-bold transition-all ${
-                    bentoFilter === 'all' ? 'bg-[#FFE088] text-black' : 'bg-white/5 text-zinc-400'
+                    bentoFilter === 'all'
+                      ? 'bg-[#FFE088] text-black shadow-sm'
+                      : 'bg-white/5 text-zinc-400 hover:text-white'
                   }`}
                 >
                   Všetky tance (10)
@@ -68,7 +66,9 @@ export default function BentoFeatures() {
                 <button
                   onClick={() => setBentoFilter('standard')}
                   className={`px-3 py-1 rounded-full font-mono text-[10px] font-bold transition-all ${
-                    bentoFilter === 'standard' ? 'bg-blue-500 text-white' : 'bg-white/5 text-zinc-400'
+                    bentoFilter === 'standard'
+                      ? 'bg-[#FFE088] text-black shadow-sm'
+                      : 'bg-white/5 text-zinc-400 hover:text-white'
                   }`}
                 >
                   Štandard (W, T, V, SF, Q)
@@ -76,7 +76,9 @@ export default function BentoFeatures() {
                 <button
                   onClick={() => setBentoFilter('latin')}
                   className={`px-3 py-1 rounded-full font-mono text-[10px] font-bold transition-all ${
-                    bentoFilter === 'latin' ? 'bg-[#E11D48] text-white' : 'bg-white/5 text-zinc-400'
+                    bentoFilter === 'latin'
+                      ? 'bg-[#FFE088] text-black shadow-sm'
+                      : 'bg-white/5 text-zinc-400 hover:text-white'
                   }`}
                 >
                   Latina (S, CH, R, P, J)
@@ -87,26 +89,26 @@ export default function BentoFeatures() {
 
             {/* Parquet stats strip */}
             <div className="grid grid-cols-3 gap-3 text-center pt-2 border-t border-zinc-800/80">
-              <div className="p-2 rounded-xl bg-[#14121d]">
+              <div className="p-2.5 rounded-xl bg-[#141418] border border-white/5">
                 <span className="text-xl sm:text-2xl font-mono font-bold text-[#FFE088]">100+</span>
-                <span className="text-[10px] text-zinc-400 block">WDSF Figúr v knižnici</span>
+                <span className="text-[10px] text-zinc-400 block mt-0.5">WDSF Figúr v knižnici</span>
               </div>
-              <div className="p-2 rounded-xl bg-[#14121d]">
+              <div className="p-2.5 rounded-xl bg-[#141418] border border-white/5">
                 <span className="text-xl sm:text-2xl font-mono font-bold text-[#FFE088]">&lt; 50 ms</span>
-                <span className="text-[10px] text-zinc-400 block">WebSocket Latencia</span>
+                <span className="text-[10px] text-zinc-400 block mt-0.5">WebSocket Latencia</span>
               </div>
-              <div className="p-2 rounded-xl bg-[#14121d]">
+              <div className="p-2.5 rounded-xl bg-[#141418] border border-white/5">
                 <span className="text-xl sm:text-2xl font-mono font-bold text-[#FFE088]">1-Tap QR</span>
-                <span className="text-[10px] text-zinc-400 block">Zdieľanie s partnerom</span>
+                <span className="text-[10px] text-zinc-400 block mt-0.5">Zdieľanie s partnerom</span>
               </div>
             </div>
           </div>
         </div>
 
         {/* CARD 2: Video Duel & Slo-Mo (1 col) */}
-        <div className="rounded-[32px] p-8 bg-gradient-to-br from-[#1a0c14] via-[#10060b] to-[#070508] border-2 border-[#E11D48]/35 shadow-2xl relative overflow-hidden flex flex-col justify-between group hover:border-[#E11D48]/70 transition-all duration-300">
+        <div className="rounded-[32px] p-8 surface-obsidian relative overflow-hidden flex flex-col justify-between group">
           <div className="space-y-4 z-10">
-            <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-[#E11D48] bg-[#E11D48]/15 px-3 py-1 rounded-full border border-[#E11D48]/30">
+            <span className="badge-gold">
               Technická Analýza
             </span>
 
@@ -119,25 +121,25 @@ export default function BentoFeatures() {
             </p>
           </div>
 
-          <div className="mt-8 p-4 rounded-2xl bg-black/60 border border-[#E11D48]/30 space-y-3 z-10">
+          <div className="mt-8 p-4 rounded-2xl bg-[#0A0A0A] border border-white/10 space-y-3 z-10">
             <div className="flex justify-between items-center text-xs font-mono">
               <span className="text-zinc-400">Synchronizovaný posun</span>
-              <span className="text-[#E11D48] font-bold">120 FPS Slo-Mo</span>
+              <span className="text-[#FFE088] font-bold">120 FPS Slo-Mo</span>
             </div>
-            <div className="w-full h-2 bg-zinc-800 rounded-full overflow-hidden">
-              <div className="h-full bg-gradient-to-r from-[#FFE088] to-[#E11D48] w-2/3" />
+            <div className="w-full h-1.5 bg-zinc-800 rounded-full overflow-hidden">
+              <div className="h-full bg-gradient-to-r from-[#FFE088] to-[#D4AF37] w-2/3" />
             </div>
-            <div className="flex justify-between text-[10px] text-zinc-400">
-              <span>📐 Uhol hlavy: 14°</span>
-              <span className="text-emerald-400 font-bold">Vzor: 0°</span>
+            <div className="flex justify-between text-[10px] font-mono text-zinc-400">
+              <span>Uhol chrbtice: 14°</span>
+              <span className="text-[#FFE088] font-bold">Vzor: 0° (Vertikála)</span>
             </div>
           </div>
         </div>
 
         {/* CARD 3: Syntetický PCM Metronóm & Pitch Trainer */}
-        <div className="rounded-[32px] p-8 bg-gradient-to-br from-[#1a150b] via-[#110e06] to-[#070604] border-2 border-[#D4AF37]/35 shadow-2xl relative overflow-hidden flex flex-col justify-between group hover:border-[#D4AF37]/70 transition-all duration-300">
+        <div className="rounded-[32px] p-8 surface-obsidian relative overflow-hidden flex flex-col justify-between group">
           <div className="space-y-4 z-10">
-            <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-[#FFE088] bg-[#D4AF37]/15 px-3 py-1 rounded-full border border-[#D4AF37]/30">
+            <span className="badge-gold">
               Rytmus & Svalová Pamäť
             </span>
 
@@ -150,10 +152,10 @@ export default function BentoFeatures() {
             </p>
           </div>
 
-          <div className="mt-8 p-4 rounded-2xl bg-black/60 border border-[#D4AF37]/30 z-10 space-y-2">
+          <div className="mt-8 p-4 rounded-2xl bg-[#0A0A0A] border border-white/10 z-10 space-y-2.5">
             <div className="flex justify-between text-xs font-mono">
               <span className="text-zinc-400">Bluetooth Latencia</span>
-              <span className="text-emerald-400 font-bold">0.00 ms (Zero Lag)</span>
+              <span className="text-[#FFE088] font-bold">0.00 ms (Zero Lag)</span>
             </div>
             <div className="flex justify-between text-xs font-mono">
               <span className="text-zinc-400">Tempo Trainer</span>
@@ -163,9 +165,9 @@ export default function BentoFeatures() {
         </div>
 
         {/* CARD 4: SZTŠ & ksis.eu Výkonnostný Radar */}
-        <div className="rounded-[32px] p-8 bg-gradient-to-br from-[#0e141f] via-[#080c14] to-[#05070c] border-2 border-blue-500/35 shadow-2xl relative overflow-hidden flex flex-col justify-between group hover:border-blue-500/70 transition-all duration-300">
+        <div className="rounded-[32px] p-8 surface-obsidian relative overflow-hidden flex flex-col justify-between group">
           <div className="space-y-4 z-10">
-            <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-blue-400 bg-blue-500/15 px-3 py-1 rounded-full border border-blue-500/30">
+            <span className="badge-gold">
               Súťažný Rebríček
             </span>
 
@@ -178,13 +180,13 @@ export default function BentoFeatures() {
             </p>
           </div>
 
-          <div className="mt-8 p-4 rounded-2xl bg-black/60 border border-blue-500/30 z-10 space-y-2">
+          <div className="mt-8 p-4 rounded-2xl bg-[#0A0A0A] border border-white/10 z-10 space-y-2.5">
             <div className="flex justify-between text-xs font-mono">
               <span className="text-zinc-400">Postupový rebríček</span>
-              <span className="text-blue-300 font-bold">Triedy D ➔ S</span>
+              <span className="text-[#FFE088] font-bold">Triedy D ➔ S</span>
             </div>
-            <div className="w-full h-2 bg-zinc-800 rounded-full overflow-hidden">
-              <div className="h-full bg-gradient-to-r from-blue-400 to-[#FFE088] w-3/4" />
+            <div className="w-full h-1.5 bg-zinc-800 rounded-full overflow-hidden">
+              <div className="h-full bg-gradient-to-r from-[#FFE088] to-[#D4AF37] w-3/4" />
             </div>
             <span className="text-[10px] text-zinc-400 block text-right font-mono">
               145 / 200 b. (4/5 finále)
@@ -193,9 +195,9 @@ export default function BentoFeatures() {
         </div>
 
         {/* CARD 5: Apple Wallet & Live Activities */}
-        <div className="rounded-[32px] p-8 bg-gradient-to-br from-[#16121f] via-[#0d0a15] to-[#07050c] border-2 border-[#D4AF37]/35 shadow-2xl relative overflow-hidden flex flex-col justify-between group hover:border-[#D4AF37]/70 transition-all duration-300">
+        <div className="rounded-[32px] p-8 surface-obsidian relative overflow-hidden flex flex-col justify-between group">
           <div className="space-y-4 z-10">
-            <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-[#D4AF37] bg-[#D4AF37]/15 px-3 py-1 rounded-full border border-[#D4AF37]/30">
+            <span className="badge-gold">
               Apple Ekosystém
             </span>
 
@@ -209,7 +211,7 @@ export default function BentoFeatures() {
           </div>
 
           {/* Styled Apple Wallet Pass Card */}
-          <div className="mt-8 p-4 rounded-2xl bg-gradient-to-r from-[#211b2b] to-[#120f18] border border-[#FFE088]/40 shadow-xl flex items-center justify-between z-10">
+          <div className="mt-8 p-4 rounded-2xl bg-[#0A0A0A] border border-[#FFE088]/25 shadow-xl flex items-center justify-between z-10">
             <div className="space-y-1">
               <span className="text-[9px] font-mono text-[#FFE088] uppercase tracking-wider block">
                 Apple Wallet Pass

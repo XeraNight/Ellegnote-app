@@ -21,7 +21,7 @@ export default function PricingSection() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-stretch">
         
         {/* Tier 1: Free */}
-        <div className="rounded-3xl p-8 bg-[#0d0c12]/90 border border-zinc-800 flex flex-col justify-between shadow-xl">
+        <div className="rounded-3xl p-8 surface-obsidian flex flex-col justify-between">
           <div className="space-y-4">
             <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-zinc-400">
               Pre každého tanečníka
@@ -37,16 +37,16 @@ export default function PricingSection() {
 
             <ul className="pt-4 border-t border-zinc-800/80 space-y-3 text-xs text-zinc-300">
               <li className="flex items-center gap-2">
-                <span className="text-emerald-400">✓</span> 2D Choreografický Parket pre zostavy
+                <span className="text-[#FFE088]">✓</span> 2D Choreografický Parket pre zostavy
               </li>
               <li className="flex items-center gap-2">
-                <span className="text-emerald-400">✓</span> Syntetický PCM Metronóm (všetky tance)
+                <span className="text-[#FFE088]">✓</span> Syntetický PCM Metronóm (všetky tance)
               </li>
               <li className="flex items-center gap-2">
-                <span className="text-emerald-400">✓</span> 100% offline prístup k uloženým dátam
+                <span className="text-[#FFE088]">✓</span> 100% offline prístup k uloženým dátam
               </li>
               <li className="flex items-center gap-2">
-                <span className="text-emerald-400">✓</span> Základná WDSF knižnica figúr
+                <span className="text-[#FFE088]">✓</span> Základná WDSF knižnica figúr
               </li>
             </ul>
           </div>
@@ -62,7 +62,7 @@ export default function PricingSection() {
         </div>
 
         {/* Tier 2: Plus (Featured) */}
-        <div className="rounded-3xl p-8 bg-gradient-to-b from-[#1f1508] via-[#140e05] to-[#0a0703] border-2 border-[#D4AF37] relative flex flex-col justify-between shadow-[0_0_40px_rgba(212,175,55,0.25)]">
+        <div className="rounded-3xl p-8 surface-obsidian border-2 border-[#D4AF37] shadow-[0_0_35px_rgba(212,175,55,0.22)] relative flex flex-col justify-between shadow-[0_0_40px_rgba(212,175,55,0.25)]">
           <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full bg-gradient-to-r from-[#FFE088] to-[#D4AF37] text-black font-extrabold text-[10px] uppercase tracking-widest shadow-md">
             Najobľúbenejšie pre páry
           </div>
@@ -110,9 +110,9 @@ export default function PricingSection() {
         </div>
 
         {/* Tier 3: Studio (User's specific positioning) */}
-        <div className="rounded-3xl p-8 bg-[#0d0c12]/90 border border-zinc-800 flex flex-col justify-between shadow-xl relative overflow-hidden">
+        <div className="rounded-3xl p-8 surface-obsidian flex flex-col justify-between relative overflow-hidden">
           <div className="space-y-4">
-            <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-[#E11D48]">
+            <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-[#FFE088]">
               Tréneri & Ambiciózni Tanečníci
             </span>
             <h3 className="text-2xl font-serif font-bold text-white">Encore Studio</h3>
@@ -122,7 +122,7 @@ export default function PricingSection() {
             </div>
             
             {/* Highlighted value proposition */}
-            <div className="p-3 rounded-xl bg-[#E11D48]/10 border border-[#E11D48]/30">
+            <div className="p-3 rounded-xl bg-[#141418] border border-[#FFE088]/25">
               <p className="text-xs font-semibold text-[#FFE088] leading-relaxed">
                 „Pre trénerov a tanečníkov, ktorí chcú napredovať čo najrýchlejšie a najefektívnejšie.“
               </p>
@@ -130,22 +130,22 @@ export default function PricingSection() {
 
             <ul className="pt-4 border-t border-zinc-800/80 space-y-3 text-xs text-zinc-300">
               <li className="flex items-center gap-2">
-                <span className="text-[#E11D48] font-bold">✓</span> Všetko z Encore Plus
+                <span className="text-[#FFE088] font-bold">✓</span> Všetko z Encore Plus
               </li>
               <li className="flex items-center gap-2">
-                <span className="text-[#E11D48] font-bold">✓</span> Roster a správa viacerých párov a zverencov
+                <span className="text-[#FFE088] font-bold">✓</span> Roster a správa viacerých párov a zverencov
               </li>
               <li className="flex items-center gap-2">
-                <span className="text-[#E11D48] font-bold">✓</span> Zdieľanie zostáv a seminárov z kempov
+                <span className="text-[#FFE088] font-bold">✓</span> Zdieľanie zostáv a seminárov z kempov
               </li>
               <li className="flex items-center gap-2">
-                <span className="text-[#E11D48] font-bold">✓</span> VIP Posture Angle Lines analýza držania tela
+                <span className="text-[#FFE088] font-bold">✓</span> VIP Posture Angle Lines analýza držania tela
               </li>
               <li className="flex items-center gap-2">
-                <span className="text-[#E11D48] font-bold">✓</span> Digitálny klubový preukaz v Apple Wallet
+                <span className="text-[#FFE088] font-bold">✓</span> Digitálny klubový preukaz v Apple Wallet
               </li>
               <li className="flex items-center gap-2">
-                <span className="text-[#E11D48] font-bold">✓</span> Prioritná technická podpora trénerského tímu
+                <span className="text-[#FFE088] font-bold">✓</span> Prioritná technická podpora trénerského tímu
               </li>
             </ul>
           </div>

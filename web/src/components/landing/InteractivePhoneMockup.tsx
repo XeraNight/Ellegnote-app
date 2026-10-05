@@ -26,8 +26,8 @@ export default function InteractivePhoneMockup() {
     const x = e.clientX - rect.left - rect.width / 2
     const y = e.clientY - rect.top - rect.height / 2
     setTilt({
-      x: (y / (rect.height / 2)) * -6,
-      y: (x / (rect.width / 2)) * 6,
+      x: (y / (rect.height / 2)) * -5,
+      y: (x / (rect.width / 2)) * 5,
     })
   }
 
@@ -39,12 +39,10 @@ export default function InteractivePhoneMockup() {
   useEffect(() => {
     let interval: NodeJS.Timeout | null = null
     if (isPlayingMetronome) {
-      // 29 MPM in 3/4 = 87 beats per minute -> interval = (60 / (tempoMPM * 3)) * 1000
       const intervalMs = (60 / (tempoMPM * 3)) * 1000
       interval = setInterval(() => {
         setCurrentBeat((prev) => {
           const next = prev >= 3 ? 1 : prev + 1
-          // Play synthetic click with Web Audio API if available
           try {
             const AudioContext = window.AudioContext || (window as unknown as { webkitAudioContext: typeof window.AudioContext }).webkitAudioContext
             if (AudioContext) {
@@ -52,7 +50,6 @@ export default function InteractivePhoneMockup() {
               const osc = ctx.createOscillator()
               const gain = ctx.createGain()
               osc.type = 'sine'
-              // Beat 1 higher pitch (880Hz), Beats 2 & 3 lower (440Hz)
               osc.frequency.setValueAtTime(next === 1 ? 880 : 440, ctx.currentTime)
               gain.gain.setValueAtTime(0.12, ctx.currentTime)
               gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.08)
@@ -62,7 +59,7 @@ export default function InteractivePhoneMockup() {
               osc.stop(ctx.currentTime + 0.09)
             }
           } catch {
-            // AudioContext muted or blocked by browser policy
+            // Audio context policy
           }
           return next
         })
@@ -79,12 +76,12 @@ export default function InteractivePhoneMockup() {
     <div className="w-full flex flex-col items-center">
       
       {/* ── Top Module Selector Pill Bar ────────────────────────────── */}
-      <div className="flex flex-wrap justify-center items-center gap-2 mb-10 p-1.5 rounded-full bg-[#100f16]/90 border border-[#D4AF37]/30 backdrop-blur-2xl shadow-[0_10px_30px_rgba(0,0,0,0.8)] max-w-2xl">
+      <div className="flex flex-wrap justify-center items-center gap-2 mb-10 p-1.5 rounded-full bg-[#121216] border border-[#FFE088]/20 shadow-[0_10px_30px_rgba(0,0,0,0.8)] max-w-2xl">
         <button
           onClick={() => setActiveTab('canvas')}
           className={`px-5 py-2.5 rounded-full text-xs font-bold transition-all flex items-center gap-2 ${
             activeTab === 'canvas'
-              ? 'bg-gradient-to-r from-[#FFF2CC] via-[#FFE088] to-[#D4AF37] text-black shadow-[0_0_20px_rgba(212,175,55,0.45)]'
+              ? 'bg-gradient-to-r from-[#FFF2CC] via-[#FFE088] to-[#D4AF37] text-black shadow-[0_0_20px_rgba(212,175,55,0.4)]'
               : 'text-zinc-400 hover:text-white'
           }`}
         >
@@ -99,7 +96,7 @@ export default function InteractivePhoneMockup() {
           onClick={() => setActiveTab('video')}
           className={`px-5 py-2.5 rounded-full text-xs font-bold transition-all flex items-center gap-2 ${
             activeTab === 'video'
-              ? 'bg-gradient-to-r from-[#FFF2CC] via-[#FFE088] to-[#D4AF37] text-black shadow-[0_0_20px_rgba(212,175,55,0.45)]'
+              ? 'bg-gradient-to-r from-[#FFF2CC] via-[#FFE088] to-[#D4AF37] text-black shadow-[0_0_20px_rgba(212,175,55,0.4)]'
               : 'text-zinc-400 hover:text-white'
           }`}
         >
@@ -114,7 +111,7 @@ export default function InteractivePhoneMockup() {
           onClick={() => setActiveTab('metronome')}
           className={`px-5 py-2.5 rounded-full text-xs font-bold transition-all flex items-center gap-2 ${
             activeTab === 'metronome'
-              ? 'bg-gradient-to-r from-[#FFF2CC] via-[#FFE088] to-[#D4AF37] text-black shadow-[0_0_20px_rgba(212,175,55,0.45)]'
+              ? 'bg-gradient-to-r from-[#FFF2CC] via-[#FFE088] to-[#D4AF37] text-black shadow-[0_0_20px_rgba(212,175,55,0.4)]'
               : 'text-zinc-400 hover:text-white'
           }`}
         >
@@ -129,7 +126,7 @@ export default function InteractivePhoneMockup() {
           onClick={() => setActiveTab('planner')}
           className={`px-5 py-2.5 rounded-full text-xs font-bold transition-all flex items-center gap-2 ${
             activeTab === 'planner'
-              ? 'bg-gradient-to-r from-[#FFF2CC] via-[#FFE088] to-[#D4AF37] text-black shadow-[0_0_20px_rgba(212,175,55,0.45)]'
+              ? 'bg-gradient-to-r from-[#FFF2CC] via-[#FFE088] to-[#D4AF37] text-black shadow-[0_0_20px_rgba(212,175,55,0.4)]'
               : 'text-zinc-400 hover:text-white'
           }`}
         >
@@ -150,31 +147,30 @@ export default function InteractivePhoneMockup() {
           transform: `perspective(1000px) rotateX(${tilt.x}deg) rotateY(${tilt.y}deg)`,
           transition: 'transform 0.15s ease-out',
         }}
-        className="relative w-[320px] sm:w-[370px] aspect-[9/19.5] rounded-[54px] p-3.5 bg-gradient-to-b from-[#3a3745] via-[#23212b] to-[#14131a] shadow-[0_30px_90px_rgba(0,0,0,0.95),0_0_50px_rgba(212,175,55,0.22)] border-[3.5px] border-[#4a4756] cursor-pointer"
+        className="relative w-[320px] sm:w-[370px] aspect-[9/19.5] rounded-[54px] p-3.5 bg-[#18181B] shadow-[0_30px_90px_rgba(0,0,0,0.95),0_0_40px_rgba(212,175,55,0.15)] border-[3.5px] border-[#27272A] cursor-pointer"
       >
-        {/* Left Side Buttons (Action Button + Volume Rockers) */}
-        <div className="absolute -left-[6px] top-28 w-[3.5px] h-7 bg-[#4a4756] rounded-l-md" />
-        <div className="absolute -left-[6px] top-40 w-[3.5px] h-12 bg-[#4a4756] rounded-l-md" />
-        <div className="absolute -left-[6px] top-56 w-[3.5px] h-12 bg-[#4a4756] rounded-l-md" />
-        {/* Right Side Button (Power Button) */}
-        <div className="absolute -right-[6px] top-36 w-[3.5px] h-16 bg-[#4a4756] rounded-r-md" />
+        {/* Hardware Buttons */}
+        <div className="absolute -left-[6px] top-28 w-[3.5px] h-7 bg-[#27272A] rounded-l-md" />
+        <div className="absolute -left-[6px] top-40 w-[3.5px] h-12 bg-[#27272A] rounded-l-md" />
+        <div className="absolute -left-[6px] top-56 w-[3.5px] h-12 bg-[#27272A] rounded-l-md" />
+        <div className="absolute -right-[6px] top-36 w-[3.5px] h-16 bg-[#27272A] rounded-r-md" />
 
-        {/* Specular Edge Sheen (Titanium Finish) */}
-        <div className="absolute inset-0 rounded-[50px] border border-[#FFE088]/25 pointer-events-none" />
+        {/* Specular Edge Sheen */}
+        <div className="absolute inset-0 rounded-[50px] border border-[#FFE088]/20 pointer-events-none" />
 
-        {/* ── OLED Display Screen ──────────────────────────────────── */}
-        <div className="relative w-full h-full rounded-[44px] bg-[#07070a] overflow-hidden flex flex-col justify-between border border-black text-white select-none shadow-inner">
+        {/* ── OLED Display Screen (Pure Obsidian #050505) ───────────── */}
+        <div className="relative w-full h-full rounded-[44px] bg-[#050505] overflow-hidden flex flex-col justify-between border border-black text-[#F5F5F5] select-none shadow-inner">
           
-          {/* Status Bar & Interactive Dynamic Island */}
+          {/* Status Bar & Dynamic Island */}
           <div className="pt-3.5 px-6 flex justify-between items-center text-[11px] font-medium text-zinc-400 z-40 relative">
             <span className="font-semibold tracking-tight">9:41</span>
 
             {/* Dynamic Island */}
             <div
               onClick={() => setDynamicIslandExpanded(!dynamicIslandExpanded)}
-              className={`transition-all duration-300 bg-black border border-zinc-800/80 shadow-lg flex items-center justify-between cursor-pointer ${
+              className={`transition-all duration-300 bg-black border border-zinc-800 flex items-center justify-between cursor-pointer ${
                 dynamicIslandExpanded
-                  ? 'h-10 w-56 px-3 rounded-2xl bg-[#0d0c13]'
+                  ? 'h-10 w-56 px-3 rounded-2xl bg-[#0E0D13]'
                   : 'h-6 w-28 px-2.5 rounded-full'
               }`}
             >
@@ -192,15 +188,15 @@ export default function InteractivePhoneMockup() {
                   <span className="text-[9px] font-mono text-[#FFE088] tracking-wider font-bold">
                     {activeTab === 'metronome' ? `${tempoMPM} MPM` : 'ENCORE'}
                   </span>
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#FFE088]" />
                 </>
               )}
             </div>
 
-            <div className="flex items-center gap-1.5 text-[10px] font-mono">
+            <div className="flex items-center gap-1.5 text-[10px] font-mono text-zinc-400">
               <span>5G</span>
-              <div className="w-4 h-2 rounded-sm border border-zinc-400 p-0.5 flex items-center">
-                <div className="w-full h-full bg-emerald-400 rounded-2xs" />
+              <div className="w-4 h-2 rounded-sm border border-zinc-500 p-0.5 flex items-center">
+                <div className="w-full h-full bg-[#FFE088] rounded-2xs" />
               </div>
             </div>
           </div>
@@ -211,27 +207,27 @@ export default function InteractivePhoneMockup() {
             {/* ═════════ TAB 1: 2D PARKET CANVAS ═════════ */}
             {activeTab === 'canvas' && (
               <div className="h-full flex flex-col justify-between animate-fadeIn space-y-2">
-                <div className="flex items-center justify-between border-b border-zinc-800/90 pb-2">
+                <div className="flex items-center justify-between border-b border-zinc-800/80 pb-2">
                   <div>
                     <span className="text-[9px] font-mono uppercase text-[#D4AF37] tracking-wider">
                       Waltz • 3/4 • 29 MPM
                     </span>
                     <h4 className="text-xs font-serif font-bold text-white flex items-center gap-1.5">
                       Súťažná Variácia 2026
-                      <span className="text-[9px] text-zinc-400 font-normal">#01</span>
+                      <span className="text-[9px] text-zinc-500 font-normal">#01</span>
                     </h4>
                   </div>
-                  <div className="flex items-center gap-1 bg-[#1E40AF]/25 border border-[#1E40AF]/60 px-2 py-0.5 rounded-full text-[9px] text-blue-300 font-mono">
+                  <div className="flex items-center gap-1 bg-[#121216] border border-[#FFE088]/30 px-2 py-0.5 rounded-full text-[9px] text-[#FFE088] font-mono">
                     <span>LOD ↗</span>
                   </div>
                 </div>
 
                 {/* Parquet Simulation Area */}
-                <div className="relative h-60 rounded-2xl bg-[#0a0a0f] border border-[#D4AF37]/30 p-2.5 overflow-hidden flex flex-col justify-between shadow-inner">
-                  {/* Real parquet floor texture grid */}
-                  <div className="absolute inset-0 opacity-20 bg-[radial-gradient(#D4AF37_1px,transparent_1px)] [background-size:14px_14px]" />
+                <div className="relative h-60 rounded-2xl bg-[#080808] border border-white/10 p-2.5 overflow-hidden flex flex-col justify-between shadow-inner">
+                  {/* Subtle parquet lines */}
+                  <div className="absolute inset-0 opacity-15 bg-[radial-gradient(#D4AF37_1px,transparent_1px)] [background-size:14px_14px]" />
                   <div className="absolute top-2 right-2 text-[8px] font-mono text-zinc-600 uppercase tracking-widest">
-                    Tancodrom 3000pt
+                    Parket 3000pt
                   </div>
 
                   {/* Bezier Path SVG */}
@@ -240,7 +236,7 @@ export default function InteractivePhoneMockup() {
                       <linearGradient id="goldCurve" x1="0%" y1="0%" x2="100%" y2="100%">
                         <stop offset="0%" stopColor="#FFE088" />
                         <stop offset="50%" stopColor="#D4AF37" />
-                        <stop offset="100%" stopColor="#8A6715" />
+                        <stop offset="100%" stopColor="#AA820A" />
                       </linearGradient>
                     </defs>
                     <path
@@ -257,8 +253,8 @@ export default function InteractivePhoneMockup() {
                     onClick={() => setSelectedNode(1)}
                     className={`relative z-10 self-start p-2 rounded-xl transition-all cursor-pointer max-w-[155px] ${
                       selectedNode === 1
-                        ? 'bg-[#1b1926] border-2 border-[#FFE088] shadow-[0_0_15px_rgba(212,175,55,0.4)] scale-105'
-                        : 'bg-[#12111a] border border-zinc-800'
+                        ? 'bg-[#141418] border-2 border-[#FFE088] shadow-[0_0_15px_rgba(212,175,55,0.35)] scale-105'
+                        : 'bg-[#121216] border border-white/10'
                     }`}
                   >
                     <div className="flex items-center justify-between text-[8px] text-[#FFE088] font-mono font-bold">
@@ -279,8 +275,8 @@ export default function InteractivePhoneMockup() {
                     onClick={() => setSelectedNode(2)}
                     className={`relative z-10 self-center p-2 rounded-xl transition-all cursor-pointer max-w-[155px] ${
                       selectedNode === 2
-                        ? 'bg-[#1b1926] border-2 border-[#FFE088] shadow-[0_0_15px_rgba(212,175,55,0.4)] scale-105'
-                        : 'bg-[#12111a] border border-zinc-800'
+                        ? 'bg-[#141418] border-2 border-[#FFE088] shadow-[0_0_15px_rgba(212,175,55,0.35)] scale-105'
+                        : 'bg-[#121216] border border-white/10'
                     }`}
                   >
                     <div className="flex items-center justify-between text-[8px] text-[#FFE088] font-mono font-bold">
@@ -291,7 +287,7 @@ export default function InteractivePhoneMockup() {
                       Turning Lock to R
                     </p>
                     <div className="flex items-center gap-1 mt-1 text-[7.5px] text-zinc-400 font-mono">
-                      <span className="bg-emerald-950 text-emerald-300 px-1 rounded border border-emerald-800">
+                      <span className="bg-[#141418] text-[#FFE088] px-1 rounded border border-[#FFE088]/20">
                         C-Shape Sway
                       </span>
                     </div>
@@ -302,8 +298,8 @@ export default function InteractivePhoneMockup() {
                     onClick={() => setSelectedNode(3)}
                     className={`relative z-10 self-end p-2 rounded-xl transition-all cursor-pointer max-w-[155px] ${
                       selectedNode === 3
-                        ? 'bg-[#1b1926] border-2 border-[#FFE088] shadow-[0_0_15px_rgba(212,175,55,0.4)] scale-105'
-                        : 'bg-[#12111a] border border-zinc-800'
+                        ? 'bg-[#141418] border-2 border-[#FFE088] shadow-[0_0_15px_rgba(212,175,55,0.35)] scale-105'
+                        : 'bg-[#121216] border border-white/10'
                     }`}
                   >
                     <div className="flex items-center justify-between text-[8px] text-[#FFE088] font-mono font-bold">
@@ -320,10 +316,13 @@ export default function InteractivePhoneMockup() {
                 </div>
 
                 {/* Node Inspector Sheet Preview */}
-                <div className="p-2.5 rounded-xl bg-[#121118] border border-[#D4AF37]/25 flex items-center justify-between">
+                <div className="p-2.5 rounded-xl bg-[#121216] border border-[#FFE088]/20 flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <div className="w-7 h-7 rounded-lg bg-[#D4AF37]/20 border border-[#D4AF37]/40 flex items-center justify-center text-xs">
-                      🎙️
+                    <div className="w-7 h-7 rounded-lg bg-[#D4AF37]/15 border border-[#FFE088]/30 flex items-center justify-center text-xs text-[#FFE088]">
+                      <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
+                        <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+                      </svg>
                     </div>
                     <div>
                       <span className="text-[8px] font-mono text-zinc-400 uppercase block">Trénerov komentár</span>
@@ -340,36 +339,39 @@ export default function InteractivePhoneMockup() {
             {/* ═════════ TAB 2: VIDEO DUEL & MOTION ANALYSIS ═════════ */}
             {activeTab === 'video' && (
               <div className="h-full flex flex-col justify-between animate-fadeIn space-y-2">
-                <div className="flex justify-between items-center border-b border-zinc-800/90 pb-2">
+                <div className="flex justify-between items-center border-b border-zinc-800/80 pb-2">
                   <div>
-                    <span className="text-[9px] font-mono text-[#E11D48] uppercase tracking-wider font-bold">
+                    <span className="text-[9px] font-mono text-[#D4AF37] uppercase tracking-wider font-bold">
                       Side-by-Side Dual Analysis
                     </span>
                     <h4 className="text-xs font-serif font-bold text-white">Slo-Mo Rozbor Postúry</h4>
                   </div>
                   <button
                     onClick={() => setShowBodyAngles(!showBodyAngles)}
-                    className="text-[8.5px] font-mono px-2 py-0.5 rounded-full bg-[#E11D48]/20 text-[#E11D48] border border-[#E11D48]/50 font-bold"
+                    className="text-[8.5px] font-mono px-2 py-0.5 rounded-full bg-[#121216] text-[#FFE088] border border-[#FFE088]/30 font-bold"
                   >
-                    {showBodyAngles ? '📐 Uhly: ZAPNUTÉ' : 'Uhly: VYPNUTÉ'}
+                    {showBodyAngles ? 'Uhly: ZAPNUTÉ' : 'Uhly: VYPNUTÉ'}
                   </button>
                 </div>
 
                 {/* Dual Split Videos */}
                 <div className="grid grid-cols-2 gap-2 h-44">
                   {/* Left: Your Training Recording */}
-                  <div className="rounded-xl bg-[#121118] border border-zinc-800 p-2 flex flex-col justify-between relative overflow-hidden">
-                    <span className="text-[8px] font-bold text-[#D4AF37] uppercase tracking-wider">
-                      Váš tréning (Trnava)
+                  <div className="rounded-xl bg-[#121216] border border-white/10 p-2 flex flex-col justify-between relative overflow-hidden">
+                    <span className="text-[8px] font-bold text-[#FFE088] uppercase tracking-wider font-mono">
+                      Váš tréning
                     </span>
 
                     {/* Posture Overlay */}
                     <div className="relative my-auto flex flex-col items-center">
-                      <div className="w-9 h-9 rounded-full border border-dashed border-[#D4AF37]/50 flex items-center justify-center text-xs">
-                        💃
+                      <div className="w-9 h-9 rounded-full border border-dashed border-[#FFE088]/50 flex items-center justify-center text-xs text-[#FFE088]">
+                        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <circle cx="12" cy="7" r="4" />
+                          <path d="M5.5 21v-2a6.5 6.5 0 0 1 13 0v2" />
+                        </svg>
                       </div>
                       {showBodyAngles && (
-                        <div className="mt-1 px-1.5 py-0.5 rounded bg-black/70 border border-[#E11D48] text-[7.5px] text-[#E11D48] font-mono font-bold">
+                        <div className="mt-1 px-1.5 py-0.5 rounded bg-black/80 border border-[#FFE088]/60 text-[7.5px] text-[#FFE088] font-mono font-bold">
                           Uhol chrbtice: 14°
                         </div>
                       )}
@@ -378,18 +380,21 @@ export default function InteractivePhoneMockup() {
                   </div>
 
                   {/* Right: Master / Coach Reference */}
-                  <div className="rounded-xl bg-[#180a0e] border border-[#E11D48]/40 p-2 flex flex-col justify-between relative overflow-hidden">
-                    <span className="text-[8px] font-bold text-[#FFE088] uppercase tracking-wider">
-                      Vzor / Majstri Sveta
+                  <div className="rounded-xl bg-[#121216] border border-[#FFE088]/35 p-2 flex flex-col justify-between relative overflow-hidden">
+                    <span className="text-[8px] font-bold text-[#FFE088] uppercase tracking-wider font-mono">
+                      Vzor / Tréner
                     </span>
 
                     {/* Posture Overlay */}
                     <div className="relative my-auto flex flex-col items-center">
-                      <div className="w-9 h-9 rounded-full border border-[#FFE088]/50 bg-[#E11D48]/20 flex items-center justify-center text-xs text-[#FFE088]">
-                        🏆
+                      <div className="w-9 h-9 rounded-full border border-[#FFE088]/50 bg-[#D4AF37]/15 flex items-center justify-center text-xs text-[#FFE088]">
+                        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <circle cx="12" cy="8" r="4" />
+                          <path d="M6 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2" />
+                        </svg>
                       </div>
                       {showBodyAngles && (
-                        <div className="mt-1 px-1.5 py-0.5 rounded bg-black/70 border border-emerald-500 text-[7.5px] text-emerald-400 font-mono font-bold">
+                        <div className="mt-1 px-1.5 py-0.5 rounded bg-black/80 border border-[#FFE088]/80 text-[7.5px] text-[#FFE088] font-mono font-bold">
                           Ideálna vertikála: 0°
                         </div>
                       )}
@@ -399,7 +404,7 @@ export default function InteractivePhoneMockup() {
                 </div>
 
                 {/* Common Scrubber Slider */}
-                <div className="p-2.5 rounded-xl bg-zinc-900/80 border border-zinc-800 space-y-1.5">
+                <div className="p-2.5 rounded-xl bg-[#121216] border border-white/10 space-y-1.5">
                   <div className="flex justify-between text-[8px] text-zinc-400 font-mono">
                     <span>Frame {videoScrub * 3}</span>
                     <span className="text-[#FFE088] font-bold">Spoločný Frame-Scrubber</span>
@@ -416,14 +421,14 @@ export default function InteractivePhoneMockup() {
                   <div className="flex justify-between items-center pt-1 text-[8px] text-zinc-400">
                     <button
                       onClick={() => setVideoScrub((p) => Math.max(0, p - 5))}
-                      className="px-2 py-0.5 rounded bg-white/5 hover:bg-white/10"
+                      className="px-2 py-0.5 rounded bg-white/5 hover:bg-white/10 font-mono"
                     >
                       ◀ 1 Frame
                     </button>
                     <span className="font-mono text-white text-[9px]">00:04.{videoScrub}</span>
                     <button
                       onClick={() => setVideoScrub((p) => Math.min(100, p + 5))}
-                      className="px-2 py-0.5 rounded bg-white/5 hover:bg-white/10"
+                      className="px-2 py-0.5 rounded bg-white/5 hover:bg-white/10 font-mono"
                     >
                       1 Frame ▶
                     </button>
@@ -447,7 +452,7 @@ export default function InteractivePhoneMockup() {
                   onClick={() => setIsPlayingMetronome(!isPlayingMetronome)}
                   className={`relative w-36 h-36 rounded-full border-4 transition-all flex flex-col items-center justify-center cursor-pointer ${
                     isPlayingMetronome
-                      ? 'border-[#FFE088] shadow-[0_0_35px_rgba(212,175,55,0.4)] scale-105'
+                      ? 'border-[#FFE088] shadow-[0_0_35px_rgba(212,175,55,0.35)] scale-105'
                       : 'border-[#D4AF37]/30 hover:border-[#D4AF37]/60'
                   }`}
                 >
@@ -483,7 +488,7 @@ export default function InteractivePhoneMockup() {
                       className={`w-9 h-6 rounded-lg flex items-center justify-center font-mono text-[10px] font-bold transition-all ${
                         isPlayingMetronome && currentBeat === b
                           ? 'bg-[#FFE088] text-black scale-110 shadow-md'
-                          : 'bg-zinc-900 text-zinc-500 border border-zinc-800'
+                          : 'bg-[#141418] text-zinc-500 border border-white/5'
                       }`}
                     >
                       {b}
@@ -492,7 +497,7 @@ export default function InteractivePhoneMockup() {
                 </div>
 
                 {/* Speed Pitch Box */}
-                <div className="w-full p-2 rounded-xl bg-[#121118] border border-zinc-800 text-left">
+                <div className="w-full p-2 rounded-xl bg-[#121216] border border-white/10 text-left">
                   <div className="flex justify-between text-[9px] text-zinc-400 font-bold mb-1">
                     <span>Tréningový posuvník tempa:</span>
                     <span className="text-[#FFE088] font-mono">{tempoMPM} MPM</span>
@@ -518,7 +523,7 @@ export default function InteractivePhoneMockup() {
             {activeTab === 'planner' && (
               <div className="h-full flex flex-col justify-between animate-fadeIn space-y-2">
                 {/* Internal Subtab Switcher */}
-                <div className="flex p-0.5 rounded-xl bg-zinc-900 border border-zinc-800">
+                <div className="flex p-0.5 rounded-xl bg-[#121216] border border-white/10">
                   <button
                     onClick={() => setPlannerSubTab('regime')}
                     className={`flex-1 py-1 rounded-lg text-[9px] font-bold transition-all ${
@@ -544,7 +549,7 @@ export default function InteractivePhoneMockup() {
                 {plannerSubTab === 'regime' ? (
                   <div className="space-y-2">
                     {/* Today Cadence Card with 1-Tap RSVP */}
-                    <div className="p-3 rounded-2xl bg-gradient-to-br from-[#1a1208] to-[#0e0a05] border border-[#D4AF37]/50 shadow-md">
+                    <div className="p-3 rounded-2xl bg-[#121216] border border-[#FFE088]/30 shadow-md">
                       <div className="flex justify-between items-center text-[9px] font-mono text-[#D4AF37] mb-1">
                         <span className="font-bold">DNES 18:00</span>
                         <span className="text-zinc-400">Sála 1</span>
@@ -552,8 +557,8 @@ export default function InteractivePhoneMockup() {
                       <h4 className="text-xs font-serif font-bold text-white">Vedený tréning Štandard</h4>
                       
                       <div className="flex items-center gap-1.5 my-2">
-                        <span className="w-2 h-2 rounded-full bg-emerald-400" />
-                        <span className="text-[8.5px] text-emerald-300 font-semibold">
+                        <span className="w-1.5 h-1.5 rounded-full bg-[#FFE088]" />
+                        <span className="text-[8.5px] text-zinc-300 font-semibold font-mono">
                           Partnerka potvrdila účasť
                         </span>
                       </div>
@@ -564,7 +569,7 @@ export default function InteractivePhoneMockup() {
                           onClick={() => setRsvpState('attending')}
                           className={`flex-1 py-1.5 rounded-xl text-[9px] font-bold transition-all ${
                             rsvpState === 'attending'
-                              ? 'bg-gradient-to-r from-[#FFF2CC] via-[#FFE088] to-[#D4AF37] text-black shadow-[0_0_10px_rgba(212,175,55,0.4)]'
+                              ? 'bg-gradient-to-r from-[#FFF2CC] via-[#FFE088] to-[#D4AF37] text-black shadow-[0_0_10px_rgba(212,175,55,0.35)]'
                               : 'bg-zinc-800 text-zinc-400 hover:text-white'
                           }`}
                         >
@@ -574,8 +579,8 @@ export default function InteractivePhoneMockup() {
                           onClick={() => setRsvpState('skipped')}
                           className={`flex-1 py-1.5 rounded-xl text-[9px] font-bold transition-all ${
                             rsvpState === 'skipped'
-                              ? 'bg-red-500/20 text-red-300 border border-red-500'
-                              : 'bg-zinc-800 text-zinc-400 hover:text-white'
+                              ? 'bg-zinc-800 text-zinc-200 border border-zinc-600'
+                              : 'bg-zinc-800/60 text-zinc-400 hover:text-white'
                           }`}
                         >
                           ✕ Vynechávam
@@ -584,10 +589,13 @@ export default function InteractivePhoneMockup() {
                     </div>
 
                     {/* Post-Training Debrief Teaser */}
-                    <div className="p-2.5 rounded-xl bg-[#121118] border border-zinc-800 flex items-center justify-between">
+                    <div className="p-2.5 rounded-xl bg-[#121216] border border-white/10 flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        <div className="w-6 h-6 rounded-full bg-[#E11D48]/20 text-[#E11D48] flex items-center justify-center text-[10px]">
-                          🎙️
+                        <div className="w-6 h-6 rounded-full bg-[#D4AF37]/15 text-[#FFE088] flex items-center justify-center text-[10px]">
+                          <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
+                            <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+                          </svg>
                         </div>
                         <div>
                           <span className="text-[8px] font-mono text-zinc-400 block">Po tréningu (19:30)</span>
@@ -600,16 +608,16 @@ export default function InteractivePhoneMockup() {
                 ) : (
                   <div className="space-y-2">
                     {/* Official KSIS Competition Card */}
-                    <div className="p-3 rounded-2xl bg-gradient-to-br from-[#0c141d] to-[#070b10] border border-blue-500/40 shadow-md">
-                      <div className="flex items-center gap-1.5 text-[8.5px] font-semibold text-emerald-400 mb-1">
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                    <div className="p-3 rounded-2xl bg-[#121216] border border-[#FFE088]/30 shadow-md">
+                      <div className="flex items-center gap-1.5 text-[8.5px] font-semibold text-[#FFE088] mb-1 font-mono">
+                        <span className="w-1.5 h-1.5 rounded-full bg-[#FFE088]" />
                         <span>Oficiálne prihlásení na KSIS</span>
                       </div>
                       <h4 className="text-xs font-serif font-bold text-white">Grand Prix Žilina 2026</h4>
                       <p className="text-[8.5px] text-zinc-400 font-mono mt-0.5">Štartovné číslo: #42</p>
 
                       <div className="flex items-center gap-2 mt-2">
-                        <span className="text-[8px] font-mono bg-blue-950 text-blue-300 px-2 py-0.5 rounded-full border border-blue-800">
+                        <span className="text-[8px] font-mono bg-[#141418] text-[#FFE088] px-2 py-0.5 rounded-full border border-[#FFE088]/20">
                           ⏱ O 11 dní
                         </span>
                         <span className="text-[8px] font-mono bg-zinc-800 text-zinc-300 px-2 py-0.5 rounded-full">
@@ -619,7 +627,7 @@ export default function InteractivePhoneMockup() {
                     </div>
 
                     {/* Class Promotion Point Radar */}
-                    <div className="p-2.5 rounded-xl bg-zinc-900/70 border border-zinc-800 text-[9px]">
+                    <div className="p-2.5 rounded-xl bg-[#121216] border border-white/10 text-[9px]">
                       <div className="flex justify-between items-center font-mono text-zinc-400 mb-1">
                         <span>Postup do Triedy A:</span>
                         <span className="text-[#FFE088] font-bold">145 / 200 b.</span>
@@ -627,7 +635,7 @@ export default function InteractivePhoneMockup() {
                       <div className="w-full h-1.5 bg-zinc-800 rounded-full overflow-hidden">
                         <div className="h-full bg-gradient-to-r from-[#FFE088] to-[#D4AF37] w-[72%]" />
                       </div>
-                      <span className="text-[7.5px] text-zinc-500 block mt-1">Ešte 55 bodov a 1 finále</span>
+                      <span className="text-[7.5px] text-zinc-500 block mt-1 font-mono">Ešte 55 bodov a 1 finále</span>
                     </div>
                   </div>
                 )}
@@ -637,7 +645,7 @@ export default function InteractivePhoneMockup() {
           </div>
 
           {/* ── Native iOS Tab Bar (Crisp SVG SF Symbols) ── */}
-          <div className="pt-2 pb-5 px-6 border-t border-zinc-900 bg-[#09090d]/95 flex justify-between items-center text-[10px] text-zinc-500">
+          <div className="pt-2 pb-5 px-6 border-t border-white/10 bg-[#080808] flex justify-between items-center text-[10px] text-zinc-500">
             {/* Tab 1: Home */}
             <div
               onClick={() => setActiveTab('canvas')}
@@ -648,7 +656,7 @@ export default function InteractivePhoneMockup() {
               <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
               </svg>
-              <span className="text-[7.5px] font-medium">Domov</span>
+              <span className="text-[7.5px] font-medium font-sans">Domov</span>
             </div>
 
             {/* Tab 2: Canvas / Parket */}
@@ -662,7 +670,7 @@ export default function InteractivePhoneMockup() {
                 <rect x="3" y="3" width="18" height="18" rx="2" />
                 <path d="M7 7h10M7 12h10M7 17h6" />
               </svg>
-              <span className="text-[7.5px] font-medium">Parket</span>
+              <span className="text-[7.5px] font-medium font-sans">Parket</span>
             </div>
 
             {/* Tab 3: Plán & Súťaže (NEW TAB) */}
@@ -679,7 +687,7 @@ export default function InteractivePhoneMockup() {
                 </svg>
                 <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-[#FFE088]" />
               </div>
-              <span className="text-[7.5px] font-bold">Plán</span>
+              <span className="text-[7.5px] font-bold font-sans">Plán</span>
             </div>
 
             {/* Tab 4: Profil */}
@@ -693,7 +701,7 @@ export default function InteractivePhoneMockup() {
                 <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
                 <circle cx="12" cy="7" r="4" />
               </svg>
-              <span className="text-[7.5px] font-medium">Profil</span>
+              <span className="text-[7.5px] font-medium font-sans">Profil</span>
             </div>
           </div>
 

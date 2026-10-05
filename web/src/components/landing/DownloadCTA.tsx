@@ -9,9 +9,7 @@ export default function DownloadCTA() {
 
   return (
     <section id="download" className="py-20 relative z-10 max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
-      <div className="rounded-[36px] p-8 sm:p-14 bg-gradient-to-br from-[#241306] via-[#150b04] to-[#070503] border-2 border-[#D4AF37]/50 shadow-[0_20px_80px_rgba(212,175,55,0.25)] relative overflow-hidden flex flex-col md:flex-row items-center justify-between gap-10">
-        {/* Ambient glow */}
-        <div className="absolute top-0 right-0 w-96 h-96 bg-[#FFE088]/15 rounded-full blur-3xl pointer-events-none" />
+      <div className="rounded-[36px] p-8 sm:p-14 surface-obsidian border-2 border-[#D4AF37]/45 shadow-[0_20px_80px_rgba(0,0,0,0.9)] relative overflow-hidden flex flex-col md:flex-row items-center justify-between gap-10">
 
         {/* Text & Badges */}
         <div className="space-y-6 max-w-lg text-center md:text-left z-10">
@@ -45,7 +43,7 @@ export default function DownloadCTA() {
             {/* Google Play Button */}
             <Link
               href="/download/android"
-              className="px-6 py-3.5 rounded-2xl bg-[#14121a] border border-[#D4AF37]/35 text-white font-bold text-xs flex items-center gap-3 shadow-xl hover:border-[#D4AF37] hover:scale-105 active:scale-95 transition-all"
+              className="px-6 py-3.5 rounded-2xl bg-[#121216] border border-[#FFE088]/25 text-white font-bold text-xs flex items-center gap-3 shadow-xl hover:border-[#FFE088]/60 hover:scale-105 active:scale-95 transition-all"
             >
               <svg className="w-5 h-5 fill-current text-[#FFE088]" viewBox="0 0 24 24">
                 <path d="M3.609 1.814L13.793 12 3.61 22.186c-.352-.361-.568-.89-.568-1.503V3.317c0-.613.216-1.142.567-1.503zm11.24 11.24l2.127 2.127-11.458 6.55 9.331-8.677zm0-2.108L5.518 2.27l11.459 6.549-2.128 2.127zm1.488 1.054l3.189 1.822c.947.541.947 1.427 0 1.968l-3.189 1.822-2.316-2.316 2.316-2.296z" />
@@ -60,7 +58,7 @@ export default function DownloadCTA() {
         </div>
 
         {/* QR Code Container */}
-        <div className="flex flex-col items-center gap-3 p-6 rounded-3xl bg-black/60 border border-[#D4AF37]/40 shadow-2xl backdrop-blur-xl shrink-0 z-10">
+        <div className="flex flex-col items-center gap-3 p-6 rounded-3xl bg-[#0A0A0A] border border-[#FFE088]/30 shadow-2xl backdrop-blur-xl shrink-0 z-10">
           <div className="bg-white p-3 rounded-2xl shadow-lg">
             <QRCodeSVG
               value={qrUrl}

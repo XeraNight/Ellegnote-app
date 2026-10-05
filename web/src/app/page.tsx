@@ -43,11 +43,10 @@ export const metadata: Metadata = {
 
 export default function HomePage() {
   return (
-    <div className="min-h-screen bg-[#050507] text-white selection:bg-[#D4AF37]/30 selection:text-white font-sans relative overflow-x-hidden">
+    <div className="min-h-screen bg-[#050505] text-[#F5F5F5] selection:bg-[#D4AF37]/30 selection:text-white font-sans relative overflow-x-hidden">
       
-      {/* ── Ambient Radial Lighting Background ────────────────────────── */}
-      <div className="fixed top-0 left-1/2 -translate-x-1/2 w-[1000px] h-[700px] bg-gradient-to-b from-[#8E0A1E]/20 via-[#D4AF37]/10 to-transparent rounded-full blur-[180px] pointer-events-none" />
-      <div className="fixed top-1/2 right-0 w-[500px] h-[500px] bg-[#D4AF37]/8 rounded-full blur-[160px] pointer-events-none" />
+      {/* ── Theatrical Stage Spotlight (Controlled Overhead Warm Lighting) ── */}
+      <div className="fixed top-0 left-1/2 -translate-x-1/2 w-[1200px] h-[550px] bg-[radial-gradient(ellipse_75%_50%_at_50%_0%,rgba(212,175,55,0.08),transparent_70%)] pointer-events-none z-0" />
 
       {/* ── Navigation ─────────────────────────────────────────────────── */}
       <LandingNavbar />
@@ -57,7 +56,7 @@ export default function HomePage() {
         <section className="pt-32 pb-20 md:pt-40 md:pb-28 relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col items-center text-center">
           
           {/* Top Pill Badge */}
-          <div className="inline-flex items-center gap-2.5 px-4 py-1.5 rounded-full bg-gradient-to-r from-[#D4AF37]/15 via-[#FFE088]/20 to-[#D4AF37]/15 border border-[#D4AF37]/35 shadow-[0_0_20px_rgba(212,175,55,0.2)] mb-8 animate-fadeIn">
+          <div className="inline-flex items-center gap-2.5 px-4 py-1.5 rounded-full bg-[#121216] border border-[#FFE088]/25 shadow-[0_0_20px_rgba(212,175,55,0.15)] mb-8 animate-fadeIn">
             <span className="w-2 h-2 rounded-full bg-[#FFE088] animate-pulse" />
             <span className="text-xs font-mono font-bold uppercase tracking-[0.2em] text-[#FFE088]">
               #1 Aplikácia pre tanečný šport • WDSF & SZTŠ Ready
@@ -97,7 +96,7 @@ export default function HomePage() {
             {/* Google Play Button */}
             <Link
               href="/download/android"
-              className="px-7 py-4 rounded-2xl bg-[#14121a]/90 border border-[#D4AF37]/35 text-white font-bold text-sm flex items-center gap-3.5 shadow-2xl hover:border-[#D4AF37] hover:scale-105 active:scale-95 transition-all backdrop-blur-md"
+              className="px-7 py-4 rounded-2xl bg-[#121216] border border-[#FFE088]/25 text-white font-bold text-sm flex items-center gap-3.5 shadow-2xl hover:border-[#FFE088]/60 hover:scale-105 active:scale-95 transition-all backdrop-blur-md"
             >
               <svg className="w-6 h-6 fill-current text-[#FFE088]" viewBox="0 0 24 24">
                 <path d="M3.609 1.814L13.793 12 3.61 22.186c-.352-.361-.568-.89-.568-1.503V3.317c0-.613.216-1.142.567-1.503zm11.24 11.24l2.127 2.127-11.458 6.55 9.331-8.677zm0-2.108L5.518 2.27l11.459 6.549-2.128 2.127zm1.488 1.054l3.189 1.822c.947.541.947 1.427 0 1.968l-3.189 1.822-2.316-2.316 2.316-2.296z" />
@@ -110,18 +109,21 @@ export default function HomePage() {
 
           </div>
 
-          {/* Social Proof Strip */}
+          {/* Social Proof Strip - Unified Brand Gold & White */}
           <div className="flex flex-wrap items-center justify-center gap-6 sm:gap-10 text-xs text-zinc-400 border-t border-zinc-800/80 pt-8 mb-16">
             <div className="flex items-center gap-2">
               <span className="text-[#FFE088] font-bold">★★★★★</span>
               <span>Navrhnuté s trénermi SZTŠ</span>
             </div>
             <div className="flex items-center gap-2">
-              <span className="text-emerald-400">●</span>
+              <span className="text-[#FFE088]">●</span>
               <span>100% Offline-First v sále</span>
             </div>
             <div className="flex items-center gap-2">
-              <span className="text-blue-400">🔒</span>
+              <svg className="w-3.5 h-3.5 text-[#FFE088]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+              </svg>
               <span>Privátne & Bezpečné (EÚ Servery)</span>
             </div>
           </div>
@@ -144,8 +146,8 @@ export default function HomePage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             
             {/* For Dancers & Couples */}
-            <div className="rounded-3xl p-8 sm:p-10 bg-gradient-to-br from-[#12111a] to-[#09080d] border border-[#D4AF37]/25 shadow-xl space-y-4">
-              <span className="text-[10px] font-mono uppercase tracking-widest text-[#FFE088] bg-[#D4AF37]/15 px-3 py-1 rounded-full font-bold">
+            <div className="rounded-3xl p-8 sm:p-10 surface-obsidian space-y-4">
+              <span className="badge-gold">
                 Pre Tanečné Páry
               </span>
               <h3 className="text-2xl sm:text-3xl font-serif font-bold text-white">
@@ -154,22 +156,22 @@ export default function HomePage() {
               <p className="text-sm text-zinc-300 leading-relaxed">
                 Už žiadne hádky o tom, kto zabudol novú variáciu z kempu. Obaja partneri majú okamžitý prístup ku kompletnej zostave, počítaniu rytmu a poznámkam trénera. Po súťaži vidíte svoje body a rozstrely.
               </p>
-              <ul className="pt-2 space-y-2 text-xs text-zinc-300">
+              <ul className="pt-2 space-y-2.5 text-xs text-zinc-300 font-mono">
                 <li className="flex items-center gap-2">
-                  <span className="text-[#FFE088]">✓</span> Okamžitá synchronizácia medzi partnermi
+                  <span className="text-[#FFE088]">✓</span> Okamžitá synchronizácia medzi partnermi (WebSocket &lt; 50ms)
                 </li>
                 <li className="flex items-center gap-2">
                   <span className="text-[#FFE088]">✓</span> Zdieľanie zostavy cez QR kód za 1 sekundu
                 </li>
                 <li className="flex items-center gap-2">
-                  <span className="text-[#FFE088]">✓</span> Prehľad o postupových bodoch do finále
+                  <span className="text-[#FFE088]">✓</span> Prehľad o postupových bodoch do finále SZTŠ
                 </li>
               </ul>
             </div>
 
             {/* For Coaches & Studios */}
-            <div className="rounded-3xl p-8 sm:p-10 bg-gradient-to-br from-[#1c0c14] to-[#0a0508] border border-[#E11D48]/30 shadow-xl space-y-4">
-              <span className="text-[10px] font-mono uppercase tracking-widest text-[#E11D48] bg-[#E11D48]/15 px-3 py-1 rounded-full font-bold">
+            <div className="rounded-3xl p-8 sm:p-10 surface-obsidian space-y-4">
+              <span className="badge-gold">
                 Pre Trénerov & Kluby
               </span>
               <h3 className="text-2xl sm:text-3xl font-serif font-bold text-white">
@@ -178,15 +180,15 @@ export default function HomePage() {
               <p className="text-sm text-zinc-300 leading-relaxed">
                 Počas individuálnej lekcie stačí nahovoriť poznámku. Nemusíte písať manuály do zošitov. Tréner má v Encore Studio prehľad o zostavách všetkých párov vo svojom klube a ich súťažnej pripravenosti.
               </p>
-              <ul className="pt-2 space-y-2 text-xs text-zinc-300">
+              <ul className="pt-2 space-y-2.5 text-xs text-zinc-300 font-mono">
                 <li className="flex items-center gap-2">
-                  <span className="text-[#E11D48]">✓</span> Rýchle nahrávanie a diktovanie priamo pri parkete
+                  <span className="text-[#FFE088]">✓</span> Rýchle nahrávanie a diktovanie priamo pri parkete
                 </li>
                 <li className="flex items-center gap-2">
-                  <span className="text-[#E11D48]">✓</span> Jednotný archív choreografií pre celý tanečný klub
+                  <span className="text-[#FFE088]">✓</span> Jednotný archív choreografií pre celý tanečný klub
                 </li>
                 <li className="flex items-center gap-2">
-                  <span className="text-[#E11D48]">✓</span> Vizuálna analýza sklonov tela a držania rámu
+                  <span className="text-[#FFE088]">✓</span> Vizuálna analýza sklonov tela a držania rámu
                 </li>
               </ul>
             </div>

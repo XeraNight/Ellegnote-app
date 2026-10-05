@@ -4,7 +4,7 @@ import Image from 'next/image'
 
 export default function LandingFooter() {
   return (
-    <footer className="border-t border-[#D4AF37]/15 bg-[#040406] text-zinc-400 py-16 text-xs relative z-10 font-sans">
+    <footer className="border-t border-[#FFE088]/20 bg-[#050505] text-zinc-400 py-16 text-xs relative z-10 font-sans">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
         
         {/* Top Footer Row */}
@@ -36,7 +36,7 @@ export default function LandingFooter() {
             <Link href="/terms" className="hover:text-[#FFE088] transition">
               Podmienky & EULA
             </Link>
-            <Link href="/delete-account" className="hover:text-[#E11D48] transition">
+            <Link href="/delete-account" className="hover:text-red-400 transition">
               Zmazanie účtu
             </Link>
             <Link href="/support" className="hover:text-[#FFE088] transition">
