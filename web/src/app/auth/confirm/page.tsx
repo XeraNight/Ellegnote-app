@@ -31,7 +31,7 @@ function AuthConfirmContent() {
   }, [appSchemeUrl])
 
   return (
-    <div className="relative z-10 w-full max-w-md flex flex-col items-center text-center gap-6 p-8 rounded-3xl bg-[#0f0e14]/80 border border-[#D4AF37]/30 shadow-2xl backdrop-blur-xl">
+    <div className="relative z-10 w-full max-w-md flex flex-col items-center text-center gap-6 p-8 rounded-3xl surface-obsidian shadow-2xl backdrop-blur-xl">
       {/* App Logo */}
       <div className="relative w-20 h-20 mb-2">
         <Image
@@ -96,12 +96,12 @@ function AuthConfirmContent() {
 
 export default function AuthConfirmPage() {
   return (
-    <main className="min-h-screen bg-[#060608] text-white flex flex-col items-center justify-center p-4 selection:bg-[#D4AF37] selection:text-black font-sans relative overflow-hidden">
-      {/* Ambient background glow */}
-      <div className="fixed top-1/3 left-1/2 -translate-x-1/2 w-[500px] h-[500px] bg-[#D4AF37]/15 rounded-full blur-[160px] pointer-events-none" />
+    <main className="min-h-screen bg-[#050505] text-[#F5F5F5] flex flex-col items-center justify-center p-4 selection:bg-[#D4AF37] selection:text-black font-sans relative overflow-hidden">
+      {/* Ambient theatrical stage lighting */}
+      <div className="fixed top-0 left-1/2 -translate-x-1/2 w-[800px] h-[400px] bg-[radial-gradient(ellipse_75%_50%_at_50%_0%,rgba(212,175,55,0.08),transparent_70%)] pointer-events-none" />
 
       <Suspense fallback={
-        <div className="relative z-10 w-full max-w-md flex flex-col items-center justify-center p-8 rounded-3xl bg-[#0f0e14]/80 border border-[#D4AF37]/30 text-center">
+        <div className="relative z-10 w-full max-w-md flex flex-col items-center justify-center p-8 rounded-3xl surface-obsidian text-center">
           <div className="w-8 h-8 border-2 border-[#D4AF37] border-t-transparent rounded-full animate-spin mb-4" />
           <p className="text-zinc-400 text-sm">Overujem prihlásenie...</p>
         </div>

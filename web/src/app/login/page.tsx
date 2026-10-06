@@ -44,7 +44,7 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#060608] flex items-center justify-center px-4 py-8 relative overflow-hidden font-sans">
+    <div className="min-h-screen bg-[#050505] flex items-center justify-center px-4 py-8 relative overflow-hidden font-sans">
       
       {/* ── Outer Ambient Canvas Backlight ───────────────────────────── */}
       <div className="fixed top-1/4 right-1/4 w-[500px] h-[500px] bg-[#D4AF37]/15 rounded-full blur-[160px] pointer-events-none" />

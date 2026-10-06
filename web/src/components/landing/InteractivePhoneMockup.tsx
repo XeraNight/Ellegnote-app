@@ -4,13 +4,43 @@ import React, { useState, useEffect, useRef } from 'react'
 
 type MockupTab = 'canvas' | 'video' | 'metronome' | 'planner'
 
+const nodeDetails: Record<number, { title: string; timing: string; comment: string; length: string }> = {
+  1: {
+    title: 'Natural Spin Turn',
+    timing: '1 2 3 • T-H • Rotácia 3/8 R',
+    comment: '„Silnejší tlak do stojnej nohy na 1, udržať hlavu vľavo.“',
+    length: '00:14 HD',
+  },
+  2: {
+    title: 'Turning Lock to Right',
+    timing: '1& 2 3 • C-Shape Sway • T-T-TH',
+    comment: '„Neponáhľať syncopáciu na &, predĺžiť výdych cez bok.“',
+    length: '00:09 HD',
+  },
+  3: {
+    title: 'Weave from Promenade Position',
+    timing: '1 2 3 4 5 6 • Prechod do slowfoxu',
+    comment: '„Rovnomerná dĺžka krokov na 2 a 3, nevypadávať z rámu.“',
+    length: '00:18 HD',
+  },
+}
+
+const dancePresets = [
+  { name: 'Waltz', mpm: 29 },
+  { name: 'Tango', mpm: 32 },
+  { name: 'V. Waltz', mpm: 58 },
+  { name: 'Slowfox', mpm: 29 },
+  { name: 'Quickstep', mpm: 50 },
+]
+
 export default function InteractivePhoneMockup() {
   const [activeTab, setActiveTab] = useState<MockupTab>('canvas')
-  const [selectedNode, setSelectedNode] = useState<number | null>(1)
+  const [selectedNode, setSelectedNode] = useState<number>(1)
   const [isPlayingMetronome, setIsPlayingMetronome] = useState<boolean>(false)
   const [tempoMPM, setTempoMPM] = useState<number>(29)
   const [currentBeat, setCurrentBeat] = useState<number>(1)
   const [videoScrub, setVideoScrub] = useState<number>(45)
+  const [isPlayingVideo, setIsPlayingVideo] = useState<boolean>(false)
   const [showBodyAngles, setShowBodyAngles] = useState<boolean>(true)
   const [rsvpState, setRsvpState] = useState<'idle' | 'attending' | 'skipped'>('attending')
   const [plannerSubTab, setPlannerSubTab] = useState<'regime' | 'ksis'>('regime')
@@ -34,6 +64,19 @@ export default function InteractivePhoneMockup() {
   const handleMouseLeave = () => {
     setTilt({ x: 0, y: 0 })
   }
+
+  // Smooth Video Scrubber Playback Simulator
+  useEffect(() => {
+    let interval: NodeJS.Timeout | null = null
+    if (isPlayingVideo) {
+      interval = setInterval(() => {
+        setVideoScrub((prev) => (prev >= 100 ? 0 : prev + 2))
+      }, 75)
+    }
+    return () => {
+      if (interval) clearInterval(interval)
+    }
+  }, [isPlayingVideo])
 
   // Audio Context Metronome Engine (Synthetic PCM Web Audio)
   useEffect(() => {
@@ -161,6 +204,14 @@ export default function InteractivePhoneMockup() {
         {/* ── OLED Display Screen (Pure Obsidian #050505) ───────────── */}
         <div className="relative w-full h-full rounded-[44px] bg-[#050505] overflow-hidden flex flex-col justify-between border border-black text-[#F5F5F5] select-none shadow-inner">
           
+          {/* Dynamic Physical Glass Glare Reflection */}
+          <div
+            className="absolute inset-0 rounded-[44px] pointer-events-none z-30 transition-opacity duration-300"
+            style={{
+              background: `linear-gradient(${125 + tilt.y * 4}deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.01) 45%, transparent 70%)`,
+            }}
+          />
+
           {/* Status Bar & Dynamic Island */}
           <div className="pt-3.5 px-6 flex justify-between items-center text-[11px] font-medium text-zinc-400 z-40 relative">
             <span className="font-semibold tracking-tight">9:41</span>
@@ -170,7 +221,7 @@ export default function InteractivePhoneMockup() {
               onClick={() => setDynamicIslandExpanded(!dynamicIslandExpanded)}
               className={`transition-all duration-300 bg-black border border-zinc-800 flex items-center justify-between cursor-pointer ${
                 dynamicIslandExpanded
-                  ? 'h-10 w-56 px-3 rounded-2xl bg-[#0E0D13]'
+                  ? 'h-10 w-56 px-3 rounded-2xl bg-[#121216] border-[#FFE088]/30 shadow-lg'
                   : 'h-6 w-28 px-2.5 rounded-full'
               }`}
             >
@@ -223,7 +274,7 @@ export default function InteractivePhoneMockup() {
                 </div>
 
                 {/* Parquet Simulation Area */}
-                <div className="relative h-60 rounded-2xl bg-[#080808] border border-white/10 p-2.5 overflow-hidden flex flex-col justify-between shadow-inner">
+                <div className="relative h-60 rounded-2xl bg-[#0A0A0A] border border-white/10 p-2.5 overflow-hidden flex flex-col justify-between shadow-inner">
                   {/* Subtle parquet lines */}
                   <div className="absolute inset-0 opacity-15 bg-[radial-gradient(#D4AF37_1px,transparent_1px)] [background-size:14px_14px]" />
                   <div className="absolute top-2 right-2 text-[8px] font-mono text-zinc-600 uppercase tracking-widest">
@@ -315,24 +366,34 @@ export default function InteractivePhoneMockup() {
                   </div>
                 </div>
 
-                {/* Node Inspector Sheet Preview */}
-                <div className="p-2.5 rounded-xl bg-[#121216] border border-[#FFE088]/20 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className="w-7 h-7 rounded-lg bg-[#D4AF37]/15 border border-[#FFE088]/30 flex items-center justify-center text-xs text-[#FFE088]">
-                      <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
-                        <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
-                      </svg>
+                {/* Node Inspector Sheet Preview - Dynamic to selected node */}
+                {(() => {
+                  const currentDetail = nodeDetails[selectedNode] || nodeDetails[1]
+                  return (
+                    <div className="p-2.5 rounded-xl bg-[#121216] border border-[#FFE088]/25 flex items-center justify-between transition-all">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-7 h-7 rounded-lg bg-[#D4AF37]/15 border border-[#FFE088]/30 flex items-center justify-center text-xs text-[#FFE088] shrink-0">
+                          <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
+                            <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+                          </svg>
+                        </div>
+                        <div className="text-left">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-[9.5px] font-bold text-white leading-none">{currentDetail.title}</span>
+                            <span className="text-[7.5px] font-mono text-[#FFE088]">{currentDetail.timing}</span>
+                          </div>
+                          <span className="text-[8.5px] text-zinc-300 block mt-0.5 line-clamp-1 italic">
+                            {currentDetail.comment}
+                          </span>
+                        </div>
+                      </div>
+                      <span className="text-[8px] font-mono text-[#FFE088] bg-[#D4AF37]/15 px-2 py-0.5 rounded-full font-bold shrink-0">
+                        {currentDetail.length}
+                      </span>
                     </div>
-                    <div>
-                      <span className="text-[8px] font-mono text-zinc-400 uppercase block">Trénerov komentár</span>
-                      <span className="text-[10px] font-bold text-white">„Silnejší tlak do stojnej nohy na 1“</span>
-                    </div>
-                  </div>
-                  <span className="text-[8px] font-mono text-[#FFE088] bg-[#D4AF37]/15 px-2 py-0.5 rounded-full font-bold">
-                    00:14 HD
-                  </span>
-                </div>
+                  )
+                })()}
               </div>
             )}
 
@@ -376,7 +437,7 @@ export default function InteractivePhoneMockup() {
                         </div>
                       )}
                     </div>
-                    <span className="text-[8px] font-mono text-zinc-500">00:04.12 • 120 FPS</span>
+                    <span className="text-[8px] font-mono text-zinc-500">00:04.{videoScrub} • 120 FPS</span>
                   </div>
 
                   {/* Right: Master / Coach Reference */}
@@ -399,7 +460,7 @@ export default function InteractivePhoneMockup() {
                         </div>
                       )}
                     </div>
-                    <span className="text-[8px] font-mono text-zinc-500">00:04.12 • 120 FPS</span>
+                    <span className="text-[8px] font-mono text-zinc-500">00:04.{videoScrub} • 120 FPS</span>
                   </div>
                 </div>
 
@@ -425,7 +486,12 @@ export default function InteractivePhoneMockup() {
                     >
                       ◀ 1 Frame
                     </button>
-                    <span className="font-mono text-white text-[9px]">00:04.{videoScrub}</span>
+                    <button
+                      onClick={() => setIsPlayingVideo(!isPlayingVideo)}
+                      className="px-2.5 py-0.5 rounded-full bg-[#FFE088] text-black font-mono font-bold flex items-center gap-1 shadow-sm hover:brightness-110 active:scale-95 transition-all"
+                    >
+                      {isPlayingVideo ? '⏸ Pauza' : '▶ Prehrať'}
+                    </button>
                     <button
                       onClick={() => setVideoScrub((p) => Math.min(100, p + 5))}
                       className="px-2 py-0.5 rounded bg-white/5 hover:bg-white/10 font-mono"
@@ -444,7 +510,7 @@ export default function InteractivePhoneMockup() {
                   <span className="text-[8.5px] font-mono uppercase text-[#D4AF37] tracking-widest block">
                     Syntetický Audio Engine (0ms Lag)
                   </span>
-                  <h4 className="text-xs font-serif font-bold text-white">Slow Waltz Metronóm</h4>
+                  <h4 className="text-xs font-serif font-bold text-white">Ballroom Tanečný Metronóm</h4>
                 </div>
 
                 {/* Pulsating Metronome Dial */}
@@ -496,6 +562,23 @@ export default function InteractivePhoneMockup() {
                   ))}
                 </div>
 
+                {/* Dance Quick Tempo Presets */}
+                <div className="flex flex-wrap gap-1 justify-center pt-0.5">
+                  {dancePresets.map((dance) => (
+                    <button
+                      key={dance.name}
+                      onClick={() => setTempoMPM(dance.mpm)}
+                      className={`px-2 py-0.5 rounded-full text-[8px] font-mono transition-all ${
+                        tempoMPM === dance.mpm
+                          ? 'bg-[#FFE088] text-black font-bold shadow-sm'
+                          : 'bg-[#141418] text-zinc-400 hover:text-white border border-white/5'
+                      }`}
+                    >
+                      {dance.name} {dance.mpm}
+                    </button>
+                  ))}
+                </div>
+
                 {/* Speed Pitch Box */}
                 <div className="w-full p-2 rounded-xl bg-[#121216] border border-white/10 text-left">
                   <div className="flex justify-between text-[9px] text-zinc-400 font-bold mb-1">
@@ -505,14 +588,14 @@ export default function InteractivePhoneMockup() {
                   <input
                     type="range"
                     min="24"
-                    max="34"
+                    max="60"
                     value={tempoMPM}
                     onChange={(e) => setTempoMPM(Number(e.target.value))}
                     className="w-full accent-[#D4AF37] h-1.5 bg-zinc-800 rounded-lg cursor-pointer"
                   />
                   <div className="flex justify-between text-[7.5px] text-zinc-500 font-mono mt-0.5">
                     <span>80% (Technika)</span>
-                    <span className="text-[#FFE088]">100% (Súťaž 29)</span>
+                    <span className="text-[#FFE088]">100% (Súťaž)</span>
                     <span>105% (Kondícia)</span>
                   </div>
                 </div>
@@ -557,9 +640,13 @@ export default function InteractivePhoneMockup() {
                       <h4 className="text-xs font-serif font-bold text-white">Vedený tréning Štandard</h4>
                       
                       <div className="flex items-center gap-1.5 my-2">
-                        <span className="w-1.5 h-1.5 rounded-full bg-[#FFE088]" />
+                        <span className={`w-1.5 h-1.5 rounded-full ${rsvpState === 'attending' ? 'bg-[#FFE088]' : 'bg-zinc-500'}`} />
                         <span className="text-[8.5px] text-zinc-300 font-semibold font-mono">
-                          Partnerka potvrdila účasť
+                          {rsvpState === 'attending'
+                            ? 'Partnerka potvrdila účasť • Pár kompletný'
+                            : rsvpState === 'skipped'
+                            ? 'Vynechané • Notifikácia trénerovi odoslaná'
+                            : 'Čaká sa na potvrdenie účasti'}
                         </span>
                       </div>
 
@@ -645,8 +732,8 @@ export default function InteractivePhoneMockup() {
           </div>
 
           {/* ── Native iOS Tab Bar (Crisp SVG SF Symbols) ── */}
-          <div className="pt-2 pb-5 px-6 border-t border-white/10 bg-[#080808] flex justify-between items-center text-[10px] text-zinc-500">
-            {/* Tab 1: Home */}
+          <div className="pt-2 pb-5 px-6 border-t border-white/10 bg-[#0A0A0A] flex justify-between items-center text-[10px] text-zinc-500">
+            {/* Tab 1: 2D Parket Canvas */}
             <div
               onClick={() => setActiveTab('canvas')}
               className={`flex flex-col items-center gap-0.5 cursor-pointer transition-colors ${
@@ -654,12 +741,13 @@ export default function InteractivePhoneMockup() {
               }`}
             >
               <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+                <rect x="3" y="3" width="18" height="18" rx="2" />
+                <path d="M3 9h18M9 21V9" />
               </svg>
-              <span className="text-[7.5px] font-medium font-sans">Domov</span>
+              <span className="text-[7.5px] font-medium font-sans">Parket</span>
             </div>
 
-            {/* Tab 2: Canvas / Parket */}
+            {/* Tab 2: Video Duel */}
             <div
               onClick={() => setActiveTab('video')}
               className={`flex flex-col items-center gap-0.5 cursor-pointer transition-colors ${
@@ -667,13 +755,13 @@ export default function InteractivePhoneMockup() {
               }`}
             >
               <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <rect x="3" y="3" width="18" height="18" rx="2" />
-                <path d="M7 7h10M7 12h10M7 17h6" />
+                <rect x="2" y="2" width="20" height="20" rx="3" />
+                <path d="M12 2v20M7 7l10 10" />
               </svg>
-              <span className="text-[7.5px] font-medium font-sans">Parket</span>
+              <span className="text-[7.5px] font-medium font-sans">Video</span>
             </div>
 
-            {/* Tab 3: Plán & Súťaže (NEW TAB) */}
+            {/* Tab 3: Plán & Súťaže KSIS */}
             <div
               onClick={() => setActiveTab('planner')}
               className={`flex flex-col items-center gap-0.5 cursor-pointer transition-colors ${
@@ -690,7 +778,7 @@ export default function InteractivePhoneMockup() {
               <span className="text-[7.5px] font-bold font-sans">Plán</span>
             </div>
 
-            {/* Tab 4: Profil */}
+            {/* Tab 4: Metronóm */}
             <div
               onClick={() => setActiveTab('metronome')}
               className={`flex flex-col items-center gap-0.5 cursor-pointer transition-colors ${
@@ -698,10 +786,10 @@ export default function InteractivePhoneMockup() {
               }`}
             >
               <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-                <circle cx="12" cy="7" r="4" />
+                <circle cx="12" cy="12" r="9" />
+                <path d="M12 7v5l3 3" />
               </svg>
-              <span className="text-[7.5px] font-medium font-sans">Profil</span>
+              <span className="text-[7.5px] font-medium font-sans">Metronóm</span>
             </div>
           </div>
 

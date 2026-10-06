@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
 
-export const runtime = 'edge';
 
 // Táto konfigurácia umožňuje na diaľku ovládať Encore iOS appku
 // bez nutnosti čakať na schvaľovanie novej verzie v App Store.

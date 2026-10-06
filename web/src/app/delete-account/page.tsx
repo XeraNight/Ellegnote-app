@@ -9,9 +9,9 @@ export const metadata: Metadata = {
 
 export default function DeleteAccountPage() {
   return (
-    <main className="min-h-screen bg-[#060608] text-white px-6 py-16 sm:py-24 font-sans selection:bg-[#D4AF37]/30">
-      {/* Ambient background glow */}
-      <div className="fixed top-1/4 left-1/2 -translate-x-1/2 w-[600px] h-[600px] bg-[#D4AF37]/10 rounded-full blur-[180px] pointer-events-none" />
+    <main className="min-h-screen bg-[#050505] text-[#F5F5F5] px-6 py-16 sm:py-24 font-sans selection:bg-[#D4AF37]/30">
+      {/* Ambient theatrical stage lighting */}
+      <div className="fixed top-0 left-1/2 -translate-x-1/2 w-[800px] h-[400px] bg-[radial-gradient(ellipse_75%_50%_at_50%_0%,rgba(212,175,55,0.08),transparent_70%)] pointer-events-none" />
 
       <div className="max-w-3xl mx-auto relative z-10">
         {/* Header navigation */}

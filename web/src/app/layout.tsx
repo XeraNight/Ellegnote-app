@@ -23,7 +23,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="sk" className={`dark ${inter.variable} ${playfair.variable}`}>
-      <body className={`${inter.className} font-sans antialiased bg-[#050507] text-white selection:bg-[#D4AF37]/30 selection:text-white`}>
+      <body className={`${inter.className} font-sans antialiased bg-[#050505] text-[#F5F5F5] selection:bg-[#D4AF37]/30 selection:text-white`}>
         <PostHogProvider>
           {children}
         </PostHogProvider>
