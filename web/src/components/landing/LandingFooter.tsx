@@ -42,9 +42,6 @@ export default function LandingFooter() {
             <Link href="/support" className="hover:text-[#FFE088] transition">
               Podpora & Kontakt
             </Link>
-            <Link href="/login" className="text-zinc-500 hover:text-white transition">
-              Web Štúdio →
-            </Link>
           </div>
         </div>
 

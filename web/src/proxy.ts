@@ -1,5 +1,4 @@
 import { type NextRequest, NextResponse } from 'next/server'
-import { createServerClient } from '@supabase/ssr'
 
 // ═══════════════════════════════════════════════════════════
 // SECURITY MIDDLEWARE
@@ -57,72 +56,13 @@ const SECURITY_HEADERS = {
   ].join('; '),
 }
 
-export async function proxy(request: NextRequest) {
-  const { pathname } = request.nextUrl
+export async function proxy(_request: NextRequest) {
   const response = NextResponse.next()
 
   // Apply all security headers to every response
   Object.entries(SECURITY_HEADERS).forEach(([key, value]) => {
     response.headers.set(key, value)
   })
-
-  // ── Auth guard: protect /dashboard/* (OWASP A04) ────────────────────
-  if (pathname.startsWith('/dashboard')) {
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          getAll: () => request.cookies.getAll(),
-          setAll: (cookiesToSet) => {
-            cookiesToSet.forEach(({ name, value, options }) => {
-              response.cookies.set(name, value, {
-                ...options,
-                httpOnly: true,
-                secure: true,
-                sameSite: 'strict',
-              })
-            })
-          },
-        },
-      }
-    )
-
-    const { data: { user } } = await supabase.auth.getUser()
-
-    if (!user) {
-      const loginUrl = new URL('/login', request.url)
-      loginUrl.searchParams.set('redirectTo', pathname)
-      return NextResponse.redirect(loginUrl)
-    }
-  }
-
-  // ── Redirect authenticated users away from login ─────────────────────
-  if (pathname === '/login') {
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          getAll: () => request.cookies.getAll(),
-          setAll: (cookiesToSet) => {
-            cookiesToSet.forEach(({ name, value, options }) => {
-              response.cookies.set(name, value, {
-                ...options,
-                httpOnly: true,
-                secure: true,
-                sameSite: 'strict',
-              })
-            })
-          },
-        },
-      }
-    )
-    const { data: { user } } = await supabase.auth.getUser()
-    if (user) {
-      return NextResponse.redirect(new URL('/dashboard', request.url))
-    }
-  }
 
   return response
 }
