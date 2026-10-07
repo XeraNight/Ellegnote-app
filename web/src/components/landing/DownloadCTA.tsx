@@ -9,13 +9,13 @@ export default function DownloadCTA() {
 
   return (
     <section id="download" className="py-20 relative z-10 max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
-      <div className="rounded-[36px] p-8 sm:p-14 surface-obsidian border-2 border-[#D4AF37]/45 shadow-[0_20px_80px_rgba(0,0,0,0.9)] relative overflow-hidden flex flex-col md:flex-row items-center justify-between gap-10">
+      <div className="rounded-[36px] p-8 sm:p-14 bg-white/[0.05] border border-white/10 backdrop-blur-xl shadow-[0_20px_80px_rgba(0,0,0,0.9)] relative overflow-hidden flex flex-col md:flex-row items-center justify-between gap-10">
 
         {/* Text & Badges */}
         <div className="space-y-6 max-w-lg text-center md:text-left z-10">
-          <div className="inline-block text-[11px] font-mono font-bold uppercase tracking-[0.2em] text-[#FFE088] bg-[#D4AF37]/20 px-3.5 py-1 rounded-full border border-[#D4AF37]/35">
-            Začnite ešte dnes
-          </div>
+          <span className="text-xs font-sans font-black tracking-[0.2em] uppercase text-[#FFE088] block">
+            ZAČNITE EŠTE DNES
+          </span>
           <h2 className="text-3xl sm:text-5xl font-serif font-black tracking-tight text-white leading-tight">
             Váš tanečný svet v jednej aplikácii
           </h2>

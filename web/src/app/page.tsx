@@ -45,8 +45,9 @@ export default function HomePage() {
   return (
     <div className="min-h-screen bg-[#050505] text-[#F5F5F5] selection:bg-[#D4AF37]/30 selection:text-white font-sans relative overflow-x-hidden">
       
-      {/* ── Theatrical Stage Spotlight (Controlled Overhead Warm Lighting) ── */}
-      <div className="fixed top-0 left-1/2 -translate-x-1/2 w-[1200px] h-[550px] bg-[radial-gradient(ellipse_75%_50%_at_50%_0%,rgba(212,175,55,0.08),transparent_70%)] pointer-events-none z-0" />
+      {/* ── Carmine Velvet Ballroom Stage Ambient (EllegancePageBackground 1:1) ── */}
+      <div className="fixed top-0 left-1/2 -translate-x-1/2 w-full max-w-[1400px] h-[650px] bg-[radial-gradient(ellipse_80%_60%_at_50%_-10%,rgba(102,3,18,0.22),transparent_75%)] pointer-events-none z-0" />
+      <div className="fixed top-0 left-1/2 -translate-x-1/2 w-[1100px] h-[500px] bg-[radial-gradient(ellipse_65%_45%_at_50%_0%,rgba(212,175,55,0.08),transparent_70%)] pointer-events-none z-0" />
 
       {/* ── Navigation ─────────────────────────────────────────────────── */}
       <LandingNavbar />
@@ -55,11 +56,10 @@ export default function HomePage() {
         {/* ── HERO SECTION ────────────────────────────────────────────── */}
         <section className="pt-32 pb-20 md:pt-40 md:pb-28 relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col items-center text-center">
           
-          {/* Top Pill Badge */}
-          <div className="inline-flex items-center gap-2.5 px-4 py-1.5 rounded-full bg-[#121216] border border-[#FFE088]/25 shadow-[0_0_20px_rgba(212,175,55,0.15)] mb-8 animate-fadeIn">
-            <span className="w-2 h-2 rounded-full bg-[#FFE088] animate-pulse" />
-            <span className="text-xs font-mono font-bold uppercase tracking-[0.2em] text-[#FFE088]">
-              #1 Aplikácia pre tanečný šport • WDSF & SZTŠ Ready
+          {/* Section Brand Tag (Brand Guidelines §1A HomeSectionHeader standard) */}
+          <div className="flex items-center gap-2 mb-8 animate-fadeIn">
+            <span className="text-xs font-sans font-black tracking-[0.2em] uppercase text-[#FFE088]">
+              APLIKÁCIA PRE SÚŤAŽNÝ TANEČNÝ ŠPORT
             </span>
           </div>
 
@@ -146,22 +146,22 @@ export default function HomePage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             
             {/* For Dancers & Couples */}
-            <div className="rounded-3xl p-8 sm:p-10 surface-obsidian space-y-4">
-              <span className="badge-gold">
-                Pre Tanečné Páry
+            <div className="rounded-[28px] p-8 sm:p-10 bg-white/[0.05] border border-white/10 backdrop-blur-xl space-y-4">
+              <span className="text-xs font-mono font-bold tracking-[0.15em] text-[#FFE088] uppercase block">
+                PRE TANEČNÉ PÁRY
               </span>
               <h3 className="text-2xl sm:text-3xl font-serif font-bold text-white">
                 Spoločná pamäť na každý krok a figúru
               </h3>
               <p className="text-sm text-zinc-300 leading-relaxed">
-                Už žiadne hádky o tom, kto zabudol novú variáciu z kempu. Obaja partneri majú okamžitý prístup ku kompletnej zostave, počítaniu rytmu a poznámkam trénera. Po súťaži vidíte svoje body a rozstrely.
+                Už žiadne hádky o tom, kto zabudol novú variáciu zo sústredenia. Obaja partneri majú okamžitý prístup ku kompletnej zostave, počítaniu rytmu a poznámkam trénera. Po súťaži vidíte svoje body a rozstrely.
               </p>
               <ul className="pt-2 space-y-2.5 text-xs text-zinc-300 font-mono">
                 <li className="flex items-center gap-2">
-                  <span className="text-[#FFE088]">✓</span> Okamžitá synchronizácia medzi partnermi (WebSocket &lt; 50ms)
+                  <span className="text-[#FFE088]">✓</span> Okamžitá synchronizácia medzi telefónmi partnerov
                 </li>
                 <li className="flex items-center gap-2">
-                  <span className="text-[#FFE088]">✓</span> Zdieľanie zostavy cez QR kód za 1 sekundu
+                  <span className="text-[#FFE088]">✓</span> Zdieľanie celej zostavy cez QR kód za sekundu
                 </li>
                 <li className="flex items-center gap-2">
                   <span className="text-[#FFE088]">✓</span> Prehľad o postupových bodoch do finále SZTŠ
@@ -170,15 +170,15 @@ export default function HomePage() {
             </div>
 
             {/* For Coaches & Studios */}
-            <div className="rounded-3xl p-8 sm:p-10 surface-obsidian space-y-4">
-              <span className="badge-gold">
-                Pre Trénerov & Kluby
+            <div className="rounded-[28px] p-8 sm:p-10 bg-white/[0.05] border border-white/10 backdrop-blur-xl space-y-4">
+              <span className="text-xs font-mono font-bold tracking-[0.15em] text-[#FFE088] uppercase block">
+                PRE TRÉNEROV & KLUBY
               </span>
               <h3 className="text-2xl sm:text-3xl font-serif font-bold text-white">
                 Rýchlejší a efektívnejší rozvoj zverencov
               </h3>
               <p className="text-sm text-zinc-300 leading-relaxed">
-                Počas individuálnej lekcie stačí nahovoriť poznámku. Nemusíte písať manuály do zošitov. Tréner má v Encore Studio prehľad o zostavách všetkých párov vo svojom klube a ich súťažnej pripravenosti.
+                Počas individuálnej lekcie stačí nahovoriť poznámku. Nemusíte písať manuály do zošitov. Tréner má v Encore prehľad o zostavách všetkých párov vo svojom klube a ich súťažnej pripravenosti.
               </p>
               <ul className="pt-2 space-y-2.5 text-xs text-zinc-300 font-mono">
                 <li className="flex items-center gap-2">

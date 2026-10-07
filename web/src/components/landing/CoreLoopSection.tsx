@@ -54,11 +54,12 @@ export default function CoreLoopSection() {
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         
-        {/* ── Section Header ────────────────────────────────────────── */}
+        {/* ── Section Header (Brand Guidelines §1A HomeSectionHeader standard) ── */}
         <div className="text-center max-w-3xl mx-auto mb-16 space-y-4">
-          <div className="badge-gold mx-auto">
-            <span className="w-1.5 h-1.5 rounded-full bg-[#FFE088] animate-pulse" />
-            <span>Filozofia Encore</span>
+          <div className="flex items-center justify-center gap-2">
+            <span className="text-xs font-sans font-black tracking-[0.2em] uppercase text-[#FFE088]">
+              FILOZOFIA ENCORE • HLAVNÝ TRÉNINGOVÝ CYKLUS
+            </span>
           </div>
 
           <h2 className="text-3xl sm:text-5xl lg:text-6xl font-serif font-black tracking-tight text-white leading-tight">

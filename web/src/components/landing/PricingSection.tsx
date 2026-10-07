@@ -6,9 +6,11 @@ export default function PricingSection() {
     <section id="pricing" className="py-24 relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
       {/* Section Header */}
       <div className="text-center max-w-3xl mx-auto mb-16 space-y-3">
-        <span className="text-xs font-mono font-bold uppercase tracking-[0.25em] text-[#FFE088] bg-[#D4AF37]/10 px-4 py-1.5 rounded-full border border-[#D4AF37]/25">
-          Transparentné Podmienky
-        </span>
+        <div className="flex items-center justify-center gap-2">
+          <span className="text-xs font-sans font-black tracking-[0.2em] uppercase text-[#FFE088]">
+            TRANSPARENTNÉ PODMIENKY
+          </span>
+        </div>
         <h2 className="text-3xl sm:text-5xl font-serif font-black tracking-tight text-white">
           Investícia do Vášho tanečného rastu
         </h2>
