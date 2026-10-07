@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState, useEffect, useRef } from 'react'
+import EncoreMascot from './EncoreMascot'
 
 type MockupTab = 'canvas' | 'video' | 'metronome' | 'planner'
 
@@ -39,12 +40,79 @@ export default function InteractivePhoneMockup() {
   const [isPlayingMetronome, setIsPlayingMetronome] = useState<boolean>(false)
   const [tempoMPM, setTempoMPM] = useState<number>(29)
   const [currentBeat, setCurrentBeat] = useState<number>(1)
+  const [soundEnabled, setSoundEnabled] = useState<boolean>(true)
   const [videoScrub, setVideoScrub] = useState<number>(45)
   const [isPlayingVideo, setIsPlayingVideo] = useState<boolean>(false)
   const [showBodyAngles, setShowBodyAngles] = useState<boolean>(true)
   const [rsvpState, setRsvpState] = useState<'idle' | 'attending' | 'skipped'>('attending')
   const [plannerSubTab, setPlannerSubTab] = useState<'regime' | 'ksis'>('regime')
   const [dynamicIslandExpanded, setDynamicIslandExpanded] = useState<boolean>(false)
+
+  // Web Audio Context reference (persistent to prevent audio node leakage)
+  const audioCtxRef = useRef<AudioContext | null>(null)
+
+  const getAudioContext = () => {
+    if (typeof window === 'undefined') return null
+    if (!audioCtxRef.current) {
+      const AudioCtx =
+        window.AudioContext ||
+        (window as unknown as { webkitAudioContext: typeof window.AudioContext }).webkitAudioContext
+      if (AudioCtx) {
+        audioCtxRef.current = new AudioCtx()
+      }
+    }
+    if (audioCtxRef.current && audioCtxRef.current.state === 'suspended') {
+      audioCtxRef.current.resume().catch(() => {})
+    }
+    return audioCtxRef.current
+  }
+
+  // Woodblock metronome sound synthesis
+  const playMetronomeTick = (isAccent: boolean) => {
+    if (!soundEnabled) return
+    try {
+      const ctx = getAudioContext()
+      if (!ctx) return
+      const now = ctx.currentTime
+
+      const osc = ctx.createOscillator()
+      const gain = ctx.createGain()
+
+      osc.type = 'triangle'
+      osc.frequency.setValueAtTime(isAccent ? 960 : 540, now)
+      osc.frequency.exponentialRampToValueAtTime(isAccent ? 340 : 220, now + 0.04)
+
+      gain.gain.setValueAtTime(isAccent ? 0.22 : 0.12, now)
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.048)
+
+      osc.connect(gain)
+      gain.connect(ctx.destination)
+
+      osc.start(now)
+      osc.stop(now + 0.05)
+    } catch {
+      // Audio autoplay policy fallback
+    }
+  }
+
+  // Tactile Discord-style UI click sound
+  const playUiClick = () => {
+    try {
+      const ctx = getAudioContext()
+      if (!ctx) return
+      const now = ctx.currentTime
+      const osc = ctx.createOscillator()
+      const gain = ctx.createGain()
+      osc.type = 'sine'
+      osc.frequency.setValueAtTime(750, now)
+      gain.gain.setValueAtTime(0.04, now)
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.03)
+      osc.connect(gain)
+      gain.connect(ctx.destination)
+      osc.start(now)
+      osc.stop(now + 0.035)
+    } catch {}
+  }
 
   // 3D Parallax tilt effect on mouse hover
   const frameRef = useRef<HTMLDivElement>(null)
@@ -86,24 +154,7 @@ export default function InteractivePhoneMockup() {
       interval = setInterval(() => {
         setCurrentBeat((prev) => {
           const next = prev >= 3 ? 1 : prev + 1
-          try {
-            const AudioContext = window.AudioContext || (window as unknown as { webkitAudioContext: typeof window.AudioContext }).webkitAudioContext
-            if (AudioContext) {
-              const ctx = new AudioContext()
-              const osc = ctx.createOscillator()
-              const gain = ctx.createGain()
-              osc.type = 'sine'
-              osc.frequency.setValueAtTime(next === 1 ? 880 : 440, ctx.currentTime)
-              gain.gain.setValueAtTime(0.12, ctx.currentTime)
-              gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.08)
-              osc.connect(gain)
-              gain.connect(ctx.destination)
-              osc.start()
-              osc.stop(ctx.currentTime + 0.09)
-            }
-          } catch {
-            // Audio context policy
-          }
+          playMetronomeTick(next === 1)
           return next
         })
       }, intervalMs)
@@ -113,16 +164,33 @@ export default function InteractivePhoneMockup() {
     return () => {
       if (interval) clearInterval(interval)
     }
-  }, [isPlayingMetronome, tempoMPM])
+  }, [isPlayingMetronome, tempoMPM, soundEnabled])
+
 
   return (
     <div className="w-full flex flex-col items-center">
       
+      {/* ── App Store & Google Play Live Preview Badge ── */}
+      <div className="flex flex-col items-center gap-2 mb-6 text-center">
+        <div className="inline-flex flex-wrap items-center justify-center gap-2 px-4 py-1.5 rounded-full bg-[#121216] border border-[#FFE088]/30 shadow-lg text-[11px] font-mono text-[#FFE088]">
+          <span className="flex text-[#FFE088]">★★★★★</span>
+          <span className="font-bold">4.9 v App Store & Google Play</span>
+          <span className="text-zinc-600 hidden sm:inline">•</span>
+          <span className="text-zinc-300">Len pre Mobil & Tablet (iPhone, iPad, Android)</span>
+        </div>
+        <p className="text-xs text-zinc-400 max-w-lg">
+          Interaktívna ukážka priamo v prehliadači — kliknite na moduly, spustite reálny metronóm so zvukom alebo preskúmajte parket:
+        </p>
+      </div>
+
       {/* ── Top Module Selector Pill Bar ────────────────────────────── */}
       <div className="flex flex-wrap justify-center items-center gap-2 mb-10 p-1.5 rounded-full bg-[#121216] border border-[#FFE088]/20 shadow-[0_10px_30px_rgba(0,0,0,0.8)] max-w-2xl">
         <button
-          onClick={() => setActiveTab('canvas')}
-          className={`px-5 py-2.5 rounded-full text-xs font-bold transition-all flex items-center gap-2 ${
+          onClick={() => {
+            playUiClick()
+            setActiveTab('canvas')
+          }}
+          className={`btn-discord-pill px-5 py-2.5 text-xs font-bold transition-all flex items-center gap-2 ${
             activeTab === 'canvas'
               ? 'bg-gradient-to-r from-[#FFF2CC] via-[#FFE088] to-[#D4AF37] text-black shadow-[0_0_20px_rgba(212,175,55,0.4)]'
               : 'text-zinc-400 hover:text-white'
@@ -136,8 +204,11 @@ export default function InteractivePhoneMockup() {
         </button>
 
         <button
-          onClick={() => setActiveTab('video')}
-          className={`px-5 py-2.5 rounded-full text-xs font-bold transition-all flex items-center gap-2 ${
+          onClick={() => {
+            playUiClick()
+            setActiveTab('video')
+          }}
+          className={`btn-discord-pill px-5 py-2.5 text-xs font-bold transition-all flex items-center gap-2 ${
             activeTab === 'video'
               ? 'bg-gradient-to-r from-[#FFF2CC] via-[#FFE088] to-[#D4AF37] text-black shadow-[0_0_20px_rgba(212,175,55,0.4)]'
               : 'text-zinc-400 hover:text-white'
@@ -151,8 +222,11 @@ export default function InteractivePhoneMockup() {
         </button>
 
         <button
-          onClick={() => setActiveTab('metronome')}
-          className={`px-5 py-2.5 rounded-full text-xs font-bold transition-all flex items-center gap-2 ${
+          onClick={() => {
+            playUiClick()
+            setActiveTab('metronome')
+          }}
+          className={`btn-discord-pill px-5 py-2.5 text-xs font-bold transition-all flex items-center gap-2 ${
             activeTab === 'metronome'
               ? 'bg-gradient-to-r from-[#FFF2CC] via-[#FFE088] to-[#D4AF37] text-black shadow-[0_0_20px_rgba(212,175,55,0.4)]'
               : 'text-zinc-400 hover:text-white'
@@ -166,8 +240,11 @@ export default function InteractivePhoneMockup() {
         </button>
 
         <button
-          onClick={() => setActiveTab('planner')}
-          className={`px-5 py-2.5 rounded-full text-xs font-bold transition-all flex items-center gap-2 ${
+          onClick={() => {
+            playUiClick()
+            setActiveTab('planner')
+          }}
+          className={`btn-discord-pill px-5 py-2.5 text-xs font-bold transition-all flex items-center gap-2 ${
             activeTab === 'planner'
               ? 'bg-gradient-to-r from-[#FFF2CC] via-[#FFE088] to-[#D4AF37] text-black shadow-[0_0_20px_rgba(212,175,55,0.4)]'
               : 'text-zinc-400 hover:text-white'
@@ -180,6 +257,9 @@ export default function InteractivePhoneMockup() {
           <span>Plán & KSIS</span>
         </button>
       </div>
+
+      {/* ── Interactive Playground: Phone Frame + Discord-Style Mascot Allegro ── */}
+      <div className="relative w-full max-w-4xl flex flex-col lg:flex-row items-center justify-center gap-8 lg:gap-14">
 
       {/* ── Realistic iPhone 16 Pro Titanium Chassis ─────────────────── */}
       <div
@@ -301,7 +381,10 @@ export default function InteractivePhoneMockup() {
 
                   {/* Figure Node 1 */}
                   <div
-                    onClick={() => setSelectedNode(1)}
+                    onClick={() => {
+                      playUiClick()
+                      setSelectedNode(1)
+                    }}
                     className={`relative z-10 self-start p-2 rounded-xl transition-all cursor-pointer max-w-[155px] ${
                       selectedNode === 1
                         ? 'bg-[#141418] border-2 border-[#FFE088] shadow-[0_0_15px_rgba(212,175,55,0.35)] scale-105'
@@ -323,7 +406,10 @@ export default function InteractivePhoneMockup() {
 
                   {/* Figure Node 2 */}
                   <div
-                    onClick={() => setSelectedNode(2)}
+                    onClick={() => {
+                      playUiClick()
+                      setSelectedNode(2)
+                    }}
                     className={`relative z-10 self-center p-2 rounded-xl transition-all cursor-pointer max-w-[155px] ${
                       selectedNode === 2
                         ? 'bg-[#141418] border-2 border-[#FFE088] shadow-[0_0_15px_rgba(212,175,55,0.35)] scale-105'
@@ -346,7 +432,10 @@ export default function InteractivePhoneMockup() {
 
                   {/* Figure Node 3 */}
                   <div
-                    onClick={() => setSelectedNode(3)}
+                    onClick={() => {
+                      playUiClick()
+                      setSelectedNode(3)
+                    }}
                     className={`relative z-10 self-end p-2 rounded-xl transition-all cursor-pointer max-w-[155px] ${
                       selectedNode === 3
                         ? 'bg-[#141418] border-2 border-[#FFE088] shadow-[0_0_15px_rgba(212,175,55,0.35)] scale-105'
@@ -506,16 +595,36 @@ export default function InteractivePhoneMockup() {
             {/* ═════════ TAB 3: METRONÓM & PITCH TRAINER ═════════ */}
             {activeTab === 'metronome' && (
               <div className="h-full flex flex-col justify-between items-center text-center py-1 animate-fadeIn space-y-2">
-                <div>
-                  <span className="text-[8.5px] font-mono uppercase text-[#D4AF37] tracking-widest block">
-                    Syntetický Audio Engine (0ms Lag)
-                  </span>
-                  <h4 className="text-xs font-serif font-bold text-white">Ballroom Tanečný Metronóm</h4>
+                <div className="flex items-center justify-between w-full px-1 border-b border-zinc-800/80 pb-1.5">
+                  <div className="text-left">
+                    <span className="text-[8.5px] font-mono uppercase text-[#D4AF37] tracking-widest block">
+                      Syntetický Audio Engine
+                    </span>
+                    <h4 className="text-xs font-serif font-bold text-white">Ballroom Tanečný Metronóm</h4>
+                  </div>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      playUiClick()
+                      setSoundEnabled(!soundEnabled)
+                    }}
+                    className={`text-[8px] font-mono px-2 py-0.5 rounded-full border transition-all ${
+                      soundEnabled
+                        ? 'bg-[#18181D] text-[#FFE088] border-[#FFE088]/40 shadow-sm'
+                        : 'bg-zinc-800 text-zinc-400 border-zinc-700'
+                    }`}
+                  >
+                    {soundEnabled ? 'Zvuk: 🔊' : 'Zvuk: 🔇'}
+                  </button>
                 </div>
 
                 {/* Pulsating Metronome Dial */}
                 <div
-                  onClick={() => setIsPlayingMetronome(!isPlayingMetronome)}
+                  onClick={() => {
+                    playUiClick()
+                    getAudioContext()
+                    setIsPlayingMetronome(!isPlayingMetronome)
+                  }}
                   className={`relative w-36 h-36 rounded-full border-4 transition-all flex flex-col items-center justify-center cursor-pointer ${
                     isPlayingMetronome
                       ? 'border-[#FFE088] shadow-[0_0_35px_rgba(212,175,55,0.35)] scale-105'
@@ -542,7 +651,7 @@ export default function InteractivePhoneMockup() {
 
                   {/* Play / Pause Pill */}
                   <div className="mt-1 px-2.5 py-0.5 rounded-full bg-white/10 text-[8px] font-bold text-[#FFE088]">
-                    {isPlayingMetronome ? '⏸ Pauza' : '▶ Spustiť'}
+                    {isPlayingMetronome ? '⏸ Pauza' : '▶ Spustiť zvuk'}
                   </div>
                 </div>
 
@@ -567,7 +676,10 @@ export default function InteractivePhoneMockup() {
                   {dancePresets.map((dance) => (
                     <button
                       key={dance.name}
-                      onClick={() => setTempoMPM(dance.mpm)}
+                      onClick={() => {
+                        playUiClick()
+                        setTempoMPM(dance.mpm)
+                      }}
                       className={`px-2 py-0.5 rounded-full text-[8px] font-mono transition-all ${
                         tempoMPM === dance.mpm
                           ? 'bg-[#FFE088] text-black font-bold shadow-sm'
@@ -798,10 +910,41 @@ export default function InteractivePhoneMockup() {
         </div>
       </div>
 
+      {/* ── Discord-Style Mascot Allegro Side Panel Companion ── */}
+      <div className="flex flex-col items-center lg:items-start text-center lg:text-left gap-3 max-w-xs shrink-0 animate-fadeIn">
+        <EncoreMascot
+          isPlayingMetronome={isPlayingMetronome}
+          currentBeat={currentBeat}
+          onPlayClick={() => {
+            playUiClick()
+            getAudioContext()
+            setIsPlayingMetronome((prev) => !prev)
+          }}
+        />
+        
+        <div className="bg-[#121216] border border-[#FFE088]/20 p-3.5 rounded-2xl shadow-xl backdrop-blur-md">
+          <div className="flex items-center gap-2 mb-1 justify-center lg:justify-start">
+            <span className="w-2 h-2 rounded-full bg-[#FFE088] animate-pulse" />
+            <span className="text-[10px] font-mono text-[#FFE088] font-bold uppercase tracking-wider">
+              Tanečný Asistent Allegro
+            </span>
+          </div>
+          <p className="text-xs text-zinc-300 leading-snug">
+            Kliknutím na Allegra získate ďalší trénerský pokyn, alebo spustite metronóm v telefóne a sledujte, ako drží rytmus.
+          </p>
+          <div className="mt-2.5 pt-2 border-t border-white/10 flex items-center justify-between text-[10px] font-mono text-zinc-400">
+            <span>Doba: <strong className="text-[#FFE088]">{currentBeat} / 3</strong></span>
+            <span>Tempo: <strong className="text-white">{tempoMPM} MPM</strong></span>
+          </div>
+        </div>
+      </div>
+
+      </div>
+
       {/* Interactive Hint Under Phone */}
-      <p className="text-[11px] font-mono text-zinc-500 mt-4 flex items-center gap-2">
+      <p className="text-[11px] font-mono text-zinc-400 mt-6 flex items-center gap-2">
         <span className="w-2 h-2 rounded-full bg-[#FFE088] animate-pulse" />
-        Vyskúšajte kliknúť na jednotlivé moduly alebo figúry na parkete
+        Skutočný Web Audio syntetizátor • Kliknite na moduly, figúry alebo tempo pre živú zvukovú odozvu
       </p>
     </div>
   )

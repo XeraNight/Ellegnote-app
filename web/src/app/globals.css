@@ -480,4 +480,65 @@ body::before {
   box-shadow: 0 0 12px rgba(212, 175, 55, 0.2);
 }
 
+/* ── Discord-Inspired Tactile Micro-Physics & Mascot Animations ──── */
+@keyframes wave {
+  0%, 100% {
+    transform: rotate(0deg);
+  }
+  20%, 60% {
+    transform: rotate(18deg);
+  }
+  40%, 80% {
+    transform: rotate(-10deg);
+  }
+}
+
+@keyframes floatMascot {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+@keyframes starTwinkle {
+  0%, 100% {
+    opacity: 0.2;
+    transform: scale(0.8) rotate(0deg);
+  }
+  50% {
+    opacity: 0.85;
+    transform: scale(1.15) rotate(180deg);
+  }
+}
+
+.animate-wave {
+  animation: wave 1.8s ease-in-out infinite;
+}
+
+.animate-float-mascot {
+  animation: floatMascot 4s ease-in-out infinite;
+}
+
+.animate-star-twinkle {
+  animation: starTwinkle 3.5s ease-in-out infinite;
+}
+
+/* Discord Tactile Button Physics (Pill, Lift, Arrow Nudge, Squish on click) */
+.btn-discord-pill {
+  border-radius: 9999px;
+  transition: transform 0.15s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+  user-select: none;
+}
+
+.btn-discord-pill:hover {
+  transform: translateY(-2.5px);
+}
+
+.btn-discord-pill:active {
+  transform: scale(0.96) translateY(1px);
+}
+
+
 
