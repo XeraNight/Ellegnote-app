@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import LandingNavbar from '@/components/landing/LandingNavbar'
+import HeroStageLighting from '@/components/landing/HeroStageLighting'
 import InteractivePhoneMockup from '@/components/landing/InteractivePhoneMockup'
 import CoreLoopSection from '@/components/landing/CoreLoopSection'
 import BentoFeatures from '@/components/landing/BentoFeatures'
@@ -45,9 +46,8 @@ export default function HomePage() {
   return (
     <div className="min-h-screen bg-[#050505] text-[#F5F5F5] selection:bg-[#D4AF37]/30 selection:text-white font-sans relative overflow-x-hidden">
       
-      {/* ── Carmine Velvet Ballroom Stage Ambient (EllegancePageBackground 1:1) ── */}
-      <div className="fixed top-0 left-1/2 -translate-x-1/2 w-full max-w-[1400px] h-[650px] bg-[radial-gradient(ellipse_80%_60%_at_50%_-10%,rgba(102,3,18,0.22),transparent_75%)] pointer-events-none z-0" />
-      <div className="fixed top-0 left-1/2 -translate-x-1/2 w-[1100px] h-[500px] bg-[radial-gradient(ellipse_65%_45%_at_50%_0%,rgba(212,175,55,0.08),transparent_70%)] pointer-events-none z-0" />
+      {/* ── Dynamic Stage Lighting (Follow-Spotlight & Carmine Velvet) ── */}
+      <HeroStageLighting />
 
       {/* ── Navigation ─────────────────────────────────────────────────── */}
       <LandingNavbar />
