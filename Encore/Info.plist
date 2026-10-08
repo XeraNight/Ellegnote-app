@@ -53,6 +53,8 @@
 	<string>Encore potrebuje prístup ku kamere na nahrávanie tréningových videí figúr a skenovanie QR kódov zostáv.</string>
 	<key>NSFaceIDUsageDescription</key>
 	<string>Potrebné na rýchle a bezpečné prihlásenie do aplikácie Encore pomocou Face ID.</string>
+	<key>NSCalendarsFullAccessUsageDescription</key>
+	<string>Encore odstráni z kalendára iba tréningy a súťaže, ktoré sám vytvoril, keď o to požiadaš. Ostatné udalosti nečíta ani nemení.</string>
 	<key>NSCalendarsWriteOnlyAccessUsageDescription</key>
 	<string>Encore pridá tvoje tréningy a súťaže do kalendára iba na tvoju žiadosť. Existujúce udalosti nečíta.</string>
 	<key>NSMicrophoneUsageDescription</key>
@@ -60,7 +62,7 @@
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>Encore vyžaduje povolenie na ukladanie vygenerovaných QR kódov a tréningových materiálov do knižnice fotiek.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>Encore potrebuje prístup ku knižnici fotiek na výber fotografií figúr a profilového obrázku.</string>
+	<string>Encore ukladá tvoje tréningové videá do Fotiek (album Encore) a ukazuje ich pri poznámkach a figúrach. Z Fotiek si vyberáš aj fotky figúr a profilový obrázok.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
 	<string>Encore využíva rozpoznávanie reči na okamžitý automatický prepis hovorených pokynov trénera do textu.</string>
 	<key>NSSupportsLiveActivities</key>

@@ -55,6 +55,9 @@ struct DanceCameraView: View {
     
     // Callbacks
     var ghostVideoPath: String? = nil
+    /// The finished clip goes into Fotky (album "Encore") and the callback gets a `photos:` reference.
+    /// Without access to Fotky it stays in the app as before.
+    var savesToPhotos = false
     var onRecordComplete: (String) -> Void
     
     // Camera Controller State
@@ -244,17 +247,20 @@ struct DanceCameraView: View {
                 nil,
                 .deliverImmediately
             )
-            
-            if let ghostPath = ghostVideoPath, let url = MediaResolver.resolveVideoURL(path: ghostPath) {
-                let item = AVPlayerItem(url: url)
-                let player = AVPlayer(playerItem: item)
-                player.actionAtItemEnd = .none
-                NotificationCenter.default.addObserver(forName: .AVPlayerItemDidPlayToEndTime, object: item, queue: .main) { _ in
-                    player.seek(to: .zero)
-                    player.play()
-                }
-                self.ghostPlayer = player
+        }
+        .task(id: ghostVideoPath) {
+            // The ghost video may live in Fotky, so it is looked up asynchronously; leaving cancels the task.
+            guard let ghostPath = ghostVideoPath,
+                  let url = await MediaResolver.videoURL(path: ghostPath),
+                  !Task.isCancelled else { return }
+            let item = AVPlayerItem(url: url)
+            let player = AVPlayer(playerItem: item)
+            player.actionAtItemEnd = .none
+            NotificationCenter.default.addObserver(forName: .AVPlayerItemDidPlayToEndTime, object: item, queue: .main) { _ in
+                player.seek(to: .zero)
+                player.play()
             }
+            self.ghostPlayer = player
         }
         .onDisappear {
             stopCountdown()
@@ -296,13 +302,7 @@ struct DanceCameraView: View {
                         showTrimmerSheet = true
                     },
                     onSaveCompleted: { finalURL in
-                        do {
-                            let filename = try MediaStorageManager.moveIntoDocuments(from: finalURL, fileExtension: "mp4")
-                            onRecordComplete(filename)
-                            dismiss()
-                        } catch {
-                            print("Failed to save final video: \(error)")
-                        }
+                        Task { await storeRecording(at: finalURL) }
                     }
                 )
             }
@@ -319,6 +319,25 @@ struct DanceCameraView: View {
         }
     }
     
+    // MARK: - Saving the clip
+    private func storeRecording(at url: URL) async {
+        if savesToPhotos, await PhotoLibraryVideoStore.requestAccess() {
+            do {
+                onRecordComplete(try await PhotoLibraryVideoStore.save(videoAt: url))
+                dismiss()
+                return
+            } catch {
+                Logger.camera.error("Saving to Fotky failed, keeping the clip in the app: \(error.localizedDescription, privacy: .public)")
+            }
+        }
+        do {
+            onRecordComplete(try MediaStorageManager.moveIntoDocuments(from: url, fileExtension: "mp4"))
+            dismiss()
+        } catch {
+            Logger.camera.error("Saving the clip failed: \(error.localizedDescription, privacy: .public)")
+        }
+    }
+
     // MARK: - Top Header Bar (Safe from Dynamic Island)
     private var topHeaderBar: some View {
         HStack {

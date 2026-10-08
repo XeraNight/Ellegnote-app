@@ -162,7 +162,7 @@ struct BallroomMarkingsView: View {
             
             // Ľavá dlhá stena: Jasný zlatý badge (LOD ▲ smer nahor)
             wallBadge(
-                title: "ĽAVÁ DLHÁ STENA",
+                title: "DLHÁ STENA",
                 subTitle: "LEFT LONG SIDE • LOD ▲",
                 icon: "arrow.up",
                 isVertical: true
@@ -171,7 +171,7 @@ struct BallroomMarkingsView: View {
             
             // Pravá dlhá stena: Jasný zlatý badge (LOD ▼ smer nadol)
             wallBadge(
-                title: "PRAVÁ DLHÁ STENA",
+                title: "DLHÁ STENA",
                 subTitle: "RIGHT LONG SIDE • LOD ▼",
                 icon: "arrow.down",
                 isVertical: true
@@ -207,7 +207,7 @@ struct BallroomMarkingsView: View {
             
             // Horná krátka stena: Zlatý badge (LOD ▶ smer doprava)
             wallBadge(
-                title: "HORNÁ KRÁTKA STENA",
+                title: "KRÁTKA STENA",
                 subTitle: "TOP SHORT SIDE • LOD ▶",
                 icon: "arrow.right",
                 isVertical: false
@@ -216,7 +216,7 @@ struct BallroomMarkingsView: View {
             
             // Dolná krátka stena: Zlatý badge (LOD ◀ smer doľava)
             wallBadge(
-                title: "DOLNÁ KRÁTKA STENA",
+                title: "KRÁTKA STENA",
                 subTitle: "BOTTOM SHORT SIDE • LOD ◀",
                 icon: "arrow.left",
                 isVertical: false
@@ -442,97 +442,56 @@ struct CanvasNodeCardView: View {
         lockedByUserName != nil
     }
     
+    /// Zoomed far out the small details cannot be read anyway, so only the number and the name stay, bigger.
+    private var isFarOut: Bool { scale < 0.5 }
+
+    private var inkColor: Color { isTranslucent ? .white : Color.themeDark }
+    private var accentColor: Color { isTranslucent ? Color.gold400 : Color.themeAccent }
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack {
-                Text("#\(node.orderIndex + 1)")
-                    .font(.system(size: 11, weight: .black))
-                    .foregroundColor(.white)
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 2)
-                    .background(Color.themeAccent)
-                    .cornerRadius(6)
-                Spacer()
-                
+        VStack(alignment: .leading, spacing: isFarOut ? 6 : 8) {
+            HStack(spacing: 6) {
+                Text("\(node.orderIndex + 1)")
+                    .font(.system(size: isFarOut ? 20 : 13, weight: .black, design: .rounded))
+                    .foregroundColor(Color.obsidian900)
+                    .frame(width: isFarOut ? 34 : 24, height: isFarOut ? 34 : 24)
+                    .background(
+                        LinearGradient(colors: [Color.gold400, Color.gold500], startPoint: .topLeading, endPoint: .bottomTrailing),
+                        in: Circle()
+                    )
+                Spacer(minLength: 0)
+
                 if let lockedBy = lockedByUserName {
                     HStack(spacing: 3) {
-                        Image(systemName: "lock.fill")
-                            .font(.system(size: 8, weight: .bold))
-                        Text(lockedBy)
-                            .font(.system(size: 9, weight: .bold))
-                            .lineLimit(1)
+                        Image(systemName: "lock.fill").font(.system(size: 8, weight: .bold))
+                        Text(lockedBy).font(.system(size: 9, weight: .bold)).lineLimit(1)
                     }
                     .foregroundColor(.obsidian900)
                     .padding(.horizontal, 6)
-                    .padding(.vertical, 2)
-                    .background(LinearGradient(colors: [Color.gold400, Color.gold500], startPoint: .topLeading, endPoint: .bottomTrailing))
-                    .cornerRadius(6)
-                    .shadow(color: Color.gold500.opacity(0.4), radius: 4)
-                } else {
-                    Button(action: { showDeleteConfirm = true }) {
-                        Image(systemName: "multiply")
-                            .font(.system(size: 11, weight: .bold))
-                            .foregroundColor(isTranslucent ? Color.white.opacity(0.7) : Color.themeDark.opacity(0.4))
-                    }
+                    .padding(.vertical, 3)
+                    .background(Color.gold400, in: Capsule())
+                } else if !isFarOut {
+                    statusIcons
                 }
             }
+
             Text(node.figureName)
-                .font(.system(size: 14, weight: .bold, design: .serif))
-                .foregroundColor(isTranslucent ? Color.white : Color.themeDark)
-                .lineLimit(2)
+                .font(.system(size: isFarOut ? 19 : 15, weight: .bold, design: .serif))
+                .foregroundColor(inkColor)
+                .lineLimit(isFarOut ? 3 : 2)
+                .minimumScaleFactor(0.8)
                 .multilineTextAlignment(.leading)
-            if !node.rhythm.isEmpty {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(node.rhythm)
-                        .font(.system(size: 11, weight: .bold))
-                        .foregroundColor(isTranslucent ? Color.gold300 : Color.themeAccent)
-                    
-                    BeatsTimelineView(rhythm: node.rhythm)
-                }
-            }
-            HStack(spacing: 6) {
-                if node.videoPath != nil {
-                    Image(systemName: "video.fill")
-                        .font(.system(size: 10))
-                        .foregroundColor(isTranslucent ? Color.gold400 : Color.themeAccent)
-                }
-                if !node.notes.isEmpty {
-                    Image(systemName: "doc.text.fill")
-                        .font(.system(size: 10))
-                        .foregroundColor(isTranslucent ? Color.white.opacity(0.75) : Color.themeDark.opacity(0.5))
-                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+            Spacer(minLength: 0)
+
+            if !isFarOut, !node.rhythm.isEmpty {
+                BeatsTimelineView(rhythm: node.rhythm, tint: accentColor)
             }
         }
         .padding(12)
         .frame(width: 140, height: 132)
-        .background(
-            Group {
-                if isTranslucent {
-                    // Frosted Liquid Glass: shows dance parquet wood grain through the card!
-                    ZStack {
-                        RoundedRectangle(cornerRadius: 16)
-                            .fill(.ultraThinMaterial)
-                            .opacity(0.88)
-                        RoundedRectangle(cornerRadius: 16)
-                            .fill(Color.obsidian900.opacity(0.48))
-                        RoundedRectangle(cornerRadius: 16)
-                            .stroke(
-                                LinearGradient(
-                                    colors: [Color.gold300.opacity(0.70), Color.gold500.opacity(0.30)],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                ),
-                                lineWidth: 1.3
-                            )
-                    }
-                    .shadow(color: Color.black.opacity(0.40), radius: 8, x: 0, y: 4)
-                } else {
-                    Color.themeCard
-                        .cornerRadius(16)
-                        .neubrutalistCard(cornerRadius: 16, shadowOffset: 3)
-                }
-            }
-        )
+        .background(cardBackground)
         .scaleEffect(cardScale, anchor: .center)
         .overlay(
             Group {
@@ -545,6 +504,12 @@ struct CanvasNodeCardView: View {
         )
         .contentShape(Rectangle())
         .onTapGesture(perform: onTap)
+        .contextMenu {
+            Button(action: onTap) { Label("Otvoriť figúru", systemImage: "arrow.up.right.square") }
+            if !isLockedByPartner {
+                Button(role: .destructive) { showDeleteConfirm = true } label: { Label("Vymazať figúru", systemImage: "trash") }
+            }
+        }
         .highPriorityGesture(
             DragGesture(minimumDistance: 4, coordinateSpace: .global)
                 .onChanged { value in
@@ -611,9 +576,55 @@ struct CanvasNodeCardView: View {
     }
 }
 
+extension CanvasNodeCardView {
+    /// Small markers: video, own notes, a remark from the coach.
+    @ViewBuilder
+    fileprivate var statusIcons: some View {
+        HStack(spacing: 5) {
+            if node.displayVideoPath != nil {
+                Image(systemName: "video.fill")
+            }
+            if !node.notes.isEmpty {
+                Image(systemName: "doc.text.fill")
+            }
+            if let remark = node.coachNotes, !remark.isEmpty {
+                Image(systemName: "person.badge.shield.checkmark.fill")
+            }
+        }
+        .font(.system(size: 10, weight: .semibold))
+        .foregroundColor(accentColor.opacity(0.9))
+    }
+
+    fileprivate var cardBackground: some View {
+        Group {
+            if isTranslucent {
+                // Frosted glass: the parquet grain shows through.
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .fill(.ultraThinMaterial)
+                    .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(Color.obsidian900.opacity(0.42)))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 18, style: .continuous)
+                            .stroke(
+                                LinearGradient(colors: [Color.gold300.opacity(0.65), Color.gold500.opacity(0.25)],
+                                               startPoint: .topLeading, endPoint: .bottomTrailing),
+                                lineWidth: 1
+                            )
+                    )
+                    .shadow(color: Color.black.opacity(0.35), radius: 10, y: 5)
+            } else {
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .fill(Color.themeCard)
+                    .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(Color.themeDark.opacity(0.12), lineWidth: 1))
+                    .shadow(color: Color.black.opacity(0.22), radius: 8, y: 4)
+            }
+        }
+    }
+}
+
 // MARK: - Beats Timeline View
 struct BeatsTimelineView: View {
     let rhythm: String
+    var tint: Color = Color.themeAccent
     
     var beats: [String] {
         rhythm.components(separatedBy: CharacterSet(charactersIn: ", ")).filter { !$0.isEmpty }
@@ -625,9 +636,8 @@ struct BeatsTimelineView: View {
                 Text(beats[i])
                     .font(.system(size: 9, weight: .bold))
                     .foregroundColor(.white)
-                    .frame(width: 14, height: 14)
-                    .background(Color.themeAccent)
-                    .cornerRadius(3)
+                    .frame(width: 15, height: 15)
+                    .background(tint.opacity(0.85), in: RoundedRectangle(cornerRadius: 4, style: .continuous))
             }
         }
     }

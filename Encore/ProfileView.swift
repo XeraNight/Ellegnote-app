@@ -1,762 +1,66 @@
-import Foundation
 import SwiftUI
 import SwiftData
-import UIKit
-import PhotosUI
+import StoreKit
 
+// MARK: - Profile tab ("Profil")
+/// Who I am and my dancing world, grouped by purpose (BRAND_GUIDELINES §1A):
+/// header → account → dance world (connections, competitions, studio) → membership → card →
+/// library → settings. Each destination is its own screen.
 struct ProfileView: View {
-    @Environment(\.modelContext) private var modelContext
     @Query private var routines: [Routine]
-    @Query private var dances: [Dance]
     @Query private var figures: [FigureLibraryItem]
     @Query private var nodes: [CanvasNode]
-    
-    // MARK: - Per-Account Profile Store (prevents cross-user profile leaks)
+    @Query private var dances: [Dance]
+
     @ObservedObject private var profileStore = UserProfileStore.shared
     @ObservedObject private var authManager = AuthManager.shared
-    @ObservedObject private var notificationManager = NotificationManager.shared
-    @ObservedObject private var friendManager = FriendManager.shared
-    @ObservedObject private var competitionManager = CompetitionManager.shared
-    
-    @State private var showEditProfile = false
-    @State private var showResetConfirmation = false
-    @State private var showDeleteAccountConfirmation = false
-    @State private var isDeletingAccount = false
-    @State private var pendingMaintenanceAction: MaintenanceAction?
-    @State private var editedName = ""
-    @State private var editedClub = ""
-    @State private var selectedProfilePhotoItem: PhotosPickerItem?
-    @State private var isSavingProfilePhoto = false
-    @State private var imageToCrop: UIImage? = nil
-    @State private var showCropSheet = false
-    @State private var showAuthSheet = false
-    @State private var showLegalSheet = false
-    @State private var showOwnerAdminSheet = false
-    @State private var showPaywallSheet = false
-    @State private var showChangePasswordSheet = false
     @ObservedObject private var subscriptionManager = SubscriptionManager.shared
     @ObservedObject private var connectionManager = ConnectionManager.shared
-    
-    // Storage loaded async to avoid file I/O on main thread
-    @State private var storageUsageBytes: Int64 = 0
-    @State private var storageLoading = true
+    @ObservedObject private var competitionManager = CompetitionManager.shared
+    @ObservedObject private var friendManager = FriendManager.shared
 
-    // Cached stats — only recalculated when @Query data changes (not every render)
-    @State private var cachedStats: (videos: Int, notes: Int, customFigures: Int, standard: Int, latin: Int) = (0, 0, 0, 0, 0)
-
-    private func computeStats() -> (videos: Int, notes: Int, customFigures: Int, standard: Int, latin: Int) {
-        var videos = 0, notes = 0, custom = 0, standard = 0, latin = 0
-        for node in nodes {
-            if node.videoPath != nil { videos += 1 }
-            if !node.notes.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { notes += 1 }
-        }
-        for figure in figures {
-            if figure.videoPath != nil { videos += 1 }
-            if !figure.techniqueNotes.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { notes += 1 }
-            if figure.isCustom { custom += 1 }
-        }
-        for dance in dances {
-            if dance.videoPath != nil { videos += 1 }
-            if !dance.info.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { notes += 1 }
-        }
-        for routine in routines {
-            switch routine.danceCategory.lowercased() {
-            case "standard": standard += 1
-            case "latin":    latin += 1
-            default: break
-            }
-        }
-        return (videos, notes, custom, standard, latin)
-    }
-
-    private var recentRoutines: [Routine] {
-        routines.sorted { $0.updatedAt > $1.updatedAt }
-    }
-
-    private var videoCount:         Int    { cachedStats.videos }
-    private var notesCount:         Int    { cachedStats.notes }
-    private var customFiguresCount: Int    { cachedStats.customFigures }
-    private var standardCount:      Int    { cachedStats.standard }
-    private var latinCount:         Int    { cachedStats.latin }
-
-    private var mostUsedDanceName: String {
-        Dictionary(grouping: routines, by: \.danceName)
-            .max { $0.value.count < $1.value.count }?.key ?? "Zatiaľ nič"
-    }
-
-    private var storageUsageText: String {
-        storageLoading ? "…" : ByteCountFormatter.string(fromByteCount: storageUsageBytes, countStyle: .file)
-    }
-    
-    private var appVersion: String {
-        let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"
-        let build   = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "1"
-        return "Encore v\(version) (\(build)) • Crimson & Gold"
-    }
-
-    // MARK: - Body sections (Luxury Obsidian & Gold Styling)
-
-    @ViewBuilder private var membershipTierSection: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            Text("Členstvo & Predplatné").sectionHeader()
-            
-            Button {
-                showPaywallSheet = true
-            } label: {
-                HStack(spacing: 14) {
-                    ZStack {
-                        Circle()
-                            .fill(subscriptionManager.currentTier.badgeColor.opacity(0.18))
-                            .frame(width: 44, height: 44)
-                        Image(systemName: subscriptionManager.currentTier.iconName)
-                            .font(.system(size: 19, weight: .bold))
-                            .foregroundColor(subscriptionManager.currentTier.badgeColor)
-                    }
-                    .overlay(
-                        Circle().stroke(subscriptionManager.currentTier.badgeColor.opacity(0.4), lineWidth: 1)
-                    )
-                    
-                    VStack(alignment: .leading, spacing: 3) {
-                        HStack(spacing: 6) {
-                            Text("Encore \(subscriptionManager.currentTier.rawValue)")
-                                .font(.system(size: 15, weight: .bold))
-                                .foregroundColor(.white)
-                            
-                            if subscriptionManager.isAppOwner {
-                                Text("MAJITEĽ")
-                                    .font(.system(size: 9, weight: .black))
-                                    .foregroundColor(LuxuryTheme.obsidian900)
-                                    .padding(.horizontal, 6)
-                                    .padding(.vertical, 2)
-                                    .background(LuxuryTheme.gold400)
-                                    .cornerRadius(6)
-                            } else if subscriptionManager.entitlementSource == .ownerGrant {
-                                Text("VIP GRANT")
-                                    .font(.system(size: 9, weight: .black))
-                                    .foregroundColor(LuxuryTheme.obsidian900)
-                                    .padding(.horizontal, 6)
-                                    .padding(.vertical, 2)
-                                    .background(LuxuryTheme.gold400)
-                                    .cornerRadius(6)
-                            }
-                        }
-                        
-                        Text(subscriptionManager.currentTier.shortDescription)
-                            .font(.system(size: 12, weight: .medium))
-                            .foregroundColor(Color.white.opacity(0.65))
-                            .lineLimit(1)
-                    }
-                    
-                    Spacer()
-                    
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 12, weight: .bold))
-                        .foregroundColor(Color.gold400.opacity(0.6))
-                }
-                .padding(16)
-                .luxuryProfileCard(cornerRadius: 18)
-            }
-            .buttonStyle(.plain)
-        }
-    }
-
-    @ViewBuilder private var memberCardSection: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack {
-                Text("Moja Digitálna Karta").sectionHeader()
-                Spacer()
-                Text("Apple Peňaženka")
-                    .font(.system(size: 11, weight: .bold))
-                    .foregroundColor(Color.gold400)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .background(Color.gold500.opacity(0.12))
-                    .cornerRadius(8)
-            }
-            
-            EncoreMemberCardView(
-                name: profileStore.currentName,
-                club: profileStore.currentClub,
-                userId: profileStore.activeUserId,
-                allowInteractiveTilt: true,
-                showActionButtons: true
-            )
-        }
-    }
-
-    @ViewBuilder private var competitionDiarySection: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            Text("Súťažný Denník & Postupy").sectionHeader()
-            NavigationLink(destination: CompetitionTrackerView()) {
-                HStack(spacing: 14) {
-                    ZStack {
-                        Circle()
-                            .fill(Color.gold500.opacity(0.15))
-                            .frame(width: 44, height: 44)
-                        Image(systemName: "trophy.fill")
-                            .font(.system(size: 18, weight: .bold))
-                            .foregroundColor(.gold400)
-                    }
-                    .overlay(
-                        Circle().stroke(Color.gold500.opacity(0.35), lineWidth: 1)
-                    )
-
-                    VStack(alignment: .leading, spacing: 3) {
-                        if let couple = competitionManager.activeCouple {
-                            let adv = competitionManager.computeAdvancement(for: couple.coupleId)
-                            Text(couple.fullCoupleTitle(myUserName: profileStore.currentName))
-                                .font(.system(size: 15, weight: .bold))
-                                .foregroundColor(.white)
-                            HStack(spacing: 6) {
-                                Text(couple.disciplineTitle)
-                                    .font(.system(size: 11, weight: .semibold))
-                                    .foregroundColor(.gold400)
-                                Text("•")
-                                    .foregroundColor(.white.opacity(0.3))
-                                Text("\(adv.currentPoints)/\(adv.requiredPoints) b. (\(adv.currentFinals)/\(adv.requiredFinals) F)")
-                                    .font(.system(size: 12, weight: .medium))
-                                    .foregroundColor(Color.gold300.opacity(0.8))
-                            }
-                        } else {
-                            Text("KSIS Denník & Postupy")
-                                .font(.system(size: 15, weight: .bold))
-                                .foregroundColor(.white)
-                            Text("Prepojiť pár a importovať výsledky")
-                                .font(.system(size: 12, weight: .medium))
-                                .foregroundColor(Color.gold300.opacity(0.7))
-                        }
-                    }
-
-                    Spacer()
-
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 12, weight: .bold))
-                        .foregroundColor(.gold400.opacity(0.5))
-                }
-                .padding(16)
-                .luxuryProfileCard(cornerRadius: 18)
-            }
-            .buttonStyle(.plain)
-        }
-    }
-
-    @ViewBuilder private var communitySection: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            Text("Tanečné Prepojenia & Komunita").sectionHeader()
-            NavigationLink(destination: FriendsListView()) {
-                HStack(spacing: 14) {
-                    ZStack {
-                        Circle()
-                            .fill(Color.gold500.opacity(0.15))
-                            .frame(width: 44, height: 44)
-                        Image(systemName: "person.2.fill")
-                            .font(.system(size: 18, weight: .bold))
-                            .foregroundColor(.gold400)
-                    }
-                    .overlay(
-                        Circle().stroke(Color.gold500.opacity(0.35), lineWidth: 1)
-                    )
-                    
-                    VStack(alignment: .leading, spacing: 3) {
-                        HStack(spacing: 6) {
-                            Text("Partneri & Tréneri")
-                                .font(.system(size: 15, weight: .bold))
-                                .foregroundColor(.white)
-                            
-                            if !connectionManager.incomingRequests.isEmpty {
-                                Text("\(connectionManager.incomingRequests.count) nové")
-                                    .font(.system(size: 9, weight: .black))
-                                    .foregroundColor(.white)
-                                    .padding(.horizontal, 5)
-                                    .padding(.vertical, 2)
-                                    .background(Color.latinCrimson)
-                                    .clipShape(Capsule())
-                            }
-                        }
-                        
-                        let totalActive = connectionManager.activePartners.count + connectionManager.activeCoaches.count + connectionManager.activeStudents.count
-                        let subtitleText = totalActive > 0 
-                            ? "\(connectionManager.activePartners.count) partnerov • \(connectionManager.activeCoaches.count) trénerov"
-                            : "Prepojiť partnera a trénera cez Dancer ID"
-                        
-                        Text(subtitleText)
-                            .font(.system(size: 12, weight: .medium))
-                            .foregroundColor(Color.gold300.opacity(0.7))
-                    }
-                    
-                    Spacer()
-                    
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 12, weight: .bold))
-                        .foregroundColor(.gold400.opacity(0.5))
-                }
-                .padding(16)
-                .luxuryProfileCard(cornerRadius: 18)
-            }
-            .buttonStyle(.plain)
-        }
-    }
-
-    @ViewBuilder private var statsSection: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            Text("Moje Štatistiky").sectionHeader()
-            LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
-                StatCardView(title: "Zostavy", value: "\(routines.count)", icon: "figure.dance")
-                StatCardView(title: "Moje figúry", value: "\(customFiguresCount)", icon: "book.closed.fill")
-                StatCardView(title: "Videá", value: "\(videoCount)", icon: "video.fill")
-                StatCardView(title: "Poznámky", value: "\(notesCount)", icon: "mic.fill")
-                StatCardView(title: "Standard", value: "\(standardCount)", icon: "drop.fill", tintColor: .standardBlue)
-                StatCardView(title: "Latin", value: "\(latinCount)", icon: "flame.fill", tintColor: .latinPink)
-                StatCardView(title: "Najviac cvičené", value: mostUsedDanceName, icon: "chart.line.uptrend.xyaxis")
-                StatCardView(title: "Úložisko", value: storageUsageText, icon: "internaldrive.fill")
-            }
-        }
-    }
-
-    @ViewBuilder private var linksSection: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            Text("Odkazy v Nastaveniach").sectionHeader()
-            VStack(spacing: 1) {
-                NavigationLink(destination: ProfileRoutinesListView(routines: recentRoutines)) {
-                    SettingsNavigationRow(icon: "figure.dance", title: "Všetky zostavy", detail: "\(routines.count)")
-                }
-                .buttonStyle(.plain)
-                
-                Divider().background(Color.gold500.opacity(0.15))
-                
-                NavigationLink(destination: ProfileFiguresListView(figures: figures.sorted { $0.name < $1.name })) {
-                    SettingsNavigationRow(icon: "book.closed.fill", title: "Knižnica figúr", detail: "\(figures.count)")
-                }
-                .buttonStyle(.plain)
-                
-                Divider().background(Color.gold500.opacity(0.15))
-                
-                NavigationLink(destination: ProfileMediaListView(dances: dances, figures: figures, nodes: nodes)) {
-                    SettingsNavigationRow(icon: "video.fill", title: "Videá a poznámky", detail: "\(videoCount + notesCount)")
-                }
-                .buttonStyle(.plain)
-            }
-            .luxuryProfileCard(cornerRadius: 18)
-        }
-    }
-    
-    @ViewBuilder private var trainingToolsSection: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            Text("Trénerské Štúdio").sectionHeader()
-            NavigationLink(destination: StudioToolsView()) {
-                HStack(spacing: 14) {
-                    Image(systemName: "sparkles.rectangle.stack.fill")
-                        .font(.system(size: 20, weight: .bold))
-                        .foregroundColor(.gold400)
-                        .frame(width: 44, height: 44)
-                        .background(Color.gold500.opacity(0.14))
-                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                .stroke(Color.gold500.opacity(0.3), lineWidth: 1)
-                        )
-
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text("Trénerské & Súťažné Štúdio")
-                            .font(.system(size: 15, weight: .bold))
-                            .foregroundColor(.white)
-                        Text("Simulátor finále, Organizér, Speed trainer, Splitter")
-                            .font(.system(size: 12, weight: .medium))
-                            .foregroundColor(Color.gold300.opacity(0.65))
-                            .lineLimit(1)
-                    }
-
-                    Spacer()
-
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 12, weight: .bold))
-                        .foregroundColor(.gold400.opacity(0.6))
-                }
-                .padding(16)
-                .luxuryProfileCard(cornerRadius: 18)
-            }
-            .buttonStyle(.plain)
-        }
-    }
-
-    @ViewBuilder private var routinesSection: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            Text("Nedávne Zostavy").sectionHeader()
-            if recentRoutines.isEmpty {
-                EmptyProfileSectionView(icon: "rectangle.dashed", title: "Zatiaľ nemáš žiadne zostavy")
-            } else {
-                VStack(spacing: 1) {
-                    ForEach(Array(recentRoutines.prefix(3))) { routine in
-                        NavigationLink(destination: RoutineCanvasView(routine: routine)) {
-                            RecentRoutineRow(routine: routine)
-                        }
-                        .buttonStyle(.plain)
-                        if routine.id != recentRoutines.prefix(3).last?.id {
-                            Divider().background(Color.gold500.opacity(0.15))
-                        }
-                    }
-                }
-                .luxuryProfileCard(cornerRadius: 18)
-            }
-        }
-    }
-
-    @ViewBuilder private var preferencesSection: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            Text("Predvoľby Aplikácie").sectionHeader()
-            VStack(spacing: 1) {
-                SettingsPickerRow(icon: "globe", title: "Jazyk diktovania") {
-                    Picker("", selection: Binding(
-                        get: { profileStore.currentLanguage },
-                        set: { profileStore.setLanguage($0) }
-                    )) {
-                        Text("Slovenčina").tag("sk-SK")
-                        Text("English").tag("en-US")
-                    }
-                    .pickerStyle(.menu)
-                    .tint(Color.gold400)
-                }
-                
-                Divider().background(Color.gold500.opacity(0.15))
-                
-                SettingsPickerRow(icon: "play.circle", title: "Rýchlosť videa") {
-                    Picker("", selection: Binding(
-                        get: { profileStore.currentPlaybackRate },
-                        set: { profileStore.setPlaybackRate($0) }
-                    )) {
-                        Text("0.5x").tag(0.5)
-                        Text("0.75x").tag(0.75)
-                        Text("1.0x").tag(1.0)
-                        Text("1.5x").tag(1.5)
-                    }
-                    .pickerStyle(.menu)
-                    .tint(Color.gold400)
-                }
-                
-                Divider().background(Color.gold500.opacity(0.15))
-                
-                HStack(spacing: 12) {
-                    Image(systemName: "bell.badge.fill")
-                        .foregroundColor(.gold400)
-                        .font(.system(size: 15, weight: .bold))
-                        .frame(width: 28, height: 28)
-                        .background(Color.gold500.opacity(0.12))
-                        .clipShape(Circle())
-                    Text("Upozornenia a tréningy")
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundColor(.white)
-                    Spacer()
-                    Toggle("", isOn: $notificationManager.notificationsEnabled)
-                        .labelsHidden()
-                        .tint(Color.gold500)
-                        .onChange(of: notificationManager.notificationsEnabled) { _, isEnabled in
-                            if isEnabled && !notificationManager.isAuthorized {
-                                Task { await notificationManager.requestAuthorization() }
-                            }
-                        }
-                }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 12)
-                .background(Color.obsidian800)
-                
-                Divider().background(Color.gold500.opacity(0.15))
-                
-                HStack(spacing: 12) {
-                    Image(systemName: authManager.biometrySystemImage)
-                        .foregroundColor(.gold400)
-                        .font(.system(size: 16, weight: .bold))
-                        .frame(width: 28, height: 28)
-                        .background(Color.gold500.opacity(0.12))
-                        .clipShape(Circle())
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Prihlásenie cez \(authManager.biometryName)")
-                            .font(.system(size: 14, weight: .semibold))
-                            .foregroundColor(.white)
-                        Text(authManager.isBiometricsEnabled
-                             ? (authManager.canUseBiometricLogin ? "Aktívne pre rýchle prihlásenie" : "Zapnuté")
-                             : "Vypnuté")
-                            .font(.system(size: 11, weight: .medium))
-                            .foregroundColor(authManager.isBiometricsEnabled ? Color.gold400 : Color.white.opacity(0.45))
-                    }
-                    Spacer()
-                    Toggle("", isOn: $authManager.isBiometricsEnabled)
-                        .labelsHidden()
-                        .tint(Color.gold500)
-                }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 12)
-                .background(Color.obsidian800)
-                
-                if authManager.canChangePassword {
-                    Divider().background(Color.gold500.opacity(0.15))
-                    
-                    Button(action: { showChangePasswordSheet = true }) {
-                        HStack(spacing: 12) {
-                            Image(systemName: "lock.rotation")
-                                .foregroundColor(.gold400)
-                                .font(.system(size: 15, weight: .bold))
-                                .frame(width: 28, height: 28)
-                                .background(Color.gold500.opacity(0.12))
-                                .clipShape(Circle())
-                            Text("Zmeniť heslo")
-                                .font(.system(size: 14, weight: .semibold))
-                                .foregroundColor(.white)
-                            Spacer()
-                            Image(systemName: "chevron.right")
-                                .font(.system(size: 12, weight: .semibold))
-                                .foregroundColor(Color.white.opacity(0.35))
-                        }
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 12)
-                        .background(Color.obsidian800)
-                        .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
-            .luxuryProfileCard(cornerRadius: 18)
-            .sheet(isPresented: $showChangePasswordSheet) {
-                PasswordUpdateSheet(mode: .change)
-            }
-        }
-    }
-
-    @ViewBuilder private var maintenanceSection: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            Text("Údržba a Dáta").sectionHeader()
-            VStack(spacing: 1) {
-                MaintenanceButton(icon: "arrow.counterclockwise.circle.fill",
-                                  title: "Obnoviť predvolenú knižnicu figúr",
-                                  isDestructive: false) { showResetConfirmation = true }
-                Divider().background(Color.gold500.opacity(0.15))
-                MaintenanceButton(icon: "square.and.arrow.up",
-                                  title: "Exportovať zostavy (JSON)",
-                                  isDestructive: false) { exportRoutines() }
-                Divider().background(Color.gold500.opacity(0.15))
-                MaintenanceButton(icon: "video.slash.fill",
-                                  title: "Vymazať všetky videá",
-                                  isDestructive: true) { pendingMaintenanceAction = .clearVideos }
-                Divider().background(Color.gold500.opacity(0.15))
-                MaintenanceButton(icon: "text.badge.xmark",
-                                  title: "Vymazať všetky poznámky",
-                                  isDestructive: true) { pendingMaintenanceAction = .clearNotes }
-                Divider().background(Color.gold500.opacity(0.15))
-                MaintenanceButton(icon: "envelope.badge",
-                                  title: "Spätná väzba / Nahlásiť problém",
-                                  isDestructive: false) { openFeedbackEmail() }
-                Divider().background(Color.gold500.opacity(0.15))
-                MaintenanceButton(icon: "hand.raised.fill",
-                                  title: "Ochrana súkromia & Zmluvné podmienky",
-                                  isDestructive: false) { showLegalSheet = true }
-                if subscriptionManager.isAppOwner {
-                    Divider().background(Color.gold500.opacity(0.35))
-                    MaintenanceButton(icon: "crown.fill",
-                                      title: "👑 Majiteľská Konzola (SuperAdmin)",
-                                      isDestructive: false) { showOwnerAdminSheet = true }
-                }
-                if authManager.isAuthenticated {
-                    Divider().background(Color.latinRed.opacity(0.25))
-                    MaintenanceButton(icon: "person.crop.circle.badge.xmark",
-                                      title: isDeletingAccount ? "Prebieha mazanie účtu..." : "Zmazať účet a osobné dáta",
-                                      isDestructive: true) { showDeleteAccountConfirmation = true }
-                }
-            }
-            .luxuryProfileCard(cornerRadius: 18)
-        }
-    }
-
-    // MARK: - Top Auth & Sync Card (Matching AuthSheetView)
-    @ViewBuilder private var authCardSection: some View {
-        VStack(spacing: 14) {
-            HStack(spacing: 8) {
-                Image(systemName: "person.badge.key.fill")
-                    .foregroundColor(.gold400)
-                    .font(.system(size: 13, weight: .bold))
-                Text("TANEČNÝ ÚČET A REALTIME SYNC")
-                    .font(.system(size: 11, weight: .black, design: .rounded))
-                    .foregroundColor(Color.gold400.opacity(0.85))
-                    .tracking(0.5)
-                Spacer()
-            }
-            
-            HStack(alignment: .center, spacing: 12) {
-                VStack(alignment: .leading, spacing: 4) {
-                    let emailText = authManager.userEmail.isEmpty ? "Lokálny profil" : authManager.userEmail
-                    if authManager.isAuthenticated {
-                        Text(emailText)
-                            .font(.system(size: 15, weight: .bold, design: .serif))
-                            .foregroundColor(.white)
-                            .lineLimit(1)
-                            .truncationMode(.middle)
-                        
-                        HStack(spacing: 5) {
-                            Circle().fill(Color.syncEmerald).frame(width: 6, height: 6)
-                                .shadow(color: Color.syncEmerald.opacity(0.8), radius: 3)
-                            Text("Synchrónne úpravy aktívne")
-                                .font(.system(size: 11, weight: .semibold))
-                                .foregroundColor(.syncEmerald)
-                        }
-                    } else {
-                        Text("Používaš lokálny režim")
-                            .font(.system(size: 15, weight: .bold, design: .serif))
-                            .foregroundColor(.white)
-                            .lineLimit(1)
-                        
-                        Text("Prihlás sa pre synchronizáciu zostáv")
-                            .font(.system(size: 11, weight: .medium))
-                            .foregroundColor(Color.gold300.opacity(0.65))
-                            .lineLimit(1)
-                    }
-                }
-                
-                Spacer(minLength: 8)
-                
-                Button(action: {
-                    if authManager.isAuthenticated {
-                        Task { await authManager.signOut() }
-                    } else {
-                        showAuthSheet = true
-                    }
-                }) {
-                    if authManager.isAuthenticated {
-                        Text("Odhlásiť")
-                            .font(.system(size: 12, weight: .bold))
-                            .foregroundColor(.latinRed)
-                            .padding(.horizontal, 14)
-                            .padding(.vertical, 8)
-                            .background(Color.latinRed.opacity(0.12))
-                            .cornerRadius(12)
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 12)
-                                    .stroke(Color.latinRed.opacity(0.35), lineWidth: 1)
-                            )
-                    } else {
-                        HStack(spacing: 4) {
-                            Text("Prihlásiť")
-                                .font(.system(size: 12, weight: .bold))
-                            Image(systemName: "arrow.right")
-                                .font(.system(size: 10, weight: .bold))
-                        }
-                        .foregroundColor(.obsidian900)
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 8)
-                        .background(
-                            LinearGradient(
-                                colors: [Color.gold500, Color.gold400],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
-                        .cornerRadius(12)
-                        .shadow(color: Color.gold500.opacity(0.3), radius: 6, x: 0, y: 2)
-                    }
-                }
-                .buttonStyle(.plain)
-            }
-        }
-        .padding(18)
-        .luxuryProfileCard(cornerRadius: 20)
-    }
-
-    private func handleOnAppear() {
-        cachedStats = computeStats()
-        profileStore.refreshForActiveUser()
-    }
-
-    @ViewBuilder
-    private func profileContent(screenWidth: CGFloat, autoSidePadding: CGFloat) -> some View {
-        ScrollView(showsIndicators: false) {
-            VStack(spacing: 24) {
-                // Top safe spacing so card doesn't hit dynamic island
-                Spacer(minLength: 4)
-                
-                authCardSection
-                    .sheet(isPresented: $showAuthSheet) {
-                        AuthSheetView()
-                    }
-                
-                ProfileHeaderView(
-                    name: profileStore.currentName,
-                    club: profileStore.currentClub,
-                    imagePath: profileStore.currentAvatarPath,
-                    avatarURL: authManager.userAvatarURL,
-                    routineCount: routines.count,
-                    customFiguresCount: customFiguresCount
-                ) {
-                    editedName = profileStore.currentName
-                    editedClub = profileStore.currentClub
-                    showEditProfile = true
-                }
-                
-                memberCardSection
-                membershipTierSection
-                competitionDiarySection
-                communitySection
-                statsSection
-                trainingToolsSection
-                linksSection
-                routinesSection
-                preferencesSection
-                maintenanceSection
-                
-                Text(appVersion)
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundColor(Color.gold300.opacity(0.4))
-                    .frame(maxWidth: .infinity)
-                    .padding(.top, 8)
-                    .padding(.bottom, 24)
-                
-                // Bottom spacing above floating liquid glass dock
-                Spacer()
-                    .frame(height: 120)
-            }
-            .padding(.horizontal, autoSidePadding)
-            .padding(.top, 14)
-            .frame(width: screenWidth)
-        }
-    }
-
-    private var isMaintenanceActionPresented: Binding<Bool> {
-        Binding(
-            get: { self.pendingMaintenanceAction != nil },
-            set: { if !$0 { self.pendingMaintenanceAction = nil } }
-        )
-    }
+    @State private var showEditProfile = false
+    @State private var showPaywall = false
+    @State private var showManageSubscriptions = false
+    @State private var copyCount = 0
+    @State private var showCopied = false
 
     var body: some View {
         NavigationStack {
             ZStack {
-                // Unified Luxury Obsidian Canvas & Blooms
                 EllegancePageBackground()
-                
-                GeometryReader { geo in
-                    let screenWidth = geo.size.width
-                    let autoSidePadding = max(screenWidth * 0.08, 22)
-                    profileContent(screenWidth: screenWidth, autoSidePadding: autoSidePadding)
+
+                ScrollView(showsIndicators: false) {
+                    VStack(alignment: .leading, spacing: 24) {
+                        header
+                        accountCard
+                        danceWorldSection
+                        membershipSection
+                        HomeRowGroup(title: "MOJA KARTA") {
+                            NavigationLink { MemberCardScreen() } label: {
+                                HomeRow(icon: "wallet.pass.fill", title: "Digitálna karta", subtitle: "QR na prepojenie a Apple Peňaženka")
+                            }
+                            .buttonStyle(.pressable(scale: 0.98))
+                        }
+                        librarySection
+                        HomeRowGroup {
+                            NavigationLink { ProfileSettingsView() } label: {
+                                HomeRow(icon: "gearshape.fill", title: "Nastavenia", subtitle: "Účet, prihlásenie, upozornenia, dáta a pomoc")
+                            }
+                            .buttonStyle(.pressable(scale: 0.98))
+                        }
+
+                        // Room for the tab bar
+                        Spacer().frame(height: 120)
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.top, 12)
                 }
             }
-            .navigationTitle("Môj Profil")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbarBackground(.hidden, for: .navigationBar)
-            .toolbarColorScheme(.dark, for: .navigationBar)
-            .onAppear { handleOnAppear() }
-            .onChange(of: nodes.count)    { _, _ in self.cachedStats = self.computeStats() }
-            .onChange(of: figures.count)  { _, _ in self.cachedStats = self.computeStats() }
-            .onChange(of: dances.count)   { _, _ in self.cachedStats = self.computeStats() }
-            .onChange(of: routines.count) { _, _ in self.cachedStats = self.computeStats() }
-            .task { refreshStorageUsage() }
-            .sheet(isPresented: $showEditProfile) {
-                editProfileSheet
-            }
-            .sheet(isPresented: $showLegalSheet) {
-                LegalComplianceView()
-            }
-            .sheet(isPresented: $showOwnerAdminSheet) {
-                OwnerAdminConsoleView()
-            }
-            .sheet(isPresented: $showPaywallSheet) {
-                SubscriptionPaywallView()
-            }
+            .toolbar(.hidden, for: .navigationBar)
+            .sheet(isPresented: $showEditProfile) { ProfileEditSheet() }
+            .sheet(isPresented: $showPaywall) { SubscriptionPaywallView() }
+            .manageSubscriptionsSheet(isPresented: $showManageSubscriptions)
             .sheet(isPresented: $friendManager.showInviteSheet) {
                 if let invite = friendManager.incomingInvite {
                     FriendInviteSheetView(invite: invite) {
@@ -765,1250 +69,286 @@ struct ProfileView: View {
                     }
                 }
             }
-            .confirmationDialog("Naozaj obnoviť knižnicu?", isPresented: $showResetConfirmation, titleVisibility: .visible) {
-                Button("Obnoviť knižnicu", role: .destructive) { resetFiguresDatabase() }
-                Button("Zrušiť", role: .cancel) {}
-            } message: {
-                Text("Všetky vaše vlastné figúry budú zachované, ale predvolené figúry budú znova načítané.")
+            .onAppear { profileStore.refreshForActiveUser() }
+            .task(id: copyCount) {
+                guard copyCount > 0 else { return }
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) { showCopied = true }
+                try? await Task.sleep(for: .seconds(2))
+                withAnimation(.easeOut(duration: 0.3)) { showCopied = false }
             }
-            .confirmationDialog(
-                pendingMaintenanceAction?.title ?? "",
-                isPresented: isMaintenanceActionPresented,
-                titleVisibility: .visible
-            ) {
-                if let action = pendingMaintenanceAction {
-                    Button(action.buttonTitle, role: .destructive) { runMaintenance(action) }
-                }
-                Button("Zrušiť", role: .cancel) { pendingMaintenanceAction = nil }
-            } message: {
-                Text(pendingMaintenanceAction?.message ?? "")
-            }
-            .confirmationDialog("Naozaj zmazať účet?", isPresented: $showDeleteAccountConfirmation, titleVisibility: .visible) {
-                Button("Trvalo zmazať účet", role: .destructive) {
-                    Task {
-                        isDeletingAccount = true
-                        await authManager.deleteAccount()
-                        isDeletingAccount = false
-                    }
-                }
-                Button("Zrušiť", role: .cancel) {}
-            } message: {
-                Text("Táto akcia je nevratná. Váš tanečný profil, prihlasovacie údaje a synchronizácia budú trvalo vymazané.")
-            }
+            .sensoryFeedback(.success, trigger: copyCount)
+            .environment(\.locale, Locale(identifier: "sk"))
         }
     }
-    
-    // MARK: - Edit Profile Sheet
-    @ViewBuilder private var editProfileSheet: some View {
-        NavigationStack {
-            ZStack {
-                Color.obsidian900.ignoresSafeArea()
-                
-                RadialGradient(
-                    gradient: Gradient(colors: [Color.gold500.opacity(0.14), Color.clear]),
-                    center: .topTrailing,
-                    startRadius: 20,
-                    endRadius: 320
+
+    // MARK: Header
+    private var header: some View {
+        VStack(spacing: 12) {
+            Button { showEditProfile = true } label: {
+                ProfileAvatarView(
+                    name: profileStore.currentName,
+                    imagePath: profileStore.currentAvatarPath,
+                    avatarURL: authManager.userAvatarURL,
+                    size: 96
                 )
-                .ignoresSafeArea()
-                .allowsHitTesting(false)
-                
-                ScrollView {
-                    VStack(spacing: 22) {
-                        VStack(spacing: 12) {
-                            ProfileAvatarView(
-                                name: editedName.isEmpty ? profileStore.currentName : editedName,
-                                imagePath: profileStore.currentAvatarPath,
-                                avatarURL: authManager.userAvatarURL,
-                                size: 104
-                            )
-                            
-                            HStack(spacing: 10) {
-                                PhotosPicker(selection: $selectedProfilePhotoItem, matching: .images) {
-                                    HStack(spacing: 6) {
-                                        Image(systemName: "photo.on.rectangle")
-                                            .font(.system(size: 13, weight: .bold))
-                                        Text(isSavingProfilePhoto ? "Ukladám..." : "Zmeniť fotku")
-                                            .font(.system(size: 13, weight: .bold))
-                                    }
-                                    .foregroundColor(.gold400)
-                                    .padding(.horizontal, 16)
-                                    .padding(.vertical, 8)
-                                    .background(Color.gold500.opacity(0.12))
-                                    .cornerRadius(12)
-                                    .overlay(
-                                        RoundedRectangle(cornerRadius: 12)
-                                            .stroke(Color.gold500.opacity(0.35), lineWidth: 1)
-                                    )
-                                }
-                                .disabled(isSavingProfilePhoto)
-                                
-                                if let path = profileStore.currentAvatarPath,
-                                   let currentImg = MediaResolver.resolveImage(path: path) {
-                                    Button {
-                                        imageToCrop = currentImg
-                                        showCropSheet = true
-                                    } label: {
-                                        HStack(spacing: 5) {
-                                            Image(systemName: "crop")
-                                                .font(.system(size: 12, weight: .bold))
-                                            Text("Upraviť výrez")
-                                                .font(.system(size: 12, weight: .bold))
-                                        }
-                                        .foregroundColor(.gold400)
-                                        .padding(.horizontal, 14)
-                                        .padding(.vertical, 8)
-                                        .background(Color.gold500.opacity(0.12))
-                                        .cornerRadius(12)
-                                        .overlay(
-                                            RoundedRectangle(cornerRadius: 12)
-                                                .stroke(Color.gold500.opacity(0.35), lineWidth: 1)
-                                        )
-                                    }
-                                }
-                            }
-                            
-                            if profileStore.currentAvatarPath != nil {
-                                Button(role: .destructive) {
-                                    removeProfilePhoto()
-                                } label: {
-                                    Label("Odstrániť fotku", systemImage: "trash")
-                                        .font(.system(size: 12, weight: .bold))
-                                        .foregroundColor(.latinRed)
-                                }
-                                .padding(.top, 2)
-                            }
-                        }
-                        .padding(.top, 10)
-                        
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("Meno")
-                                .font(.system(size: 13, weight: .bold))
-                                .foregroundColor(.gold400)
-                            TextField("", text: $editedName, prompt: Text("Tvoje meno").foregroundColor(Color.gold300.opacity(0.45)))
-                                .profileTextField()
-                        }
-                        
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("Tanečný klub")
-                                .font(.system(size: 13, weight: .bold))
-                                .foregroundColor(.gold400)
-                            TextField("", text: $editedClub, prompt: Text("Názov tanečného klubu").foregroundColor(Color.gold300.opacity(0.45)))
-                                .profileTextField()
-                        }
-                        
-                        Spacer()
-                    }
-                    .padding(.horizontal, 24)
-                    .padding(.top, 16)
-                }
-            }
-            .navigationTitle("Upraviť profil")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbarBackground(Color.obsidian900, for: .navigationBar)
-            .toolbarColorScheme(.dark, for: .navigationBar)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Zrušiť") { showEditProfile = false }
-                        .foregroundColor(Color.white.opacity(0.7))
-                }
-                ToolbarItem(placement: .primaryAction) {
-                    Button("Uložiť") { saveProfile() }
-                        .font(.system(size: 15, weight: .bold))
-                        .foregroundColor(.gold400)
-                }
-                ToolbarItemGroup(placement: .keyboard) {
-                    Spacer()
-                    Button("Hotovo") { UIApplication.shared.endEditing() }
-                        .foregroundColor(.gold400)
-                }
-            }
-            .onChange(of: selectedProfilePhotoItem) { _, newItem in
-                guard let newItem else { return }
-                handleSelectedPhoto(from: newItem)
-            }
-            .sheet(isPresented: $showCropSheet) {
-                if let imageToCrop {
-                    AvatarCropperSheet(
-                        originalImage: imageToCrop,
-                        onSave: { cropped in
-                            saveCroppedAvatar(cropped)
-                        },
-                        onCancel: {
-                            showCropSheet = false
-                            self.imageToCrop = nil
-                        }
-                    )
-                }
-            }
-        }
-    }
-    
-    // MARK: - Actions
-    
-    private func saveProfile() {
-        profileStore.saveProfile(name: editedName, club: editedClub)
-        showEditProfile = false
-    }
-    
-    private func handleSelectedPhoto(from item: PhotosPickerItem) {
-        isSavingProfilePhoto = true
-        Task {
-            defer {
-                selectedProfilePhotoItem = nil
-                isSavingProfilePhoto = false
-            }
-            
-            guard let data = try? await item.loadTransferable(type: Data.self),
-                  let uiImg = UIImage(data: data) else { return }
-            
-            await MainActor.run {
-                self.imageToCrop = uiImg
-                self.showCropSheet = true
-            }
-        }
-    }
-    
-    private func saveCroppedAvatar(_ image: UIImage) {
-        isSavingProfilePhoto = true
-        showCropSheet = false
-        imageToCrop = nil
-        Task {
-            defer {
-                isSavingProfilePhoto = false
-            }
-            guard let data = image.jpegData(compressionQuality: 0.9) else { return }
-            let oldPath = profileStore.currentAvatarPath
-            let uid = profileStore.activeUserId
-            
-            do {
-                let filename = try await Task.detached(priority: .userInitiated) {
-                    try MediaStorageManager.store(data: data, prefix: "profile_\(uid)", fileExtension: "jpg")
-                }.value
-                
-                await MainActor.run {
-                    profileStore.setAvatarPath(filename)
-                    MediaStorageManager.removeFile(named: oldPath)
-                    refreshStorageUsage()
-                }
-            } catch {
-                print("Failed to save cropped profile avatar: \(error)")
-            }
-        }
-    }
-    
-    private func removeProfilePhoto() {
-        if let oldPath = profileStore.currentAvatarPath {
-            MediaStorageManager.removeFile(named: oldPath)
-        }
-        profileStore.setAvatarPath(nil)
-        refreshStorageUsage()
-    }
-    
-    private func resetFiguresDatabase() {
-        let descriptor = FetchDescriptor<FigureLibraryItem>(predicate: #Predicate { !$0.isCustom })
-        if let standardFigures = try? modelContext.fetch(descriptor) {
-            for fig in standardFigures {
-                if let imagePath = fig.imagePath {
-                    MediaStorageManager.removeFile(named: imagePath)
-                }
-                if let videoPath = fig.videoPath {
-                    MediaStorageManager.removeFile(named: videoPath)
-                }
-                modelContext.delete(fig)
-            }
-        }
-        FigureLibraryItem.seedDefaultFigures(in: modelContext)
-    }
-    
-    private func openFeedbackEmail() {
-        let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?"
-        let build   = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "?"
-        let ios     = UIDevice.current.systemVersion
-        let subject = "Encore Feedback (v\(version) [\(build)] / iOS \(ios))"
-        let body    = "\n\n---\nApp: Encore \(version) (\(build))\niOS: \(ios)"
-
-        var components = URLComponents(string: "mailto:support@encore.dance")!
-        components.queryItems = [
-            URLQueryItem(name: "subject", value: subject),
-            URLQueryItem(name: "body", value: body)
-        ]
-
-        if let url = components.url {
-            UIApplication.shared.open(url)
-        }
-    }
-
-    private func runMaintenance(_ action: MaintenanceAction) {
-        switch action {
-        case .clearVideos: clearAllVideos()
-        case .clearNotes:  clearAllNotes()
-        }
-        pendingMaintenanceAction = nil
-        refreshStorageUsage()
-    }
-    
-    private func refreshStorageUsage() {
-        let paths = mediaStoragePaths
-        storageLoading = true
-        Task.detached(priority: .background) {
-            let bytes = self.calculateStorageUsage(for: paths)
-            await MainActor.run {
-                self.storageUsageBytes = bytes
-                self.storageLoading = false
-            }
-        }
-    }
-    
-    private var mediaStoragePaths: [String] {
-        var paths = nodes.compactMap(\.videoPath)
-            + figures.compactMap(\.videoPath)
-            + figures.compactMap(\.imagePath)
-            + dances.compactMap(\.videoPath)
-            + dances.compactMap(\.imagePath)
-        if let currentAvatar = profileStore.currentAvatarPath, !currentAvatar.isEmpty {
-            paths.append(currentAvatar)
-        }
-        return paths
-    }
-    
-    private func clearAllVideos() {
-        for node   in nodes   { removeMediaFile(at: node.videoPath);   node.videoPath = nil }
-        for figure in figures { removeMediaFile(at: figure.videoPath); figure.videoPath = nil }
-        for dance  in dances  { removeMediaFile(at: dance.videoPath);  dance.videoPath = nil }
-        try? modelContext.save()
-    }
-    
-    private func clearAllNotes() {
-        for node   in nodes   { node.notes = ""; node.transitionNotes = "" }
-        for figure in figures { figure.techniqueNotes = "" }
-        for dance  in dances  { dance.info = "" }
-        try? modelContext.save()
-    }
-    
-    private func exportRoutines() {
-        let payload = routines.map { ["name": $0.name, "dance": $0.danceName, "updated": $0.updatedAt.ISO8601Format()] }
-        guard let data = try? JSONSerialization.data(withJSONObject: payload, options: .prettyPrinted),
-              let json = String(data: data, encoding: .utf8) else { return }
-        
-        let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent("zostavy.json")
-        try? json.write(to: tempURL, atomically: true, encoding: .utf8)
-        
-        let av = UIActivityViewController(activityItems: [tempURL], applicationActivities: nil)
-        if let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-           let root  = scene.windows.first?.rootViewController {
-            root.present(av, animated: true)
-        }
-    }
-    
-    nonisolated private func calculateStorageUsage(for paths: [String]) -> Int64 {
-        MediaStorageManager.totalSize(for: paths)
-    }
-    
-    private func removeMediaFile(at path: String?) {
-        guard let path else { return }
-        MediaStorageManager.removeFile(named: path)
-    }
-}
-
-// MARK: - MaintenanceAction
-
-private enum MaintenanceAction: Identifiable {
-    case clearVideos
-    case clearNotes
-    
-    var id: String {
-        switch self {
-        case .clearVideos: return "clearVideos"
-        case .clearNotes:  return "clearNotes"
-        }
-    }
-    var title: String {
-        switch self {
-        case .clearVideos: return "Naozaj vymazať všetky videá?"
-        case .clearNotes:  return "Naozaj vymazať všetky poznámky?"
-        }
-    }
-    var message: String {
-        switch self {
-        case .clearVideos: return "Videá zo zostáv, tancov a figúr budú odstránené z aplikácie."
-        case .clearNotes:  return "Poznámky zo zostáv, vlastných figúr a tancov budú vymazané."
-        }
-    }
-    var buttonTitle: String {
-        switch self {
-        case .clearVideos: return "Vymazať videá"
-        case .clearNotes:  return "Vymazať poznámky"
-        }
-    }
-}
-
-// MARK: - Subviews & Components
-
-private struct SettingsNavigationRow: View {
-    let icon: String
-    let title: String
-    let detail: String
-    
-    var body: some View {
-        HStack(spacing: 12) {
-            Image(systemName: icon)
-                .font(.system(size: 15, weight: .bold))
-                .foregroundColor(.gold400)
-                .frame(width: 32, height: 32)
-                .background(Color.gold500.opacity(0.12))
-                .clipShape(Circle())
-            Text(title)
-                .font(.system(size: 15, weight: .semibold))
-                .foregroundColor(.white)
-            Spacer()
-            Text(detail)
-                .font(.system(size: 13, weight: .bold))
-                .foregroundColor(.gold400)
-            Image(systemName: "chevron.right")
-                .font(.system(size: 12, weight: .bold))
-                .foregroundColor(.gold400.opacity(0.4))
-        }
-        .padding(16)
-        .background(Color.obsidian800)
-    }
-}
-
-private struct ProfileRoutinesListView: View {
-    let routines: [Routine]
-    
-    var body: some View {
-        ZStack {
-            Color.obsidian900.ignoresSafeArea()
-            if routines.isEmpty {
-                EmptyProfileSectionView(icon: "rectangle.dashed", title: "Zatiaľ nemáš žiadne zostavy").padding(24)
-            } else {
-                ScrollView {
-                    LazyVStack(spacing: 12) {
-                        ForEach(routines) { routine in
-                            NavigationLink(destination: RoutineCanvasView(routine: routine)) {
-                                RecentRoutineRow(routine: routine)
-                                    .cornerRadius(14)
-                                    .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.gold500.opacity(0.25), lineWidth: 1))
-                            }
-                            .buttonStyle(.plain)
-                        }
-                    }
-                    .padding(20)
-                }
-            }
-        }
-        .navigationTitle("Všetky zostavy")
-        .navigationBarTitleDisplayMode(.inline)
-    }
-}
-
-private struct ProfileFiguresListView: View {
-    let figures: [FigureLibraryItem]
-    @State private var selectedFigure: FigureLibraryItem? = nil
-    
-    var body: some View {
-        ZStack {
-            Color.obsidian900.ignoresSafeArea()
-            if figures.isEmpty {
-                EmptyProfileSectionView(icon: "book.closed", title: "Knižnica je zatiaľ prázdna").padding(24)
-            } else {
-                ScrollView {
-                    LazyVStack(spacing: 12) {
-                        ForEach(figures) { figure in
-                            Button(action: { selectedFigure = figure }) {
-                                ProfileFigureRow(figure: figure)
-                            }
-                            .buttonStyle(.plain)
-                        }
-                    }
-                    .padding(20)
-                }
-            }
-        }
-        .navigationTitle("Knižnica figúr")
-        .navigationBarTitleDisplayMode(.inline)
-        .sheet(item: $selectedFigure) { figure in
-            LibraryFigureDetailSheet(figure: figure)
-        }
-    }
-}
-
-private struct ProfileFigureRow: View {
-    let figure: FigureLibraryItem
-    
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Text(figure.name)
-                    .font(.system(size: 15, weight: .bold, design: .serif))
-                    .foregroundColor(.white)
-                    .lineLimit(1)
-                Spacer()
-                Text(figure.isCustom ? "Vlastná" : "Default")
-                    .font(.system(size: 11, weight: .bold))
-                    .foregroundColor(.obsidian900)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .background(figure.isCustom ? Color.gold400 : Color.standardBlue)
-                    .cornerRadius(8)
-            }
-            HStack(spacing: 10) {
-                Text(figure.danceName)
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundColor(Color.gold300.opacity(0.65))
-                if !figure.rhythm.isEmpty {
-                    Text(figure.rhythm)
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundColor(.gold400)
-                }
-                Spacer()
-                if figure.imagePath != nil { Image(systemName: "photo").foregroundColor(Color.white.opacity(0.5)) }
-                if figure.videoPath != nil { Image(systemName: "video.fill").foregroundColor(Color.gold400) }
-            }
-        }
-        .padding(16)
-        .background(Color.obsidian800)
-        .cornerRadius(14)
-        .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.gold500.opacity(0.25), lineWidth: 1))
-    }
-}
-
-private struct ProfileMediaListView: View {
-    let dances: [Dance]
-    let figures: [FigureLibraryItem]
-    let nodes: [CanvasNode]
-    
-    @State private var selectedNode: CanvasNode? = nil
-    @State private var selectedFigure: FigureLibraryItem? = nil
-    @State private var selectedDance: Dance? = nil
-    
-    private var videoTotal: Int {
-        dances.filter { $0.videoPath != nil }.count
-        + figures.filter { $0.videoPath != nil }.count
-        + nodes.filter { $0.videoPath != nil }.count
-    }
-    private var noteTotal: Int {
-        dances.filter { !$0.info.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }.count
-        + figures.filter { !$0.techniqueNotes.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }.count
-        + nodes.filter { !$0.notes.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }.count
-    }
-    private var nodesWithMedia: [CanvasNode] {
-        nodes.filter { $0.videoPath != nil || !$0.notes.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
-    }
-    private var figuresWithMedia: [FigureLibraryItem] {
-        figures.filter { $0.videoPath != nil || !$0.techniqueNotes.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
-    }
-    private var dancesWithMedia: [Dance] {
-        dances.filter { $0.videoPath != nil || !$0.info.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
-    }
-    
-    var body: some View {
-        ZStack {
-            Color.obsidian900.ignoresSafeArea()
-            if videoTotal + noteTotal == 0 {
-                EmptyProfileSectionView(icon: "tray", title: "Zatiaľ tu nie sú videá ani poznámky").padding(24)
-            } else {
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 18) {
-                        ProfileMediaSummary(videoTotal: videoTotal, noteTotal: noteTotal)
-                        
-                        if !nodesWithMedia.isEmpty {
-                            ProfileMediaSection(title: "Zostavy", icon: "figure.dance") {
-                                ForEach(nodesWithMedia) { node in
-                                    Button(action: { selectedNode = node }) {
-                                        ProfileMediaRow(
-                                            title: node.figureName,
-                                            subtitle: node.routine?.name ?? "Zostava",
-                                            hasVideo: node.videoPath != nil,
-                                            hasNote: !node.notes.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                                        )
-                                    }
-                                    .buttonStyle(.plain)
-                                }
-                            }
-                        }
-                        if !figuresWithMedia.isEmpty {
-                            ProfileMediaSection(title: "Figúry", icon: "book.closed.fill") {
-                                ForEach(figuresWithMedia) { figure in
-                                    Button(action: { selectedFigure = figure }) {
-                                        ProfileMediaRow(
-                                            title: figure.name,
-                                            subtitle: figure.danceName,
-                                            hasVideo: figure.videoPath != nil,
-                                            hasNote: !figure.techniqueNotes.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                                        )
-                                    }
-                                    .buttonStyle(.plain)
-                                }
-                            }
-                        }
-                        if !dancesWithMedia.isEmpty {
-                            ProfileMediaSection(title: "Tance", icon: "music.note") {
-                                ForEach(dancesWithMedia) { dance in
-                                    Button(action: { selectedDance = dance }) {
-                                        ProfileMediaRow(
-                                            title: dance.name,
-                                            subtitle: dance.category,
-                                            hasVideo: dance.videoPath != nil,
-                                            hasNote: !dance.info.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                                        )
-                                    }
-                                    .buttonStyle(.plain)
-                                }
-                            }
-                        }
-                    }
-                    .padding(20)
-                }
-            }
-        }
-        .navigationTitle("Videá a poznámky")
-        .navigationBarTitleDisplayMode(.inline)
-        .sheet(item: $selectedNode)   { node   in FigureDetailCard(node: node) }
-        .sheet(item: $selectedFigure) { figure in LibraryFigureDetailSheet(figure: figure) }
-        .sheet(item: $selectedDance)  { dance  in EditDanceSheet(dance: dance) }
-    }
-}
-
-private struct ProfileMediaSummary: View {
-    let videoTotal: Int
-    let noteTotal: Int
-    var body: some View {
-        HStack(spacing: 12) {
-            StatCardView(title: "Videá",    value: "\(videoTotal)", icon: "video.fill")
-            StatCardView(title: "Poznámky", value: "\(noteTotal)",  icon: "mic.fill")
-        }
-    }
-}
-
-private struct ProfileMediaSection<Content: View>: View {
-    let title: String
-    let icon: String
-    @ViewBuilder let content: Content
-    var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Label(title, systemImage: icon)
-                .font(.system(size: 14, weight: .bold, design: .serif))
-                .foregroundColor(.gold400)
-            VStack(spacing: 1) { content }
-                .background(Color.obsidian800)
-                .cornerRadius(14)
-                .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.gold500.opacity(0.25), lineWidth: 1))
-        }
-    }
-}
-
-private struct ProfileMediaRow: View {
-    let title: String
-    let subtitle: String
-    let hasVideo: Bool
-    let hasNote: Bool
-    var body: some View {
-        HStack(spacing: 12) {
-            VStack(alignment: .leading, spacing: 3) {
-                Text(title)
-                    .font(.system(size: 14, weight: .bold, design: .serif))
-                    .foregroundColor(.white).lineLimit(1)
-                Text(subtitle)
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundColor(Color.gold300.opacity(0.65)).lineLimit(1)
-            }
-            Spacer()
-            if hasVideo { Image(systemName: "video.fill").foregroundColor(.gold400) }
-            if hasNote  { Image(systemName: "text.alignleft").foregroundColor(.gold400) }
-        }
-        .padding(14)
-        .background(Color.obsidian800)
-    }
-}
-
-// MARK: - Profile Header View (Luxury Monogram & Golden Specular Design)
-
-private struct ProfileHeaderView: View {
-    let name: String
-    let club: String
-    let imagePath: String?
-    var avatarURL: String? = nil
-    let routineCount: Int
-    let customFiguresCount: Int
-    let onEdit: () -> Void
-    
-    var body: some View {
-        VStack(spacing: 16) {
-            // Avatar with camera badge
-            ZStack(alignment: .bottomTrailing) {
-                ProfileAvatarView(name: name, imagePath: imagePath, avatarURL: avatarURL, size: 92)
-                
-                Circle()
-                    .fill(Color.obsidian800)
-                    .frame(width: 28, height: 28)
-                    .overlay(Circle().stroke(Color.gold500.opacity(0.6), lineWidth: 1.5))
-                    .overlay(
-                        Image(systemName: "camera.fill")
-                            .font(.system(size: 11, weight: .bold))
-                            .foregroundColor(.gold400)
-                    )
-                    .shadow(color: Color.black.opacity(0.4), radius: 4)
-                    .offset(x: 2, y: 2)
-            }
-            
-            // Name & Club
-            VStack(spacing: 4) {
-                Text(name)
-                    .font(.system(size: 24, weight: .black, design: .serif))
-                    .foregroundColor(.white)
-                    .shadow(color: Color.gold500.opacity(0.35), radius: 10)
-                
-                if !club.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                    Text("Tanečný klub: \(club)")
-                        .font(.system(size: 13, weight: .medium))
-                        .foregroundColor(Color.gold300.opacity(0.75))
-                } else {
-                    Text("Klub zatiaľ nenastavený")
-                        .font(.system(size: 13, weight: .medium))
-                        .foregroundColor(Color.white.opacity(0.45))
-                }
-            }
-            
-            // Counter Pills
-            HStack(spacing: 10) {
-                ProfilePill(title: "\(routineCount) zostáv", icon: "figure.dance")
-                ProfilePill(title: "\(customFiguresCount) figúr", icon: "book.closed.fill")
-            }
-            
-            // Edit Profile Button
-            Button(action: onEdit) {
-                HStack(spacing: 6) {
+                .overlay(alignment: .bottomTrailing) {
                     Image(systemName: "pencil")
-                        .font(.system(size: 12, weight: .bold))
-                    Text("Upraviť profil")
-                        .font(.system(size: 13, weight: .bold))
-                }
-                .foregroundColor(.white)
-                .padding(.horizontal, 18)
-                .padding(.vertical, 9)
-                .background(Color.obsidian800)
-                .cornerRadius(16)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 16)
-                        .stroke(Color.gold500.opacity(0.35), lineWidth: 1.2)
-                )
-                .shadow(color: Color.black.opacity(0.3), radius: 6, y: 2)
-            }
-            .buttonStyle(.plain)
-        }
-        .padding(.vertical, 14)
-    }
-}
-
-// MARK: - Profile Avatar View (Initial-based Monogram or Photo)
-
-private struct ProfileAvatarView: View {
-    let name: String
-    let imagePath: String?
-    var avatarURL: String? = nil
-    let size: CGFloat
-    
-    private var initials: String {
-        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        let words = trimmed.split(separator: " ").prefix(2).compactMap(\.first)
-        if !words.isEmpty {
-            return String(words).uppercased()
-        }
-        return trimmed.prefix(1).uppercased().isEmpty ? "T" : String(trimmed.prefix(1)).uppercased()
-    }
-    
-    var body: some View {
-        ZStack {
-            // Inner base circle
-            Circle()
-                .fill(
-                    LinearGradient(
-                        colors: [Color.obsidian800, Color.obsidian700],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
-            
-            // Photo or Initials Monogram
-            if let imagePath, !imagePath.isEmpty, let uiImage = MediaResolver.resolveImage(path: imagePath) {
-                Image(uiImage: uiImage)
-                    .resizable()
-                    .scaledToFill()
-                    .frame(width: size, height: size)
-                    .clipShape(Circle())
-            } else if let avatarURL, !avatarURL.isEmpty, let url = URL(string: avatarURL) {
-                AsyncImage(url: url) { phase in
-                    switch phase {
-                    case .success(let image):
-                        image
-                            .resizable()
-                            .scaledToFill()
-                            .frame(width: size, height: size)
-                            .clipShape(Circle())
-                    default:
-                        Text(initials)
-                            .font(.system(size: size * 0.38, weight: .black, design: .serif))
-                            .foregroundColor(.gold400)
-                            .shadow(color: Color.gold500.opacity(0.4), radius: 6)
-                    }
-                }
-                .frame(width: size, height: size)
-                .clipShape(Circle())
-            } else {
-                // Luxury Initials Monogram
-                Text(initials)
-                    .font(.system(size: size * 0.38, weight: .black, design: .serif))
-                    .foregroundColor(.gold400)
-                    .shadow(color: Color.gold500.opacity(0.45), radius: 8)
-            }
-        }
-        .frame(width: size, height: size)
-        .clipShape(Circle())
-        .background(
-            // Ambient outer bloom behind the frame
-            Circle()
-                .fill(Color.gold500.opacity(0.28))
-                .frame(width: size + 14, height: size + 14)
-                .blur(radius: 10)
-        )
-        .overlay(
-            // Crisp Golden Luxury Rim Frame on top of the photo
-            Circle()
-                .stroke(
-                    LinearGradient(
-                        colors: [Color.gold300, Color.gold500, Color.gold400, Color.gold300],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    ),
-                    lineWidth: 2.5
-                )
-        )
-        .overlay(
-            // Inner specular rim for high-end jewelry-grade depth
-            Circle()
-                .stroke(Color.white.opacity(0.35), lineWidth: 0.8)
-                .padding(1.2)
-        )
-        .shadow(color: Color.gold500.opacity(0.25), radius: 10, x: 0, y: 3)
-    }
-}
-
-// MARK: - Avatar Cropper & Positioning Sheet (Interactive Zoom & Pan)
-
-private struct AvatarCropperSheet: View {
-    let originalImage: UIImage
-    let onSave: (UIImage) -> Void
-    let onCancel: () -> Void
-    
-    @State private var scale: CGFloat = 1.0
-    @State private var lastScale: CGFloat = 1.0
-    @State private var offset: CGSize = .zero
-    @State private var lastOffset: CGSize = .zero
-    
-    private let cropSize: CGFloat = 260
-    
-    var body: some View {
-        NavigationStack {
-            ZStack {
-                Color.obsidian900.ignoresSafeArea()
-                
-                VStack(spacing: 20) {
-                    Text("Pohybom a priblížením prispôsob fotku do rámu")
-                        .font(.system(size: 13, weight: .medium))
-                        .foregroundColor(Color.gold300.opacity(0.75))
-                        .multilineTextAlignment(.center)
-                        .padding(.top, 14)
-                    
-                    Spacer()
-                    
-                    // Viewport Container
-                    ZStack {
-                        // Background base
-                        Circle()
-                            .fill(Color.obsidian800)
-                            .frame(width: cropSize, height: cropSize)
-                        
-                        // User photo with pan and pinch zoom
-                        Image(uiImage: originalImage)
-                            .resizable()
-                            .scaledToFill()
-                            .scaleEffect(scale)
-                            .offset(offset)
-                            .frame(width: cropSize, height: cropSize)
-                            .clipShape(Circle())
-                        
-                        // Luxury Outer Frame Rim
-                        Circle()
-                            .stroke(
-                                LinearGradient(
-                                    colors: [Color.gold300, Color.gold500, Color.gold400, Color.gold300],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                ),
-                                lineWidth: 3.5
-                            )
-                            .frame(width: cropSize, height: cropSize)
-                        
-                        // Inner specular accent
-                        Circle()
-                            .stroke(Color.white.opacity(0.4), lineWidth: 1)
-                            .frame(width: cropSize - 4, height: cropSize - 4)
-                    }
-                    .frame(width: cropSize, height: cropSize)
-                    .contentShape(Rectangle())
-                    .gesture(
-                        SimultaneousGesture(
-                            DragGesture()
-                                .onChanged { value in
-                                    offset = CGSize(
-                                        width: lastOffset.width + value.translation.width,
-                                        height: lastOffset.height + value.translation.height
-                                    )
-                                }
-                                .onEnded { _ in
-                                    lastOffset = offset
-                                },
-                            MagnificationGesture()
-                                .onChanged { value in
-                                    let delta = value / lastScale
-                                    lastScale = value
-                                    scale = max(0.5, min(scale * delta, 5.0))
-                                }
-                                .onEnded { _ in
-                                    lastScale = 1.0
-                                }
-                        )
-                    )
-                    .shadow(color: Color.gold500.opacity(0.35), radius: 18)
-                    
-                    Spacer()
-                    
-                    // Controls: Zoom Slider & Reset button
-                    VStack(spacing: 14) {
-                        HStack(spacing: 14) {
-                            Image(systemName: "minus.magnifyingglass")
-                                .foregroundColor(Color.gold400.opacity(0.7))
-                                .font(.system(size: 15))
-                            
-                            Slider(value: $scale, in: 0.6...4.0)
-                                .tint(Color.gold400)
-                            
-                            Image(systemName: "plus.magnifyingglass")
-                                .foregroundColor(Color.gold400)
-                                .font(.system(size: 15))
-                        }
-                        .padding(.horizontal, 36)
-                        
-                        Button {
-                            withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
-                                scale = 1.0
-                                offset = .zero
-                                lastOffset = .zero
-                                lastScale = 1.0
-                            }
-                        } label: {
-                            HStack(spacing: 6) {
-                                Image(systemName: "arrow.counterclockwise")
-                                    .font(.system(size: 12, weight: .bold))
-                                Text("Vycentrovať")
-                                    .font(.system(size: 13, weight: .bold))
-                            }
-                            .foregroundColor(Color.gold400)
-                            .padding(.horizontal, 16)
-                            .padding(.vertical, 8)
-                            .background(Color.gold500.opacity(0.12))
-                            .cornerRadius(12)
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 12)
-                                    .stroke(Color.gold500.opacity(0.35), lineWidth: 1)
-                            )
-                        }
-                    }
-                    .padding(.bottom, 24)
+                        .font(.caption.weight(.bold))
+                        .foregroundColor(Color.obsidian900)
+                        .frame(width: 30, height: 30)
+                        .background(Color.gold400, in: Circle())
+                        .offset(x: 2, y: 2)
                 }
             }
-            .navigationTitle("Upraviť fotku")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbarBackground(Color.obsidian900, for: .navigationBar)
-            .toolbarColorScheme(.dark, for: .navigationBar)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Zrušiť") { onCancel() }
-                        .foregroundColor(Color.white.opacity(0.7))
-                }
-                ToolbarItem(placement: .primaryAction) {
-                    Button("Použiť") {
-                        let cropped = renderCroppedImage()
-                        onSave(cropped)
-                    }
-                    .font(.system(size: 15, weight: .bold))
-                    .foregroundColor(.gold400)
-                }
+            .buttonStyle(.pressable)
+            .accessibilityLabel("Upraviť profil")
+
+            VStack(spacing: 4) {
+                Text(profileStore.currentName)
+                    .font(.system(.title2, design: .rounded).weight(.bold))
+                    .foregroundColor(.white)
+                    .multilineTextAlignment(.center)
+                Text(profileStore.currentClub.isEmpty ? "Klub zatiaľ nenastavený" : profileStore.currentClub)
+                    .font(.footnote.weight(.medium))
+                    .foregroundColor(Color.white.opacity(profileStore.currentClub.isEmpty ? 0.55 : 0.75))
             }
-        }
-    }
-    
-    private func renderCroppedImage() -> UIImage {
-        let targetSize: CGFloat = 512
-        let ratio = targetSize / cropSize
-        
-        let imgW = originalImage.size.width
-        let imgH = originalImage.size.height
-        guard imgW > 0, imgH > 0 else { return originalImage }
-        
-        let aspect = imgW / imgH
-        let baseW: CGFloat
-        let baseH: CGFloat
-        if aspect > 1.0 {
-            baseH = cropSize
-            baseW = cropSize * aspect
-        } else {
-            baseW = cropSize
-            baseH = cropSize / aspect
-        }
-        
-        let displayedW = baseW * scale
-        let displayedH = baseH * scale
-        let imgX = (cropSize - displayedW) / 2.0 + offset.width
-        let imgY = (cropSize - displayedH) / 2.0 + offset.height
-        
-        let format = UIGraphicsImageRendererFormat()
-        format.scale = 1.0
-        let renderer = UIGraphicsImageRenderer(size: CGSize(width: targetSize, height: targetSize), format: format)
-        return renderer.image { _ in
-            let circle = UIBezierPath(ovalIn: CGRect(x: 0, y: 0, width: targetSize, height: targetSize))
-            circle.addClip()
-            
-            originalImage.draw(in: CGRect(
-                x: imgX * ratio,
-                y: imgY * ratio,
-                width: displayedW * ratio,
-                height: displayedH * ratio
-            ))
-        }
-    }
-}
 
-private struct ProfilePill: View {
-    let title: String
-    let icon: String
-    var body: some View {
-        Label(title, systemImage: icon)
-            .font(.system(size: 11, weight: .bold))
-            .foregroundColor(.white)
-            .padding(.horizontal, 12)
-            .padding(.vertical, 6)
-            .background(Color.obsidian800)
-            .cornerRadius(14)
-            .overlay(
-                RoundedRectangle(cornerRadius: 14)
-                    .stroke(Color.gold500.opacity(0.25), lineWidth: 1)
-            )
-    }
-}
+            HStack(spacing: 8) {
+                Label(profileStore.isCoach ? "Tréner" : "Tanečník",
+                      systemImage: profileStore.isCoach ? "person.badge.shield.checkmark.fill" : "figure.dance")
+                    .font(.caption.weight(.bold))
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 10)
+                    .frame(minHeight: 30)
+                    .background(Color.white.opacity(0.08), in: Capsule())
+                    .contentTransition(.opacity)
 
-private struct RecentRoutineRow: View {
-    let routine: Routine
-    var body: some View {
-        HStack(spacing: 12) {
-            Image(systemName: routine.danceCategory.lowercased() == "standard" ? "drop.fill" : "flame.fill")
-                .font(.system(size: 14, weight: .bold))
-                .foregroundColor(routine.danceCategory.lowercased() == "standard" ? .standardBlue : .latinPink)
-                .frame(width: 32, height: 32)
-                .background(Color.gold500.opacity(0.12))
-                .clipShape(Circle())
-            VStack(alignment: .leading, spacing: 3) {
-                Text(routine.name)
-                    .font(.system(size: 15, weight: .bold, design: .serif))
-                    .foregroundColor(.white).lineLimit(1)
-                Text("\(routine.danceName) • \(routine.updatedAt.formatted(date: .abbreviated, time: .omitted))")
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundColor(Color.gold300.opacity(0.65)).lineLimit(1)
+                Button {
+                    UIPasteboard.general.string = profileStore.dancerCode
+                    copyCount += 1
+                } label: {
+                    Label(showCopied ? "Skopírované" : profileStore.dancerCode,
+                          systemImage: showCopied ? "checkmark" : "doc.on.doc")
+                        .font(.caption.monospaced().weight(.bold))
+                        .foregroundColor(Color.gold400)
+                        .padding(.horizontal, 10)
+                        .frame(minHeight: 30)
+                        .background(Color.gold500.opacity(0.14), in: Capsule())
+                        .contentTransition(.symbolEffect(.replace))
+                }
+                .buttonStyle(.pressable)
+                .accessibilityLabel("Dancer ID \(profileStore.dancerCode)")
+                .accessibilityHint("Skopíruje Dancer ID, aby ťa partner mohol pridať")
             }
-            Spacer()
-            Image(systemName: "chevron.right")
-                .font(.system(size: 12, weight: .bold))
-                .foregroundColor(.gold400.opacity(0.4))
-        }
-        .padding(16)
-        .background(Color.obsidian800)
-    }
-}
-
-private struct EmptyProfileSectionView: View {
-    let icon: String
-    let title: String
-    var body: some View {
-        VStack(spacing: 8) {
-            Image(systemName: icon).font(.system(size: 24)).foregroundColor(Color.gold400.opacity(0.6))
-            Text(title).font(.system(size: 13, weight: .bold)).foregroundColor(Color.gold300.opacity(0.65))
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 24)
-        .luxuryProfileCard(cornerRadius: 16)
+        .padding(.top, 8)
     }
-}
 
-private struct SettingsPickerRow<Content: View>: View {
-    let icon: String
-    let title: String
-    @ViewBuilder let content: Content
-    var body: some View {
-        HStack {
-            Image(systemName: icon)
-                .font(.system(size: 15, weight: .bold))
-                .foregroundColor(.gold400)
-                .frame(width: 28, height: 28)
-                .background(Color.gold500.opacity(0.12))
-                .clipShape(Circle())
-            Text(title)
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundColor(.white)
-            Spacer()
-            content
-        }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 12)
-        .background(Color.obsidian800)
-    }
-}
-
-private struct MaintenanceButton: View {
-    let icon: String
-    let title: String
-    let isDestructive: Bool
-    let action: () -> Void
-    
-    private var tint: Color { isDestructive ? .latinRed : .white }
-    
-    var body: some View {
-        Button(action: action) {
-            HStack(spacing: 12) {
-                Image(systemName: icon)
-                    .font(.system(size: 15, weight: .bold))
-                    .foregroundColor(isDestructive ? .latinRed : .gold400)
-                    .frame(width: 28, height: 28)
-                    .background(isDestructive ? Color.latinRed.opacity(0.12) : Color.gold500.opacity(0.12))
-                    .clipShape(Circle())
-                Text(title)
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(tint)
-                Spacer()
+    private var accountCard: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "person.crop.circle.badge.checkmark")
+                .font(.subheadline.weight(.bold))
+                .foregroundColor(Color.syncEmerald)
+                .frame(width: 36, height: 36)
+                .background(Color.syncEmerald.opacity(0.14), in: Circle())
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(authManager.userEmail)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundColor(.white)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                Text("Prihlásený · zostavy sa synchronizujú")
+                    .font(.caption.weight(.medium))
+                    .foregroundColor(Color.syncEmerald)
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 12)
-            .background(isDestructive ? Color.latinRed.opacity(0.06) : Color.obsidian800)
+            Spacer(minLength: 0)
         }
-        .buttonStyle(.plain)
+        .padding(14)
+        .homeCard()
+        .accessibilityElement(children: .combine)
     }
-}
 
-// MARK: - View extensions & Luxury Card Modifier
-
-private struct LuxuryProfileCardModifier: ViewModifier {
-    var cornerRadius: CGFloat = 20
-    
-    func body(content: Content) -> some View {
-        content
-            .background(Color.obsidian800)
-            .cornerRadius(cornerRadius)
-            .overlay(
-                RoundedRectangle(cornerRadius: cornerRadius)
-                    .stroke(
-                        LinearGradient(
-                            colors: [
-                                Color.gold500.opacity(0.35),
-                                Color.gold400.opacity(0.18),
-                                Color.gold500.opacity(0.28)
-                            ],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        ),
-                        lineWidth: 1.2
-                    )
-            )
-            .shadow(color: Color.black.opacity(0.55), radius: 14, x: 0, y: 6)
+    // MARK: Dance world: friends, competitions, studio
+    private var showsStudio: Bool {
+        profileStore.isCoach || subscriptionManager.currentTier == .premium || subscriptionManager.isAppOwner
     }
-}
 
-private extension View {
-    func luxuryProfileCard(cornerRadius: CGFloat = 20) -> some View {
-        self.modifier(LuxuryProfileCardModifier(cornerRadius: cornerRadius))
+    private var connectionsSubtitle: String {
+        let parts = [
+            connectionManager.activePartners.count > 0
+                ? slovakCount(connectionManager.activePartners.count, one: "partner", few: "partneri", many: "partnerov") : nil,
+            connectionManager.activeCoaches.count > 0
+                ? slovakCount(connectionManager.activeCoaches.count, one: "tréner", few: "tréneri", many: "trénerov") : nil,
+            connectionManager.activeStudents.count > 0
+                ? slovakCount(connectionManager.activeStudents.count, one: "žiak", few: "žiaci", many: "žiakov") : nil
+        ].compactMap { $0 }
+        return parts.isEmpty ? "Pridaj partnera alebo trénera cez Dancer ID" : parts.joined(separator: " · ")
     }
-    
-    func profileTextField() -> some View {
-        self
-            .foregroundColor(.white)
-            .font(.system(size: 15, weight: .medium))
-            .padding(.horizontal, 16)
-            .padding(.vertical, 14)
-            .background(Color.obsidian800)
-            .cornerRadius(14)
-            .overlay(
-                RoundedRectangle(cornerRadius: 14)
-                    .stroke(Color.gold500.opacity(0.35), lineWidth: 1.5)
-            )
+
+    private var competitionsSubtitle: String {
+        guard let couple = competitionManager.activeCouple else {
+            return "Prepoj pár s KSIS a sleduj body a postupy"
+        }
+        let progress = competitionManager.computeAdvancement(for: couple.coupleId)
+        return "\(couple.disciplineTitle) · \(progress.currentPoints)/\(progress.requiredPoints) b. · \(progress.currentFinals)/\(progress.requiredFinals) finále"
     }
-}
 
-private extension Text {
-    func sectionHeader() -> some View {
-        self
-            .font(.system(size: 15, weight: .bold, design: .serif))
-            .foregroundColor(.gold400)
-            .shadow(color: Color.gold500.opacity(0.35), radius: 6)
-            .padding(.horizontal, 4)
+    private var danceWorldSection: some View {
+        HomeRowGroup(title: "TANEČNÝ SVET") {
+            NavigationLink { FriendsListView() } label: {
+                HomeRow(
+                    icon: "person.2.fill",
+                    title: "Prepojenia",
+                    subtitle: connectionsSubtitle,
+                    badge: connectionManager.incomingRequests.isEmpty ? nil : "\(connectionManager.incomingRequests.count) nové"
+                )
+            }
+            .buttonStyle(.pressable(scale: 0.98))
+
+            HomeRowDivider()
+
+            NavigationLink { CompetitionTrackerView() } label: {
+                HomeRow(icon: "trophy.fill", title: "Súťaže a body", subtitle: competitionsSubtitle)
+            }
+            .buttonStyle(.pressable(scale: 0.98))
+
+            if showsStudio {
+                HomeRowDivider()
+                NavigationLink { StudioToolsView() } label: {
+                    HomeRow(icon: "sparkles.rectangle.stack.fill", title: "Trénerské štúdio", subtitle: "Žiaci, priradenie figúr a súťažné nástroje")
+                }
+                .buttonStyle(.pressable(scale: 0.98))
+                .transition(.opacity)
+            }
+        }
+        .animation(.spring(response: 0.35, dampingFraction: 0.85), value: showsStudio)
     }
-}
 
-// MARK: - Stat Card View (Obsidian & Gold Specular Design)
+    // MARK: Membership
+    private var membershipSection: some View {
+        let tier = subscriptionManager.currentTier
+        return VStack(alignment: .leading, spacing: 10) {
+            HomeSectionHeader(title: "ČLENSTVO")
 
-struct StatCardView: View {
-    let title: String
-    let value: String
-    let icon: String
-    var tintColor: Color = .gold400
-    
-    private var iconView: some View {
-        HStack {
-            Image(systemName: icon)
-                .font(.system(size: 15, weight: .bold))
-                .foregroundColor(tintColor)
-                .frame(width: 32, height: 32)
-                .background(tintColor.opacity(0.15))
-                .clipShape(Circle())
-            Spacer()
+            VStack(alignment: .leading, spacing: 14) {
+                HStack(spacing: 12) {
+                    Image(systemName: tier.iconName)
+                        .font(.subheadline.weight(.bold))
+                        .foregroundColor(tier.badgeColor)
+                        .frame(width: 40, height: 40)
+                        .background(tier.badgeColor.opacity(0.16), in: Circle())
+                        .accessibilityHidden(true)
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text("Encore \(tier.rawValue)")
+                            .font(.system(.headline, design: .rounded).weight(.bold))
+                            .foregroundColor(.white)
+                            .contentTransition(.opacity)
+                        Text(tier.shortDescription)
+                            .font(.caption)
+                            .foregroundColor(Color.white.opacity(0.65))
+                            .lineLimit(2)
+                    }
+                }
+
+                HStack(spacing: 10) {
+                    Button { showPaywall = true } label: {
+                        Text(tier == .premium ? "Porovnať plány" : "Vylepšiť plán")
+                            .font(.footnote.weight(.bold))
+                            .foregroundColor(Color.obsidian900)
+                            .padding(.horizontal, 16)
+                            .frame(minHeight: 40)
+                            .background(
+                                LinearGradient(colors: [Color.gold400, Color.gold500], startPoint: .topLeading, endPoint: .bottomTrailing),
+                                in: Capsule()
+                            )
+                    }
+                    .buttonStyle(.pressable)
+
+                    if subscriptionManager.entitlementSource == .storeKit {
+                        // Downgrade or cancel happens in Apple's own subscription screen.
+                        Button { showManageSubscriptions = true } label: {
+                            Text("Zmeniť alebo zrušiť")
+                                .font(.footnote.weight(.semibold))
+                                .foregroundColor(.white)
+                                .padding(.horizontal, 16)
+                                .frame(minHeight: 40)
+                                .background(Color.white.opacity(0.08), in: Capsule())
+                        }
+                        .buttonStyle(.pressable)
+                    }
+                }
+            }
+            .padding(14)
+            .homeCard()
         }
     }
-    
-    private var labelStack: some View {
-        VStack(alignment: .leading, spacing: 3) {
-            Text(value)
-                .font(.system(size: 22, weight: .black, design: .serif))
-                .foregroundColor(.white)
-                .lineLimit(1)
-                .minimumScaleFactor(0.8)
-            Text(title)
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundColor(Color.gold300.opacity(0.65))
-                .lineLimit(1)
+
+    // MARK: Library
+    private var mediaCount: Int {
+        func hasText(_ text: String) -> Bool { !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+        return nodes.filter { $0.videoPath != nil || hasText($0.notes) }.count
+            + figures.filter { $0.videoPath != nil || hasText($0.techniqueNotes) }.count
+            + dances.filter { $0.videoPath != nil || hasText($0.info) }.count
+    }
+
+    private var librarySection: some View {
+        HomeRowGroup(title: "MOJA KNIŽNICA") {
+            NavigationLink {
+                ProfileRoutinesListView(routines: routines.sorted { $0.updatedAt > $1.updatedAt })
+            } label: {
+                HomeRow(icon: "figure.dance", title: "Zostavy", detail: "\(routines.count)")
+            }
+            .buttonStyle(.pressable(scale: 0.98))
+
+            HomeRowDivider()
+
+            NavigationLink {
+                ProfileFiguresListView(figures: figures.sorted { $0.name < $1.name })
+            } label: {
+                HomeRow(icon: "book.closed.fill", title: "Knižnica figúr", detail: "\(figures.count)")
+            }
+            .buttonStyle(.pressable(scale: 0.98))
+
+            HomeRowDivider()
+
+            NavigationLink {
+                ProfileMediaListView(dances: dances, figures: figures, nodes: nodes)
+            } label: {
+                HomeRow(icon: "video.fill", title: "Videá a poznámky", detail: "\(mediaCount)")
+            }
+            .buttonStyle(.pressable(scale: 0.98))
         }
     }
-    
+}
+
+// MARK: - Member card screen
+/// The digital member card on its own screen: QR for connecting and Apple Wallet.
+struct MemberCardScreen: View {
+    @ObservedObject private var profileStore = UserProfileStore.shared
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            iconView
-            labelStack
+        ZStack {
+            EllegancePageBackground()
+            ScrollView {
+                EncoreMemberCardView(
+                    name: profileStore.currentName,
+                    club: profileStore.currentClub,
+                    userId: profileStore.activeUserId,
+                    allowInteractiveTilt: true,
+                    showActionButtons: true
+                )
+                .padding(20)
+                .padding(.bottom, 100)
+            }
         }
-        .padding(16)
-        .luxuryProfileCard(cornerRadius: 18)
+        .navigationTitle("Moja karta")
+        .navigationBarTitleDisplayMode(.inline)
     }
 }
 
-// MARK: - Xcode Canvas Preview
-#Preview("ProfileView") {
+#Preview("Profil") {
     ProfileView()
         .previewWithSampleData()
 }

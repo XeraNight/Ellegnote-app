@@ -109,7 +109,7 @@ final class StudioManager: ObservableObject {
             y: nextY,
             figure_name: figureName,
             rhythm: rhythm,
-            notes: coachNotes,
+            notes: "",
             video_path: nil,
             order_index: nextIndex,
             transition_notes: transitionNotes
@@ -120,6 +120,17 @@ final class StudioManager: ObservableObject {
             .from("canvas_nodes")
             .insert(newNode)
             .execute()
+
+        // The coach's remark goes into its own field; the student's notes stay the student's.
+        let trimmedRemark = coachNotes.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmedRemark.isEmpty {
+            struct CoachNoteDTO: Encodable { let coach_notes: String }
+            try await client
+                .from("canvas_nodes")
+                .update(CoachNoteDTO(coach_notes: trimmedRemark))
+                .eq("id", value: newNode.id)
+                .execute()
+        }
         
         // 3. Mark routine with Coach signature in last_modified_by
         let coachName = UserProfileStore.shared.currentName.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -171,12 +182,12 @@ final class StudioManager: ObservableObject {
         let client = SupabaseConfig.client
         
         struct NodeUpdateDTO: Encodable {
-            let notes: String
+            let coach_notes: String
         }
         
         try await client
             .from("canvas_nodes")
-            .update(NodeUpdateDTO(notes: coachNotes))
+            .update(NodeUpdateDTO(coach_notes: coachNotes))
             .eq("id", value: nodeId)
             .execute()
         

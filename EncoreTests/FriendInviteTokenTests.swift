@@ -50,7 +50,7 @@ struct FriendInviteTokenTests {
     }
 
     @Test func testDuplicateConnectionPrevention() {
-        var existingFriends = [
+        let existingFriends = [
             DancerFriend(userId: "user-999", name: "Partner", club: "Club A")
         ]
         

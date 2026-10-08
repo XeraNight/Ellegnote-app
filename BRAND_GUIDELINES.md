@@ -27,7 +27,67 @@ Tento dokument definuje oficiálnu vizuálnu identitu, farebnú paletu, typograf
 ### Ako sa to premieta do UI/UX:
 1. **Frikcia na nule:** Textové pole a tlačidlo mikrofónu na domovskej obrazovke musia reagovať na prvý dotyk bez zdržiavania dialógmi.
 2. **Satelitné funkcie nesmú zavadzať:** Funkcie ako Súťažný radar, Video duel, či Apple Wallet karta sú prémiové "satelity", ktoré sa otvárajú až na vyžiadanie (v radiálnom menu alebo v záložkách), nie uprostred hlavnej cesty zapisovania figúr.
-3. **Ergonómia v sále:** Tanečník má často spotené ruky, telefón je na lavičke alebo statíve. Tlačidlá musia mať veľkorysé dotykové plochy (min. 44×44 pt), kontrastné písmo a jednoznačnú haptickú odozvu (`UIImpactFeedbackGenerator`).
+3. **Ergonómia v sále:** Tanečník má často spotené ruky, telefón je na lavičke alebo statíve. Tlačidlá musia mať veľkorysé dotykové plochy (min. 44×44 pt), kontrastné písmo a jednoznačnú haptickú odozvu (`.sensoryFeedback`).
+
+---
+
+## ⭐ 1A. UI štandard celej aplikácie (vzor: obrazovka Domov)
+
+> Schválené 7. 10. 2026. Každá nová alebo upravovaná obrazovka sa riadi touto sekciou. Ak sa staršia časť dokumentu líši (napr. krémové pozadie a biele karty v §2 a §4), pre obrazovky aplikácie platí táto sekcia.
+
+### Povrchy a rozloženie
+| Prvok | Pravidlo | V kóde |
+| :--- | :--- | :--- |
+| Pozadie obrazovky | Karmínový zamat. Pokojné nástroje bez značky (napr. právne texty) obsidián. | `EllegancePageBackground()`, `ElleganceToolBackground()` |
+| Karta | Sklo: biela 7 %, lem biela 10 % 1 pt, zaoblenie 16–20 pt | `.homeCard(cornerRadius:)` |
+| Okraje | 20 pt zľava aj sprava, medzi sekciami 18–22 pt | `.padding(.horizontal, 20)` |
+| Zakázané | Plochá tmavosivá karta, neupravený systémový `Form`, okraje v % šírky | — |
+
+### Typografia
+* **Nadpis sekcie:** zlaté VEĽKÉ písmená, SF Rounded Black, tracking 1,4 (napr. „POZNÁMKY", „NAPOSLEDY UPRAVOVANÉ") → `HomeSectionHeader`.
+* **Značka:** „ENCORE" sa píše len cez `EncoreWordmark`, na každej obrazovke rovnako.
+* **Text:** textové štýly (`.callout`, `.subheadline`, `.footnote`, `.caption`), aby fungovalo zväčšenie písma (Dynamic Type). Pevné `.system(size:)` len pre logo a čísla.
+* **Kontrast na zamate:** sekundárny text min. 60 % bielej, placeholder min. 50 %, nič pod 40 %.
+
+### Ovládacie prvky
+* **Hlavná akcia:** plné šampanské zlato, čierny text, rohy 16 pt → `PrimarySheetButton`. Neaktívna = to isté tlačidlo stlmené na 40 % a pod ním krátka veta, prečo sa nedá.
+* **Prepínač režimov a filtrov:** rad kapsúl, vybraná výplň sa presúva (`matchedGeometryEffect`), zlatý lem 45 %.
+* **Výber tanca:** `DanceMenuCapsule` – menu rozdelené na Štandard / Latina, vybraný tanec má bodku vo farbe disciplíny (modrá Štandard, karmínová Latina).
+* **Sekundárne a ikonové akcie:** sklenené kruhy 36–44 pt → `.glassEffect(.regular.interactive(), in: .circle)`.
+* **Deštruktívne akcie:** text v `latinRed` s ikonou, vždy s potvrdením.
+* **Dotyková plocha:** min. 44 × 44 pt.
+
+### Dizajn nesmie rozbiť logiku (pravidlá pre dotyk)
+* **Sklo je len obrázok.** V tlačidlách a menu nikdy `.glassEffect(… .interactive())` – sklo by si dotyk bralo samo a tlačidlo by občas nereagovalo. Okrúhle ikonové tlačidlá sa robia len cez `LiquidGlassCircleButton`, štítok menu cez `GlassCircleLabel`.
+* **Stlačenie cez `.pressable`.** Zmenšuje len obrázok, dotyková plocha ostáva plná (`contentShape`), takže ťuk pri okraji sa nestratí.
+* **Tlačidlo nikdy „nič nespraví".** Keď akcia nemôže prebehnúť, otvorí sa obrazovka s vysvetlením a náhradou (napr. zostava je na QR príliš veľká → textový kód).
+* **Ťažká práca nie je v ťuknutí.** Generovanie (QR, export, sieť) beží až v otvorenej obrazovke mimo hlavného vlákna, tlačidlo len otvára.
+* **Kľúčové tlačidlá majú `accessibilityIdentifier`** (napr. `canvas.draw`, `canvas.shareQR`), aby ich vedeli stláčať automatické UI testy.
+
+### Mikrointerakcie (povinné na každej obrazovke)
+* Každé tlačidlo má `.buttonStyle(.pressable)` – jemné pruženie pri stlačení.
+* Pridanie, zmazanie, pripnutie alebo presun položky: `withAnimation(.spring…)` + `.transition` (scale + opacity).
+* Uloženie: krátke potvrdenie „Uložené" + `.sensoryFeedback(.success)`.
+* Výber a prepnutie: `.sensoryFeedback(.selection)`; meniace sa čísla `contentTransition(.numericText())`, ikony `.symbolEffect` / `.contentTransition(.symbolEffect(.replace))`.
+* Písanie: pri fokuse zlaté čiary po okraji poľa (`FieldEdgeSweep`).
+* Videá v slučke sa dajú vždy zastaviť (ťuk na video alebo tlačidlo pauzy).
+* Vždy rešpektovať `accessibilityReduceMotion`.
+
+### Jazyk a texty
+* UI výhradne po slovensky, tykanie („Prihlás sa", „Uložiť poznámku"). Žiadne anglické tlačidlá.
+* Dátumy: `.environment(\.locale, Locale(identifier: "sk"))` + `Text(date, format:)` → „7. okt 9:36".
+* Slovenské tvary počtu: 1 poznámka, 2–4 poznámky, 0 a 5+ poznámok.
+* Jedno slovo = jeden význam („Poznámky" je sekcia, „skopírovaný kód" je obsah schránky iPhonu).
+
+### Prístupnosť
+* Ikonové tlačidlá majú `accessibilityLabel`, nadpisy `.isHeader`, vybrané stavy `.isSelected`.
+* Chyby sa VoiceOveru oznamujú (`AccessibilityNotification.Announcement`).
+
+### Kde sú spoločné komponenty
+* `Encore/HomeSections.swift` – `homeCard`, `HomeSectionHeader`, `DanceMenuCapsule`, `HomeRecentRoutineCard`
+* `Encore/PasswordSheets.swift` – `PrimarySheetButton`, `SheetBanner`, `AuthFieldChrome`
+* `Encore/LuxuryUIComponents.swift` – `EncoreWordmark`, pozadia
+* `Encore/PressableStyle.swift`, `Encore/FieldEdgeSweep.swift`
 
 ---
 
@@ -78,7 +138,7 @@ Oficiálnym symbolom Encore je **Sculptural Ribbon Mark (Variant 3B)**:
 * **Okraj**: Jemný `1px` svetlejší zlatý lem (`rgba(212, 175, 55, 0.35)`).
 * **Tieň**: Mäkký rozptýlený tieň `shadow(color: black.opacity(0.15), radius: 14, y: 5)`.
 * **Rohy**: Zaoblenie `16 pt` (moderná elegantná kapsula).
-* **Haptika**: `UIImpactFeedbackGenerator(style: .medium)`.
+* **Haptika**: `.sensoryFeedback(.impact(weight: .medium), trigger:)`.
 
 ### 2. Sekundárne Sklenené Tlačidlo (Frosted Glass Button)
 * **Vzhľad**: Priehľadné/biele matné sklo (`.ultraThinMaterial` / `Color.white.opacity(0.85)`).

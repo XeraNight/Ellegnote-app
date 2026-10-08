@@ -1,6 +1,7 @@
 import Foundation
 import SwiftUI
 import Combine
+import OSLog
 
 // MARK: - App Feature Enum
 enum AppFeature: String, CaseIterable {
@@ -40,6 +41,9 @@ final class RemoteConfigManager: ObservableObject {
     @Published var needsForceUpdate: Bool = false
     @Published var appStoreURL: URL? = nil
     @Published private var features: [String: Bool] = [:]
+    /// Launch and every return to the foreground both ask; once every 15 minutes is enough.
+    private var lastSyncAttempt: Date?
+    private let minimumSyncInterval: TimeInterval = 15 * 60
     
     private init() {
         loadCachedConfig()
@@ -57,6 +61,8 @@ final class RemoteConfigManager: ObservableObject {
     // MARK: - Fetch Config on App Launch or Scene Foreground
     func syncConfig() async {
         guard let url = configURL else { return }
+        if let lastSyncAttempt, Date().timeIntervalSince(lastSyncAttempt) < minimumSyncInterval { return }
+        lastSyncAttempt = Date()
         
         do {
             var request = URLRequest(url: url)
@@ -65,6 +71,8 @@ final class RemoteConfigManager: ObservableObject {
             
             let (data, response) = try await URLSession.shared.data(for: request)
             guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
+                let status = (response as? HTTPURLResponse)?.statusCode ?? -1
+                Logger.general.notice("RemoteConfig: HTTP \(status, privacy: .public), using cache or defaults")
                 return
             }
             
@@ -74,7 +82,7 @@ final class RemoteConfigManager: ObservableObject {
             // Cache successful payload
             UserDefaults.standard.set(data, forKey: cacheKey)
         } catch {
-            print("RemoteConfig sync failed (using cache or defaults): \(error.localizedDescription)")
+            Logger.general.notice("RemoteConfig sync failed, using cache or defaults: \(error.localizedDescription, privacy: .public)")
         }
     }
     

@@ -6,6 +6,8 @@ struct MainTabView: View {
 
     // Tab index: 0 = Domov, 1 = Canvas, 2 = Plán, 3 = Profil
     @State private var selectedTab: Int = 0
+    @ObservedObject private var authManager = AuthManager.shared
+    @State private var offerBiometricLogin = false
 
     var body: some View {
         ZStack {
@@ -30,6 +32,20 @@ struct MainTabView: View {
                 }
             }
             .tint(Color.gold400)
+        }
+        .task {
+            // Once per account, a moment after the first sign-in on this iPhone.
+            try? await Task.sleep(for: .seconds(1.5))
+            offerBiometricLogin = authManager.shouldOfferBiometricLogin
+        }
+        .alert("Prihlasovať sa cez \(authManager.biometryName)?", isPresented: $offerBiometricLogin) {
+            Button("Zapnúť") {
+                authManager.markBiometricOfferShown()
+                Task { await authManager.setBiometricLogin(true) }
+            }
+            Button("Teraz nie", role: .cancel) { authManager.markBiometricOfferShown() }
+        } message: {
+            Text("Ostaneš prihlásený a pri otvorení Encore sa overíš tvárou. Zmeniť to môžeš v Profile → Nastavenia.")
         }
         .onAppear {
             // Transparent Navigation Bar

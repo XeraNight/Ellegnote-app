@@ -80,8 +80,12 @@ final class KeychainHelper: @unchecked Sendable {
             kSecAttrAccount as String: key
         ]
         
-        // Delete existing key if present
-        SecItemDelete(query as CFDictionary)
+        // Update in place when the item exists (atomic), add it otherwise
+        let updateStatus = SecItemUpdate(
+            query as CFDictionary,
+            [kSecValueData as String: data] as CFDictionary
+        )
+        if updateStatus == errSecSuccess { return }
         
         var newQuery = query
         newQuery[kSecValueData as String] = data

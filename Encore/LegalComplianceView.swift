@@ -9,7 +9,7 @@ import SwiftUI
 
 public struct LegalComplianceView: View {
     @Environment(\.dismiss) private var dismiss
-    @State private var selectedTab: LegalTab = .privacy
+    @State private var selectedTab: LegalTab
 
     public enum LegalTab: String, CaseIterable, Identifiable {
         case privacy = "Súkromie (GDPR)"
@@ -18,6 +18,7 @@ public struct LegalComplianceView: View {
         case audioKsis = "Hudba & SZTŠ"
 
         public var id: String { rawValue }
+
         
         var icon: String {
             switch self {
@@ -29,7 +30,10 @@ public struct LegalComplianceView: View {
         }
     }
 
-    public init() {}
+    /// `initialTab` opens the section the user tapped (e.g. Terms from the login screen).
+    public init(initialTab: LegalTab = .privacy) {
+        _selectedTab = State(initialValue: initialTab)
+    }
 
     public var body: some View {
         NavigationStack {
@@ -141,7 +145,7 @@ public struct LegalComplianceView: View {
                 • Prístup k osobným údajom a informácie o ich spracúvaní,
                 • Opravu nesprávnych alebo neúplných údajov,
                 • Vymazanie (právo „na zabudnutie“) priamo v aplikácii,
-                • Prenosnosť údajov (funkcia exportu zostáv do JSON formátu priamo v Profile),
+                • Prenosnosť údajov a kópiu svojich údajov kedykoľvek (Profil → Nastavenia → Stiahnuť moje dáta),
                 • Podanie sťažnosti na Úrad na ochranu osobných údajov SR.
                 """
             )

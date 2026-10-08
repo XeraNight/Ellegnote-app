@@ -150,12 +150,28 @@ final class CanvasNode {
     var figureName: String
     var rhythm: String
     var notes: String
-    var videoPath: String? // Local file name in app sandbox (Active My Take)
+    /// The original video on this iPhone: a Fotky link (`photos:`) or a file in the app. Never synced,
+    /// because it only works on this device. Partner and coach see `sharedVideoPath` instead.
+    var videoPath: String?
     var activeTargetVideoPath: String? // Active Target/Idol video
     var orderIndex: Int
     var transitionNotes: String
     var masteryRating: Int = 3 // 1 to 5 stars
-    
+    /// Formatted version of `notes` (AttributedString as JSON). Local only. `notes` stays the plain
+    /// text mirror that sync, PDF, QR and the coach use; the formatting is dropped when they differ.
+    var notesRichData: Data? = nil
+    /// Quarter turns of the figure video, like rotating in Photos: 0, 90, 180 or 270 degrees (local only).
+    var videoRotation: Int? = nil
+    /// Note from the student's coach. Read-only for the dancer; the server decides who may write it.
+    var coachNotes: String? = nil
+    var coachNotesAuthor: String? = nil
+    var coachNotesAt: Date? = nil
+    /// The copy shared with partner and coach (`canvas_nodes.video_path` on the server).
+    var sharedVideoPath: String? = nil
+
+    /// What the figure shows: the own original first, otherwise the shared copy.
+    var displayVideoPath: String? { videoPath ?? sharedVideoPath }
+
     var routine: Routine?
     
     @Relationship(deleteRule: .cascade, inverse: \VideoMediaEntry.canvasNode)
@@ -336,8 +352,10 @@ final class InstantNote {
     var text: String
     var videoPath: String?
     var imagePath: String?
-    /// Hashtag-style labels, e.g. "#Držanie". Stored as-is.
-    var tags: [String] = []
+    /// Voice recording (file name in Documents, AAC .m4a). The recording is the note; the dancer listens
+    /// to it later and writes down what matters in `text`.
+    var audioPath: String? = nil
+    var audioDuration: Double? = nil
     /// Dance the note belongs to (e.g. "Waltz"); nil = general note.
     var danceName: String? = nil
     var isPinned: Bool = false
@@ -347,13 +365,14 @@ final class InstantNote {
     var importedAt: Date? = nil
 
     init(id: UUID = UUID(), createdAt: Date = Date(), text: String = "", videoPath: String? = nil, imagePath: String? = nil,
-         tags: [String] = [], danceName: String? = nil) {
+         audioPath: String? = nil, audioDuration: Double? = nil, danceName: String? = nil) {
         self.id = id
         self.createdAt = createdAt
         self.text = text
         self.videoPath = videoPath
         self.imagePath = imagePath
-        self.tags = tags
+        self.audioPath = audioPath
+        self.audioDuration = audioDuration
         self.danceName = danceName
     }
 

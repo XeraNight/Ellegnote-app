@@ -20,7 +20,7 @@ struct OwnerAdminConsoleView: View {
     @State private var selectedUser: AdminUserSearchItem? = nil
     
     // Grant Form States
-    @State private var grantTier: SubscriptionTier = .studio
+    @State private var grantTier: SubscriptionTier = .premium
     @State private var grantDurationMonths: Int = 0 // 0 = Doživotne (Lifetime)
     @State private var grantNote: String = "VIP Darovanie od majiteľa"
     @State private var isActionInProgress: Bool = false
@@ -110,7 +110,7 @@ struct OwnerAdminConsoleView: View {
                         .cornerRadius(6)
                 }
                 
-                Text(authManager.userEmail.isEmpty ? "jakubkalina05@gmail.com" : authManager.userEmail)
+                Text(authManager.userEmail)
                     .font(.system(size: 12))
                     .foregroundColor(.white.opacity(0.6))
             }
@@ -163,7 +163,7 @@ struct OwnerAdminConsoleView: View {
                     .foregroundColor(Color.gold400)
                 
                 Picker("Plán", selection: $grantTier) {
-                    Text("Studio (VIP)").tag(SubscriptionTier.studio)
+                    Text("Premium (VIP)").tag(SubscriptionTier.premium)
                     Text("Plus").tag(SubscriptionTier.plus)
                     Text("Free (Zrušiť VIP)").tag(SubscriptionTier.free)
                 }
@@ -361,7 +361,7 @@ struct OwnerAdminConsoleView: View {
                 
                 // Tier Picker
                 Picker("Plán", selection: $grantTier) {
-                    Text("Studio (€14.99)").tag(SubscriptionTier.studio)
+                    Text("Premium (€14.99)").tag(SubscriptionTier.premium)
                     Text("Plus (€5.99)").tag(SubscriptionTier.plus)
                     Text("Free (Zrušiť VIP)").tag(SubscriptionTier.free)
                 }

@@ -45,8 +45,17 @@
               <p style="margin: 0 0 24px 0; font-size: 15px; line-height: 24px; color: rgba(255, 255, 255, 0.72); text-align: left;">
                 Ahoj,<br><br>
                 dostali sme žiadosť o nastavenie nového hesla pre tvoj účet v tanečnej aplikácii <strong>Encore</strong>.
-                Pre obnovenie hesla klikni na tlačidlo nižšie priamo na svojom iPhone:
+                Pre obnovenie hesla prepíš kód nižšie do aplikácie Encore:
               </p>
+
+              <!-- 6-digit code (primary) -->
+              <div style="margin: 8px 0 24px 0; padding: 20px; background-color: rgba(212, 175, 55, 0.10); border: 1px dashed rgba(212, 175, 55, 0.5); border-radius: 14px; text-align: center;">
+                <p style="margin: 0 0 8px 0; font-size: 12px; letter-spacing: 1px; text-transform: uppercase; color: rgba(255, 255, 255, 0.6);">Tvoj overovací kód</p>
+                <p style="margin: 0; font-size: 36px; font-weight: 800; letter-spacing: 10px; color: #e6c875; font-family: 'SF Mono', Menlo, Consolas, monospace;">{{ .Token }}</p>
+                <p style="margin: 10px 0 0 0; font-size: 12px; color: rgba(255, 255, 255, 0.5);">Zadaj ho v aplikácii Encore. Kód platí 10 minút a nikomu ho nehovor.</p>
+              </div>
+
+              <p style="margin: 0 0 8px 0; font-size: 12px; color: rgba(255, 255, 255, 0.45); text-align: center;">Alebo, ak máš aplikáciu na tomto iPhone:</p>
 
               <!-- CTA Button -->
               <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin: 30px 0;">
@@ -58,13 +67,6 @@
                   </td>
                 </tr>
               </table>
-
-              <!-- Alternative OTP code / note -->
-              <div style="background-color: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; padding: 16px; margin-top: 24px; text-align: left;">
-                <p style="margin: 0; font-size: 12px; line-height: 18px; color: rgba(255, 255, 255, 0.55);">
-                  💡 <strong>Tip:</strong> Ak sa tlačidlo neotvorí automaticky v aplikácii Encore, uisti sa, že odkaz otváraš na iPhone, kde máš aplikáciu nainštalovanú. Odkaz je platný <strong>60 minút</strong>.
-                </p>
-              </div>
 
               <p style="margin: 28px 0 0 0; font-size: 12px; line-height: 18px; color: rgba(255, 255, 255, 0.4); text-align: left;">
                 Ak si o obnovu hesla nežiadal(a), môžeš tento e-mail bezpečne ignorovať. Tvoje pôvodné heslo zostáva nezmenené.

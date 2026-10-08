@@ -8,6 +8,9 @@ struct PlannerRoutineView: View {
     @Environment(\.modelContext) private var modelContext
     @State private var editing: TrainingCadence?
     @State private var showNew = false
+    @State private var confirmRemoveFromCalendar = false
+    @State private var calendarMessage: String?
+    @State private var isRemovingFromCalendar = false
 
     private var sorted: [TrainingCadence] {
         cadences.sorted { ($0.weekday, $0.startMinutes) < ($1.weekday, $1.startMinutes) }
@@ -38,11 +41,63 @@ struct PlannerRoutineView: View {
                     .background(Color.gold400, in: Capsule())
             }
             .buttonStyle(.pressable)
+
+            if !sorted.isEmpty {
+                calendarCleanup
+            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .animation(.spring(response: 0.35, dampingFraction: 0.82), value: sorted.map(\.id))
+        .confirmationDialog(
+            "Odstrániť tréningy z Apple Kalendára?",
+            isPresented: $confirmRemoveFromCalendar,
+            titleVisibility: .visible
+        ) {
+            Button("Odstrániť všetky budúce tréningy", role: .destructive) { removeAllFromCalendar() }
+        } message: {
+            Text("Zmažú sa len udalosti, ktoré vytvorila Encore. Tvoj týždenný režim v aplikácii ostane.")
+        }
         .sheet(isPresented: $showNew) { CadenceEditorSheet(cadence: nil) }
         .sheet(item: $editing) { CadenceEditorSheet(cadence: $0) }
+    }
+
+    private var calendarCleanup: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Button { confirmRemoveFromCalendar = true } label: {
+                Label("Odstrániť tréningy z Apple Kalendára", systemImage: "calendar.badge.minus")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(Color.white.opacity(0.75))
+                    .padding(.vertical, 6)
+            }
+            .buttonStyle(.pressable)
+            .disabled(isRemovingFromCalendar)
+
+            if let calendarMessage {
+                Text(calendarMessage)
+                    .font(.system(size: 12))
+                    .foregroundColor(Color.white.opacity(0.55))
+            }
+        }
+        .padding(.top, 4)
+    }
+
+    private func removeAllFromCalendar() {
+        isRemovingFromCalendar = true
+        let ids = cadences.compactMap(\.calendarEventId)
+        Task {
+            let result = await CalendarExporter.shared.removeTrainings(eventIds: ids, includeUnknownSeries: true)
+            switch result {
+            case .removed(let count):
+                for cadence in cadences { cadence.calendarEventId = nil }
+                try? modelContext.save()
+                calendarMessage = count == 0
+                    ? "V kalendári sa nenašiel žiadny tréning z Encore."
+                    : "Odstránené z kalendára: \(count)."
+            case .accessDenied:
+                calendarMessage = "Chýba prístup ku kalendáru. Povoľ ho v Nastaveniach iPhonu."
+            }
+            isRemovingFromCalendar = false
+        }
     }
 
     private func row(_ cadence: TrainingCadence) -> some View {
@@ -77,9 +132,23 @@ struct PlannerRoutineView: View {
         .opacity(cadence.isEnabled ? 1 : 0.55)
         .contextMenu {
             Button { editing = cadence } label: { Label("Upraviť", systemImage: "pencil") }
+            if let eventId = cadence.calendarEventId {
+                Button {
+                    Task {
+                        if case .removed = await CalendarExporter.shared.removeTrainings(eventIds: [eventId]) {
+                            cadence.calendarEventId = nil
+                            try? modelContext.save()
+                        }
+                    }
+                } label: { Label("Odstrániť z kalendára", systemImage: "calendar.badge.minus") }
+            }
             Button(role: .destructive) {
+                let eventId = cadence.calendarEventId
                 modelContext.delete(cadence)
                 try? modelContext.save()
+                if let eventId {
+                    Task { _ = await CalendarExporter.shared.removeTrainings(eventIds: [eventId]) }
+                }
             } label: { Label("Zmazať", systemImage: "trash") }
         }
     }

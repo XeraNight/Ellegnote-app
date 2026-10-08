@@ -177,7 +177,7 @@ struct DebriefSheet: View {
                 existing.text = trimmed
                 existing.danceName = danceName
             } else {
-                let note = InstantNote(text: trimmed, tags: ["#Reflexia"], danceName: danceName)
+                let note = InstantNote(text: trimmed, danceName: danceName)
                 modelContext.insert(note)
                 entry.noteId = note.id
             }

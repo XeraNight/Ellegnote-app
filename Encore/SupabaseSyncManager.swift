@@ -1,4 +1,5 @@
 import Foundation
+import SwiftData
 import Supabase
 import Combine
 import OSLog
@@ -35,6 +36,52 @@ nonisolated struct DBCanvasNodeRow: Identifiable, Codable, Sendable {
     let video_path: String?
     let order_index: Int
     let transition_notes: String
+    // Written only by the student's coach (the database ignores them from anyone else).
+    var coach_notes: String? = nil
+    var coach_notes_by_name: String? = nil
+    var coach_notes_at: String? = nil
+}
+
+extension CanvasNode {
+    /// A figure that arrived from the server (realtime or refresh).
+    convenience init(row: DBCanvasNodeRow) {
+        self.init(
+            id: row.id, x: row.x, y: row.y,
+            figureName: row.figure_name, rhythm: row.rhythm, notes: row.notes,
+            orderIndex: row.order_index, transitionNotes: row.transition_notes
+        )
+        apply(row: row, includingPosition: true)
+    }
+
+    /// Takes the shared fields from a server row. Local-only fields (the original video, its rotation,
+    /// formatted notes, mastery, the video vault) are never touched, so a sync cannot wipe them.
+    func apply(row: DBCanvasNodeRow, includingPosition: Bool) {
+        figureName = row.figure_name
+        rhythm = row.rhythm
+        notes = row.notes
+        sharedVideoPath = row.video_path
+        orderIndex = row.order_index
+        transitionNotes = row.transition_notes
+        applyCoachNotes(from: row)
+        if includingPosition {
+            x = row.x
+            y = row.y
+        }
+    }
+
+    /// Copies the trainer's note from a server row.
+    func applyCoachNotes(from row: DBCanvasNodeRow) {
+        let text = row.coach_notes?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        coachNotes = text.isEmpty ? nil : text
+        coachNotesAuthor = text.isEmpty ? nil : row.coach_notes_by_name
+        if let at = row.coach_notes_at {
+            let fractional = ISO8601DateFormatter()
+            fractional.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+            coachNotesAt = fractional.date(from: at) ?? ISO8601DateFormatter().date(from: at)
+        } else {
+            coachNotesAt = nil
+        }
+    }
 }
 
 @globalActor
@@ -253,6 +300,36 @@ final class SupabaseSyncManager: Sendable {
         }
     }
     
+    /// Pull-to-refresh: adds routines created elsewhere and updates ones changed elsewhere (newer wins).
+    @MainActor
+    func pullRoutines(into context: ModelContext) async {
+        guard let cloudRoutines = await fetchAllRoutines() else { return }
+        let local = (try? context.fetch(FetchDescriptor<Routine>())) ?? []
+        let localById = Dictionary(local.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+
+        for row in cloudRoutines {
+            if let existing = localById[row.id] {
+                guard row.updated_at > existing.updatedAt else { continue }
+                existing.name = row.name
+                existing.danceName = row.dance_name
+                existing.danceCategory = row.dance_category
+                existing.updatedAt = row.updated_at
+                existing.lastModifiedBy = row.last_modified_by
+            } else {
+                context.insert(Routine(
+                    id: row.id,
+                    name: row.name,
+                    danceName: row.dance_name,
+                    danceCategory: row.dance_category,
+                    createdAt: row.created_at,
+                    updatedAt: row.updated_at,
+                    lastModifiedBy: row.last_modified_by
+                ))
+            }
+        }
+        try? context.save()
+    }
+
     @SyncActor
     func fetchFigures() async -> [DBFigureRow]? {
         guard let client else { return nil }
@@ -291,7 +368,7 @@ final class SupabaseSyncManager: Sendable {
                 figure_name: node.figureName,
                 rhythm: node.rhythm,
                 notes: node.notes,
-                video_path: node.videoPath,
+                video_path: node.sharedVideoPath,
                 order_index: node.orderIndex,
                 transition_notes: node.transitionNotes
             )
@@ -332,7 +409,7 @@ final class SupabaseSyncManager: Sendable {
                 figure_name: node.figureName,
                 rhythm: node.rhythm,
                 notes: node.notes,
-                video_path: node.videoPath,
+                video_path: node.sharedVideoPath,
                 order_index: node.orderIndex,
                 transition_notes: node.transitionNotes
             )

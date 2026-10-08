@@ -1,93 +1,108 @@
 import SwiftUI
 import SwiftData
 
-// MARK: - Canvas Routines Hub View (Výber mojich zostáv pre Tab 1 "Canvas")
+// MARK: - Canvas tab: my routines
+/// The user's routines in the Home style (BRAND_GUIDELINES §1A). Tapping a card opens its canvas.
 public struct CanvasRoutinesHubView: View {
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Query(sort: \Routine.updatedAt, order: .reverse) private var routines: [Routine]
-    
-    @State private var searchText: String = ""
-    @State private var selectedCategoryFilter: String = "Všetky"
-    @State private var selectedRoutineForCanvas: Routine? = nil
-    
-    @State private var showNewRoutineSheet: Bool = false
-    @State private var routineForQRExport: Routine? = nil
-    @State private var qrCodeImage: UIImage? = nil
-    @State private var showQRModal: Bool = false
-    
-    private let categories = ["Všetky", "Standard", "Latina"]
-    
-    private var filteredRoutines: [Routine] {
-        routines.filter { routine in
-            let matchesCategory: Bool
-            if selectedCategoryFilter == "Všetky" {
-                matchesCategory = true
-            } else if selectedCategoryFilter == "Standard" {
-                matchesCategory = routine.danceCategory.lowercased() == "standard"
-            } else {
-                matchesCategory = routine.danceCategory.lowercased() == "latin" || routine.danceCategory.lowercased() == "latina"
+
+    @State private var searchText = ""
+    @State private var filter: CategoryFilter = .all
+    @State private var selectedRoutineForCanvas: Routine?
+    @State private var showNewRoutineSheet = false
+    @State private var routineForQRExport: Routine?
+    @State private var routinePendingDelete: Routine?
+    @State private var deleteCount = 0
+    @State private var sweepTrigger = 0
+    @FocusState private var isSearching: Bool
+    @Namespace private var filterNamespace
+
+    private enum CategoryFilter: String, CaseIterable, Identifiable {
+        case all = "Všetky", standard = "Štandard", latin = "Latina"
+
+        var id: String { rawValue }
+
+        var icon: String? {
+            switch self {
+            case .all: return nil
+            case .standard: return "drop.fill"
+            case .latin: return "flame.fill"
             }
-            
-            let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-            if query.isEmpty {
-                return matchesCategory
+        }
+
+        func matches(_ routine: Routine) -> Bool {
+            let category = routine.danceCategory.lowercased()
+            switch self {
+            case .all: return true
+            case .standard: return category == "standard"
+            case .latin: return category == "latin" || category == "latina"
             }
-            
-            let matchesName = routine.name.lowercased().contains(query)
-            let matchesDance = routine.danceName.lowercased().contains(query)
-            return matchesCategory && (matchesName || matchesDance)
         }
     }
-    
-    private var totalFiguresCount: Int {
-        routines.reduce(0) { $0 + $1.canvasNodes.count }
+
+    private var filteredRoutines: [Routine] {
+        let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        return routines.filter { routine in
+            filter.matches(routine)
+                && (query.isEmpty
+                    || routine.name.lowercased().contains(query)
+                    || routine.danceName.lowercased().contains(query))
+        }
     }
-    
+
+    private var statsText: String {
+        let figures = routines.reduce(0) { $0 + $1.canvasNodes.count }
+        return slovakCount(routines.count, one: "zostava", few: "zostavy", many: "zostáv")
+            + " · " + slovakCount(figures, one: "figúra", few: "figúry", many: "figúr")
+    }
+
     public init() {}
-    
+
     public var body: some View {
         NavigationStack {
-            GeometryReader { geo in
-                let screenWidth = geo.size.width
-                let horizontalMargin = max(screenWidth * 0.08, 22)
-                
-                ZStack {
-                    EllegancePageBackground()
-                    
-                    ScrollView(.vertical, showsIndicators: false) {
-                        VStack(spacing: 16) {
-                            // ── 1. Top Luxury Header ──
-                            topHeaderBar
-                                .padding(.top, max(geo.safeAreaInsets.top, 54))
-                            
-                            // ── 2. Search & Category Filters ──
-                            searchAndFiltersBar
-                                .padding(.top, 2)
-                            
-                            // ── 3. Routines List / Empty State ──
-                            if filteredRoutines.isEmpty {
-                                emptyStateView
-                                    .padding(.top, 30)
-                            } else {
-                                LazyVStack(spacing: 14) {
-                                    ForEach(filteredRoutines) { routine in
-                                        routineCardView(for: routine)
+            ZStack {
+                EllegancePageBackground()
+
+                ScrollView(showsIndicators: false) {
+                    VStack(alignment: .leading, spacing: 18) {
+                        header
+                        searchField
+                        filterBar
+
+                        if filteredRoutines.isEmpty {
+                            emptyState
+                        } else {
+                            LazyVStack(spacing: 14) {
+                                ForEach(filteredRoutines) { routine in
+                                    RoutineCard(routine: routine, onShareQR: { shareQR(routine) }) {
+                                        selectedRoutineForCanvas = routine
                                     }
+                                    .contextMenu { menu(for: routine) }
+                                    .transition(.asymmetric(
+                                        insertion: .scale(scale: 0.95).combined(with: .opacity),
+                                        removal: .scale(scale: 0.9).combined(with: .opacity)
+                                    ))
                                 }
-                                .padding(.top, 4)
                             }
-                            
-                            // Spacing above bottom dock
-                            Spacer()
-                                .frame(height: 120)
                         }
-                        .padding(.horizontal, horizontalMargin)
-                        .frame(maxWidth: .infinity)
+
+                        // Room for the tab bar
+                        Spacer().frame(height: 120)
                     }
-                    .scrollDismissesKeyboard(.interactively)
+                    .padding(.horizontal, 20)
+                    .padding(.top, 12)
+                    .background {
+                        Color.clear
+                            .contentShape(Rectangle())
+                            .onTapGesture { isSearching = false }
+                    }
                 }
-                .frame(width: screenWidth, height: geo.size.height)
+                .scrollDismissesKeyboard(.interactively)
+                .animation(reduceMotion ? nil : .spring(response: 0.38, dampingFraction: 0.85), value: filteredRoutines.map(\.id))
             }
+            .toolbar(.hidden, for: .navigationBar)
             .navigationDestination(item: $selectedRoutineForCanvas) { routine in
                 RoutineCanvasView(routine: routine, isPresentedInTab: true)
             }
@@ -96,447 +111,212 @@ public struct CanvasRoutinesHubView: View {
                     DanceCategorySelectionSheet(isPresented: $showNewRoutineSheet)
                 }
             }
-            .sheet(isPresented: $showQRModal) {
-                if let routine = routineForQRExport {
-                    QRExportSheet(routine: routine, qrImage: qrCodeImage)
-                }
+            .sheet(item: $routineForQRExport) { routine in
+                QRExportSheet(routine: routine)
             }
+            .confirmationDialog(
+                "Zmazať zostavu?",
+                isPresented: Binding(get: { routinePendingDelete != nil }, set: { if !$0 { routinePendingDelete = nil } }),
+                titleVisibility: .visible,
+                presenting: routinePendingDelete
+            ) { routine in
+                Button("Zmazať „\(routine.name)“", role: .destructive) { delete(routine) }
+            } message: { _ in
+                Text("Zostava aj jej figúry sa zmažú z tohto iPhonu aj z cloudu. Nedá sa to vrátiť.")
+            }
+            .onChange(of: isSearching) { _, focused in
+                if focused { sweepTrigger += 1 }
+            }
+            .sensoryFeedback(.selection, trigger: filter)
+            .sensoryFeedback(.warning, trigger: deleteCount)
         }
     }
-    
-    // MARK: - Top Header Bar
-    private var topHeaderBar: some View {
-        HStack(alignment: .center) {
-            VStack(alignment: .leading, spacing: 3) {
+
+    // MARK: Header
+    private var header: some View {
+        HStack(alignment: .bottom, spacing: 12) {
+            VStack(alignment: .leading, spacing: 4) {
                 Text("CHOREOGRAFIE")
-                    .font(.system(size: 10, weight: .black, design: .rounded))
-                    .foregroundColor(LuxuryTheme.gold400)
+                    .font(.system(.caption, design: .rounded).weight(.black))
+                    .foregroundColor(Color.gold400)
                     .tracking(1.4)
-                
-                Text("Moje Zostavy")
-                    .font(.system(size: 24, weight: .bold, design: .serif))
+                Text("Moje zostavy")
+                    .font(.system(.title, design: .rounded).weight(.bold))
                     .foregroundColor(.white)
                     .lineLimit(1)
                     .minimumScaleFactor(0.85)
+                    .accessibilityAddTraits(.isHeader)
             }
-            
+
             Spacer(minLength: 8)
-            
-            // "+ Nová zostava" Liquid Glass CTA Button
-            Button {
-                let generator = UIImpactFeedbackGenerator(style: .medium)
-                generator.prepare()
-                generator.impactOccurred()
-                showNewRoutineSheet = true
-            } label: {
-                HStack(spacing: 6) {
-                    Image(systemName: "plus")
-                        .font(.system(size: 12, weight: .bold))
-                    Text("Nová zostava")
-                        .font(.system(size: 12, weight: .bold, design: .rounded))
-                }
-                .foregroundColor(LuxuryTheme.obsidian900)
-                .padding(.horizontal, 13)
-                .padding(.vertical, 8)
-                .background(
-                    LinearGradient(
-                        colors: [LuxuryTheme.gold400, LuxuryTheme.gold500],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
+
+            Button { showNewRoutineSheet = true } label: {
+                Label("Nová", systemImage: "plus")
+                    .font(.subheadline.weight(.bold))
+                    .foregroundColor(Color.obsidian900)
+                    .padding(.horizontal, 16)
+                    .frame(minHeight: 40)
+                    .background(
+                        LinearGradient(colors: [Color.gold400, Color.gold500], startPoint: .topLeading, endPoint: .bottomTrailing),
+                        in: Capsule()
                     )
-                )
-                .clipShape(Capsule())
-                .overlay(
-                    Capsule()
-                        .stroke(Color.white.opacity(0.4), lineWidth: 1)
-                )
-                .shadow(color: LuxuryTheme.gold500.opacity(0.35), radius: 8, y: 3)
             }
-            .buttonStyle(.plain)
-            .fixedSize()
+            .buttonStyle(.pressable)
+            .accessibilityLabel("Nová zostava")
         }
     }
-    
-    // MARK: - Search & Category Filters
-    private var searchAndFiltersBar: some View {
-        VStack(spacing: 12) {
-            // Search Input
-            HStack(spacing: 10) {
-                Image(systemName: "magnifyingglass")
-                    .font(.system(size: 14, weight: .medium))
-                    .foregroundColor(LuxuryTheme.gold400)
-                
-                TextField("Hľadať zostavu alebo tanec...", text: $searchText)
-                    .font(.system(size: 14))
-                    .foregroundColor(.white)
-                
-                if !searchText.isEmpty {
-                    Button {
-                        searchText = ""
-                    } label: {
-                        Image(systemName: "xmark.circle.fill")
-                            .foregroundColor(Color.white.opacity(0.4))
-                            .font(.system(size: 14))
-                    }
+
+    // MARK: Search
+    private var searchField: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "magnifyingglass")
+                .font(.subheadline.weight(.medium))
+                .foregroundColor(Color.gold400)
+                .accessibilityHidden(true)
+
+            TextField("", text: $searchText, prompt: Text("Hľadať zostavu alebo tanec").foregroundColor(Color.white.opacity(0.5)))
+                .font(.subheadline)
+                .foregroundColor(.white)
+                .focused($isSearching)
+                .submitLabel(.search)
+                .autocorrectionDisabled()
+
+            if !searchText.isEmpty {
+                Button {
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) { searchText = "" }
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .foregroundColor(Color.white.opacity(0.55))
+                        .frame(width: 32, height: 32)
                 }
+                .buttonStyle(.pressable)
+                .accessibilityLabel("Vymazať hľadanie")
+                .transition(.scale.combined(with: .opacity))
             }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 10)
-            .background(
-                ZStack {
-                    RoundedRectangle(cornerRadius: 14)
-                        .fill(LuxuryTheme.obsidian800.opacity(0.75))
-                    RoundedRectangle(cornerRadius: 14)
-                        .fill(.ultraThinMaterial)
-                }
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 14)
-                    .stroke(Color.white.opacity(0.12), lineWidth: 1)
-            )
-            
-            // Category Filter Pills & Stats
+        }
+        .padding(.horizontal, 14)
+        .frame(minHeight: 46)
+        .homeCard(cornerRadius: 14)
+        .overlay { FieldEdgeSweep(trigger: sweepTrigger) }
+        .animation(.spring(response: 0.3, dampingFraction: 0.8), value: searchText.isEmpty)
+    }
+
+    // MARK: Filters
+    private var filterBar: some View {
+        VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 8) {
-                ForEach(categories, id: \.self) { cat in
-                    let isSelected = selectedCategoryFilter == cat
-                    let catIcon: String? = {
-                        if cat.lowercased() == "standard" { return "drop.fill" }
-                        if cat.lowercased() == "latin" || cat.lowercased() == "latina" { return "flame.fill" }
-                        return nil
-                    }()
+                ForEach(CategoryFilter.allCases) { item in
+                    let isSelected = filter == item
                     Button {
-                        let generator = UIImpactFeedbackGenerator(style: .light)
-                        generator.impactOccurred()
-                        withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
-                            selectedCategoryFilter = cat
-                        }
+                        withAnimation(reduceMotion ? nil : .spring(response: 0.32, dampingFraction: 0.78)) { filter = item }
                     } label: {
                         HStack(spacing: 5) {
-                            if let icon = catIcon {
+                            if let icon = item.icon {
                                 Image(systemName: icon)
-                                    .font(.system(size: 10, weight: .bold))
-                                    .foregroundColor(isSelected ? LuxuryTheme.obsidian900 : (cat.lowercased() == "standard" ? LuxuryTheme.standardBlue : LuxuryTheme.latinCrimson))
+                                    .foregroundColor(item == .standard ? Color.standardBlue : Color.latinCrimson)
                             }
-                            Text(cat)
-                                .font(.system(size: 12, weight: .bold, design: .rounded))
-                                .foregroundColor(isSelected ? LuxuryTheme.obsidian900 : Color.white.opacity(0.75))
-                                .lineLimit(1)
+                            Text(item.rawValue)
                         }
-                        .fixedSize(horizontal: true, vertical: false)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 6)
-                        .background(
-                            isSelected
-                            ? AnyView(
-                                LinearGradient(
-                                    colors: [LuxuryTheme.gold400, LuxuryTheme.gold500],
-                                    startPoint: .leading,
-                                    endPoint: .trailing
-                                )
-                            )
-                            : AnyView(
-                                ZStack {
-                                    Capsule().fill(LuxuryTheme.obsidian800.opacity(0.6))
-                                    Capsule().fill(.ultraThinMaterial)
-                                }
-                            )
-                        )
-                        .clipShape(Capsule())
-                        .overlay(
-                            Capsule()
-                                .stroke(isSelected ? Color.white.opacity(0.3) : Color.white.opacity(0.1), lineWidth: 1)
-                        )
-                    }
-                    .buttonStyle(.plain)
-                }
-                
-                Spacer(minLength: 4)
-                
-                // Figures Count Badge
-                if totalFiguresCount > 0 {
-                    HStack(spacing: 4) {
-                        Image(systemName: "square.grid.2x2.fill")
-                            .font(.system(size: 9))
-                            .foregroundColor(LuxuryTheme.gold400)
-                        Text("\(routines.count) zos. • \(totalFiguresCount) fig.")
-                            .font(.system(size: 10, weight: .bold, design: .rounded))
-                            .foregroundColor(Color.white.opacity(0.55))
-                            .lineLimit(1)
-                    }
-                }
-            }
-        }
-    }
-    
-    // MARK: - Routine Card View
-    private func routineCardView(for routine: Routine) -> some View {
-        let isStandard = routine.danceCategory.lowercased() == "standard"
-        let disciplineColor = isStandard ? LuxuryTheme.standardBlue : LuxuryTheme.latinCrimson
-        let nodeCount = routine.canvasNodes.count
-        let videoCount = routine.mediaVault.count
-        
-        return Button {
-            let generator = UIImpactFeedbackGenerator(style: .medium)
-            generator.impactOccurred()
-            selectedRoutineForCanvas = routine
-        } label: {
-            VStack(alignment: .leading, spacing: 14) {
-                // Top Metadata Row: Discipline Badge + Quick QR Button
-                HStack(alignment: .center) {
-                    HStack(spacing: 6) {
-                        Image(systemName: isStandard ? "drop.fill" : "flame.fill")
-                            .font(.system(size: 11, weight: .bold))
-                            .foregroundColor(disciplineColor)
-                        
-                        Text(isStandard ? "ŠTANDARD" : "LATINA")
-                            .font(.system(size: 10, weight: .black, design: .rounded))
-                            .foregroundColor(disciplineColor)
-                            .tracking(1.0)
-                    }
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 4)
-                    .background(disciplineColor.opacity(0.18))
-                    .clipShape(Capsule())
-                    .overlay(Capsule().stroke(disciplineColor.opacity(0.35), lineWidth: 1))
-                    
-                    Spacer()
-                    
-                    // Quick QR Code Export Button
-                    Button {
-                        if let payload = QRGenerator.generatePayload(from: routine),
-                           let qrImg = QRGenerator.generateQRCode(from: payload) {
-                            self.routineForQRExport = routine
-                            self.qrCodeImage = qrImg
-                            self.showQRModal = true
-                        }
-                    } label: {
-                        Image(systemName: "qrcode")
-                            .font(.system(size: 14, weight: .bold))
-                            .foregroundColor(Color.white.opacity(0.7))
-                            .padding(7)
-                            .background(Circle().fill(Color.white.opacity(0.08)))
-                    }
-                    .buttonStyle(.plain)
-                }
-                
-                // Middle: Dance Title & Routine Name
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(routine.danceName.uppercased())
-                        .font(.system(size: 11, weight: .black, design: .rounded))
-                        .foregroundColor(LuxuryTheme.gold400)
-                        .tracking(1.2)
-                    
-                    Text(routine.name)
-                        .font(.system(size: 19, weight: .bold, design: .serif))
-                        .foregroundColor(.white)
+                        .font(.footnote.weight(isSelected ? .bold : .medium))
+                        .foregroundColor(isSelected ? .white : Color.white.opacity(0.75))
                         .lineLimit(1)
-                }
-                
-                // Mini Choreography Constellation Graphic
-                miniCanvasSchematic(nodesCount: nodeCount, accentColor: disciplineColor)
-                
-                // Bottom Row: Figures, Videos & Open Canvas Prompt
-                HStack {
-                    HStack(spacing: 12) {
-                        // Figures count
-                        HStack(spacing: 4) {
-                            Circle()
-                                .fill(disciplineColor)
-                                .frame(width: 6, height: 6)
-                            Text("\(nodeCount) figúr")
-                                .font(.system(size: 11, weight: .bold, design: .rounded))
-                                .foregroundColor(Color.white.opacity(0.85))
-                        }
-                        
-                        // Videos count
-                        if videoCount > 0 {
-                            HStack(spacing: 4) {
-                                Image(systemName: "film")
-                                    .font(.system(size: 10))
-                                    .foregroundColor(LuxuryTheme.gold400)
-                                Text("\(videoCount)")
-                                    .font(.system(size: 11, weight: .bold, design: .rounded))
-                                    .foregroundColor(Color.white.opacity(0.7))
+                        .padding(.vertical, 9)
+                        .frame(maxWidth: .infinity)
+                        .background {
+                            ZStack {
+                                Capsule().fill(Color.white.opacity(0.05))
+                                if isSelected {
+                                    Capsule()
+                                        .fill(Color.white.opacity(0.14))
+                                        .matchedGeometryEffect(id: "routineFilter", in: filterNamespace)
+                                }
                             }
                         }
+                        .overlay(
+                            Capsule().stroke(isSelected ? Color.gold400.opacity(0.45) : Color.white.opacity(0.08), lineWidth: 1)
+                        )
                     }
-                    
-                    Spacer()
-                    
-                    // "Otvoriť plátno" Call to Action
-                    HStack(spacing: 4) {
-                        Text("Otvoriť plátno")
-                            .font(.system(size: 12, weight: .bold, design: .rounded))
-                            .foregroundColor(LuxuryTheme.gold400)
-                        Image(systemName: "chevron.right")
-                            .font(.system(size: 11, weight: .bold))
-                            .foregroundColor(LuxuryTheme.gold400)
-                    }
+                    .buttonStyle(.pressable)
+                    .accessibilityAddTraits(isSelected ? .isSelected : [])
                 }
-                .padding(.top, 2)
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(16)
-            .background(
-                ZStack {
-                    RoundedRectangle(cornerRadius: 20)
-                        .fill(LuxuryTheme.obsidian800.opacity(0.88))
-                    RoundedRectangle(cornerRadius: 20)
-                        .fill(.ultraThinMaterial)
-                }
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 20)
-                    .stroke(
-                        LinearGradient(
-                            colors: [
-                                disciplineColor.opacity(0.45),
-                                Color.white.opacity(0.15),
-                                Color.clear
-                            ],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        ),
-                        lineWidth: 1.2
-                    )
-            )
-            .shadow(color: Color.black.opacity(0.35), radius: 10, x: 0, y: 5)
-            .shadow(color: disciplineColor.opacity(0.12), radius: 14)
-        }
-        .buttonStyle(.plain)
-        .contextMenu {
-            Button {
-                selectedRoutineForCanvas = routine
-            } label: {
-                Label("Otvoriť plátno", systemImage: "square.grid.2x2")
-            }
-            
-            Button {
-                if let payload = QRGenerator.generatePayload(from: routine),
-                   let qrImg = QRGenerator.generateQRCode(from: payload) {
-                    self.routineForQRExport = routine
-                    self.qrCodeImage = qrImg
-                    self.showQRModal = true
-                }
-            } label: {
-                Label("Zdieľať QR kód", systemImage: "qrcode")
-            }
-            
-            Button(role: .destructive) {
-                deleteRoutine(routine)
-            } label: {
-                Label("Vymazať zostavu", systemImage: "trash")
+
+            if !routines.isEmpty {
+                Text(statsText)
+                    .font(.caption.weight(.medium))
+                    .foregroundColor(Color.white.opacity(0.6))
+                    .contentTransition(.numericText())
             }
         }
     }
-    
-    // MARK: - Mini Canvas Schematic Graphic
-    private func miniCanvasSchematic(nodesCount: Int, accentColor: Color) -> some View {
-        let displayCount = min(max(nodesCount, 3), 5)
-        return HStack(spacing: 0) {
-            ForEach(0..<displayCount, id: \.self) { idx in
-                HStack(spacing: 0) {
-                    ZStack {
-                        Circle()
-                            .fill(idx < nodesCount ? accentColor.opacity(0.25) : Color.white.opacity(0.05))
-                            .frame(width: 16, height: 16)
-                        
-                        Circle()
-                            .fill(idx < nodesCount ? accentColor : Color.white.opacity(0.2))
-                            .frame(width: 6, height: 6)
-                    }
-                    
-                    if idx < displayCount - 1 {
-                        Rectangle()
-                            .fill(
-                                LinearGradient(
-                                    colors: [
-                                        idx < nodesCount ? accentColor.opacity(0.6) : Color.white.opacity(0.15),
-                                        (idx + 1) < nodesCount ? accentColor.opacity(0.6) : Color.white.opacity(0.15)
-                                    ],
-                                    startPoint: .leading,
-                                    endPoint: .trailing
-                                )
-                            )
-                            .frame(width: 20, height: 1.5)
-                    }
-                }
-            }
-            Spacer()
-        }
-        .padding(.vertical, 7)
-        .padding(.horizontal, 10)
-        .frame(maxWidth: .infinity)
-        .background(
-            RoundedRectangle(cornerRadius: 10)
-                .fill(Color.black.opacity(0.35))
-        )
-    }
-    
-    // MARK: - Empty State View
-    private var emptyStateView: some View {
-        VStack(spacing: 18) {
-            ZStack {
-                Circle()
-                    .fill(LuxuryTheme.gold500.opacity(0.14))
-                    .frame(width: 80, height: 80)
-                
-                Image(systemName: "figure.dance")
-                    .font(.system(size: 38))
-                    .foregroundColor(LuxuryTheme.gold400)
-            }
-            
+
+    // MARK: Empty state
+    private var emptyState: some View {
+        VStack(spacing: 16) {
+            Image(systemName: "figure.dance")
+                .font(.largeTitle)
+                .foregroundColor(Color.gold400)
+                .frame(width: 80, height: 80)
+                .background(Color.gold500.opacity(0.14), in: Circle())
+                .accessibilityHidden(true)
+
             VStack(spacing: 6) {
-                Text(routines.isEmpty ? "Žiadna tanečná zostava" : "Nenašli sa žiadne zostavy")
-                    .font(.system(size: 20, weight: .bold, design: .serif))
+                Text(routines.isEmpty ? "Zatiaľ nemáš žiadnu zostavu" : "Nič sa nenašlo")
+                    .font(.system(.title3, design: .rounded).weight(.bold))
                     .foregroundColor(.white)
-                
-                Text(
-                    routines.isEmpty
-                    ? "Vytvorte si svoju prvú choreografiu na plátne a naplánujte jednotlivé figúry."
-                    : "Skúste upraviť vyhľadávanie alebo zmeniť filter kategórie."
-                )
-                .font(.system(size: 13))
-                .foregroundColor(Color.white.opacity(0.6))
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, 36)
+                Text(routines.isEmpty
+                     ? "Vytvor si prvú choreografiu a rozlož figúry po parkete."
+                     : "Skús iné slovo alebo iný filter.")
+                    .font(.footnote)
+                    .foregroundColor(Color.white.opacity(0.65))
+                    .multilineTextAlignment(.center)
             }
-            
-            Button {
-                showNewRoutineSheet = true
-            } label: {
-                HStack(spacing: 8) {
-                    Image(systemName: "plus.circle.fill")
-                    Text("Vytvoriť prvú zostavu")
+
+            if routines.isEmpty {
+                Button { showNewRoutineSheet = true } label: {
+                    Label("Vytvoriť prvú zostavu", systemImage: "plus.circle.fill")
+                        .font(.subheadline.weight(.bold))
+                        .foregroundColor(Color.obsidian900)
+                        .padding(.horizontal, 22)
+                        .padding(.vertical, 12)
+                        .background(
+                            LinearGradient(colors: [Color.gold400, Color.gold500], startPoint: .leading, endPoint: .trailing),
+                            in: Capsule()
+                        )
                 }
-                .font(.system(size: 14, weight: .bold, design: .rounded))
-                .foregroundColor(LuxuryTheme.obsidian900)
-                .padding(.horizontal, 22)
-                .padding(.vertical, 12)
-                .background(
-                    LinearGradient(
-                        colors: [LuxuryTheme.gold400, LuxuryTheme.gold500],
-                        startPoint: .leading,
-                        endPoint: .trailing
-                    )
-                )
-                .clipShape(Capsule())
-                .shadow(color: LuxuryTheme.gold500.opacity(0.35), radius: 10, y: 4)
+                .buttonStyle(.pressable)
             }
-            .buttonStyle(.plain)
-            .padding(.top, 6)
         }
-        .padding(24)
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 32)
+        .transition(.opacity)
     }
-    
-    // MARK: - Delete Routine
-    private func deleteRoutine(_ routine: Routine) {
-        let routineId = routine.id
-        modelContext.delete(routine)
-        try? modelContext.save()
-        
-        Task {
-            await SupabaseSyncManager.shared.deleteRoutine(routineId)
+
+    // MARK: Actions
+    @ViewBuilder
+    private func menu(for routine: Routine) -> some View {
+        Button { selectedRoutineForCanvas = routine } label: {
+            Label("Otvoriť plátno", systemImage: "square.grid.2x2")
         }
+        Button { shareQR(routine) } label: {
+            Label("Zdieľať QR kód", systemImage: "qrcode")
+        }
+        Button(role: .destructive) { routinePendingDelete = routine } label: {
+            Label("Zmazať zostavu", systemImage: "trash")
+        }
+    }
+
+    private func shareQR(_ routine: Routine) {
+        routineForQRExport = routine
+    }
+
+    private func delete(_ routine: Routine) {
+        let routineId = routine.id
+        withAnimation(.spring(response: 0.38, dampingFraction: 0.85)) {
+            modelContext.delete(routine)
+        }
+        try? modelContext.save()
+        deleteCount += 1
+        Task { await SupabaseSyncManager.shared.deleteRoutine(routineId) }
     }
 }

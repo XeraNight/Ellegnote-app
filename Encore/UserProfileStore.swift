@@ -1,5 +1,6 @@
 import Foundation
 import SwiftUI
+import OSLog
 import Combine
 import Supabase
 import Auth
@@ -19,8 +20,14 @@ final class UserProfileStore: ObservableObject {
     @Published var currentKsisId: String = ""
     @Published var dancerGroups: [String] = ["Štandardné tance", "Latinskoamerické tance"]
     @Published var cardTheme: String = "carmine_gold"
-    @Published var currentLanguage: String = "sk-SK"
     @Published var currentPlaybackRate: Double = 1.0
+    /// "dancer" or "coach" – what the user does (self-declared). It is a label, not a permission:
+    /// coach powers come only from an accepted coach–student connection on the server.
+    @Published var danceRole: String = "dancer"
+
+    var isCoach: Bool { danceRole == "coach" }
+
+    static let clubMaxLength = 80
     
     var publicCardId: String {
         let cleanKsis = currentKsisId.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -37,6 +44,8 @@ final class UserProfileStore: ObservableObject {
         
         // Listen to AuthManager changes to dynamically switch profile context
         AuthManager.shared.$currentUser
+            .map { $0?.id }
+            .removeDuplicates()
             .receive(on: RunLoop.main)
             .sink { [weak self] _ in
                 self?.refreshForActiveUser()
@@ -44,6 +53,7 @@ final class UserProfileStore: ObservableObject {
             .store(in: &cancellables)
         
         AuthManager.shared.$isAuthenticated
+            .removeDuplicates()
             .receive(on: RunLoop.main)
             .sink { [weak self] _ in
                 self?.refreshForActiveUser()
@@ -76,13 +86,11 @@ final class UserProfileStore: ObservableObject {
         let savedName = defaults.string(forKey: "profileName_\(uid)")
         if let savedName = savedName, !savedName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             currentName = savedName
-        } else if !AuthManager.shared.userName.isEmpty && AuthManager.shared.userName != "Tanečník" && AuthManager.shared.userName != "Jakub" {
-            currentName = AuthManager.shared.userName
         } else if uid == "guest" {
             currentName = defaults.string(forKey: "profileName") ?? "Tanečník"
         } else {
-            let fallbackName = AuthManager.shared.userName
-            currentName = (fallbackName.isEmpty || fallbackName == "Jakub") ? "Tanečník" : fallbackName
+            let fallbackName = AuthManager.shared.userName.trimmingCharacters(in: .whitespacesAndNewlines)
+            currentName = fallbackName.isEmpty ? "Tanečník" : fallbackName
         }
         
         // 2. Club: Account-scoped. Brand new accounts have NO club by default!
@@ -102,10 +110,6 @@ final class UserProfileStore: ObservableObject {
         } else {
             currentAvatarPath = nil // Never inherit another account's photo
         }
-        
-        // 4. Dictation Language
-        let savedLang = defaults.string(forKey: "profileLang_\(uid)")
-        currentLanguage = savedLang ?? defaults.string(forKey: "defaultDictationLanguage") ?? "sk-SK"
         
         // 5. Playback Rate
         let savedRate = defaults.double(forKey: "profileRate_\(uid)")
@@ -128,6 +132,7 @@ final class UserProfileStore: ObservableObject {
         if let groups = defaults.stringArray(forKey: "profileDancerGroups_\(uid)"), !groups.isEmpty {
             dancerGroups = groups
         }
+        danceRole = defaults.string(forKey: "profileDanceRole_\(uid)") ?? "dancer"
         let savedTheme = defaults.string(forKey: "profileCardTheme_\(uid)")
         cardTheme = savedTheme ?? "carmine_gold"
         
@@ -136,7 +141,8 @@ final class UserProfileStore: ObservableObject {
         }
     }
     
-    /// Fetches the user's official invite code, Dancer ID and KSIS ID from Supabase
+    /// Fetches name, club, invite code, Dancer ID and KSIS ID from Supabase. The server copy of name
+    /// and club wins, so a new iPhone shows the same profile and friends find the user by name.
     func fetchProfileCloudData() async {
         let uid = activeUserId
         guard uid != "guest", let uuid = UUID(uuidString: uid) else { return }
@@ -144,6 +150,8 @@ final class UserProfileStore: ObservableObject {
         do {
             let client = SupabaseConfig.client
             struct ProfileCloudDTO: Decodable {
+                let name: String?
+                let club: String?
                 let invite_code: String?
                 let dancer_code: String?
                 let ksis_id: String?
@@ -151,11 +159,23 @@ final class UserProfileStore: ObservableObject {
             }
             let res: ProfileCloudDTO = try await client
                 .from("profiles")
-                .select("invite_code, dancer_code, ksis_id, dancer_groups")
+                .select("name, club, invite_code, dancer_code, ksis_id, dancer_groups")
                 .eq("id", value: uuid)
                 .single()
                 .execute()
                 .value
+            
+            // The user may have switched accounts while the request was running: drop a late answer.
+            guard uid == activeUserId else { return }
+
+            if let name = res.name?.trimmingCharacters(in: .whitespacesAndNewlines), !name.isEmpty {
+                self.currentName = name
+                UserDefaults.standard.set(name, forKey: "profileName_\(uid)")
+            }
+            if let club = res.club {
+                self.currentClub = club
+                UserDefaults.standard.set(club, forKey: "profileClub_\(uid)")
+            }
             
             if let code = res.invite_code, !code.isEmpty {
                 self.currentInviteCode = code
@@ -172,34 +192,62 @@ final class UserProfileStore: ObservableObject {
                 UserDefaults.standard.set(groups, forKey: "profileDancerGroups_\(uid)")
             }
             
+            // The Dancer ID is generated by the database and cannot be changed by the client.
             if let dCode = res.dancer_code, !dCode.isEmpty {
                 self.dancerCode = dCode
                 UserDefaults.standard.set(dCode, forKey: "profileDancerCode_\(uid)")
-            } else {
-                // Generate a fresh unique Dancer ID and save to Supabase
-                let newCode = "DNC-" + String(format: "%04d", Int.random(in: 1000...9999))
-                self.dancerCode = newCode
-                UserDefaults.standard.set(newCode, forKey: "profileDancerCode_\(uid)")
-                
-                struct UpdateCodeDTO: Encodable {
-                    let dancer_code: String
-                }
-                _ = try? await client
-                    .from("profiles")
-                    .update(UpdateCodeDTO(dancer_code: newCode))
-                    .eq("id", value: uuid)
-                    .execute()
             }
         } catch {
-            print("Supabase fetchProfileCloudData notice: \(error.localizedDescription)")
+            Logger.general.notice("fetchProfileCloudData: \(error.localizedDescription, privacy: .public)")
+        }
+        await fetchDanceRole(uid: uid, uuid: uuid)
+    }
+
+    /// Separate request so profiles without the `dance_role` column (migration not run yet) still load.
+    private func fetchDanceRole(uid: String, uuid: UUID) async {
+        struct RoleDTO: Decodable { let dance_role: String? }
+        do {
+            let res: RoleDTO = try await SupabaseConfig.client
+                .from("profiles")
+                .select("dance_role")
+                .eq("id", value: uuid)
+                .single()
+                .execute()
+                .value
+            guard uid == activeUserId else { return }
+            danceRole = res.dance_role == "coach" ? "coach" : "dancer"
+            UserDefaults.standard.set(danceRole, forKey: "profileDanceRole_\(uid)")
+        } catch {
+            Logger.general.notice("fetchDanceRole: \(error.localizedDescription, privacy: .public)")
+        }
+    }
+
+    /// Changes the self-declared role (Tanečník / Tréner) on this phone and on the server.
+    func setDanceRole(_ role: String) {
+        let uid = activeUserId
+        let clean = role == "coach" ? "coach" : "dancer"
+        danceRole = clean
+        UserDefaults.standard.set(clean, forKey: "profileDanceRole_\(uid)")
+        guard let uuid = UUID(uuidString: uid) else { return }
+        Task {
+            struct RoleUpdate: Encodable { let dance_role: String }
+            do {
+                try await SupabaseConfig.client
+                    .from("profiles")
+                    .update(RoleUpdate(dance_role: clean))
+                    .eq("id", value: uuid)
+                    .execute()
+            } catch {
+                Logger.general.error("setDanceRole failed: \(error.localizedDescription, privacy: .public)")
+            }
         }
     }
     
-    /// Saves updated name and club for the active account
+    /// Saves name and club on this phone and on the server (card, friends search, coach lists).
     func saveProfile(name: String, club: String) {
         let uid = activeUserId
-        let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        let trimmedClub = club.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedName = String(name.trimmingCharacters(in: .whitespacesAndNewlines).prefix(NameRules.maxLength))
+        let trimmedClub = String(club.trimmingCharacters(in: .whitespacesAndNewlines).prefix(Self.clubMaxLength))
         
         let finalName = trimmedName.isEmpty ? "Tanečník" : trimmedName
         currentName = finalName
@@ -214,6 +262,21 @@ final class UserProfileStore: ObservableObject {
         defaults.set(finalName, forKey: "profileName")
         if uid == "guest" {
             defaults.set(trimmedClub, forKey: "profileClub")
+        }
+
+        guard let uuid = UUID(uuidString: uid) else { return }
+        Task {
+            // RLS lets users update only their own row; the server trigger keeps role and status untouchable.
+            struct ProfileUpdate: Encodable { let name: String; let club: String }
+            do {
+                try await SupabaseConfig.client
+                    .from("profiles")
+                    .update(ProfileUpdate(name: finalName, club: trimmedClub))
+                    .eq("id", value: uuid)
+                    .execute()
+            } catch {
+                Logger.general.error("saveProfile upload failed: \(error.localizedDescription, privacy: .public)")
+            }
         }
     }
     
@@ -234,14 +297,6 @@ final class UserProfileStore: ObservableObject {
                 defaults.removeObject(forKey: "profileImagePath")
             }
         }
-    }
-    
-    /// Updates preferred dictation language for the active account
-    func setLanguage(_ lang: String) {
-        let uid = activeUserId
-        currentLanguage = lang
-        UserDefaults.standard.set(lang, forKey: "profileLang_\(uid)")
-        UserDefaults.standard.set(lang, forKey: "defaultDictationLanguage")
     }
     
     /// Updates preferred video playback rate for the active account

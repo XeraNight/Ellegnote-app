@@ -160,7 +160,7 @@ public struct SubscriptionPaywallView: View {
     private var tierCardsSection: some View {
         HStack(spacing: 12) {
             tierCard(tier: .plus)
-            tierCard(tier: .studio)
+            tierCard(tier: .premium)
         }
     }
     
@@ -222,7 +222,7 @@ public struct SubscriptionPaywallView: View {
     // MARK: - 4. Features List Section
     private var featuresListSection: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text(selectedTier == .plus ? "VÝHODY ENCORE PLUS:" : "VÝHODY ENCORE STUDIO:")
+            Text(selectedTier == .plus ? "VÝHODY ENCORE PLUS:" : "VÝHODY ENCORE PREMIUM:")
                 .font(.system(size: 11, weight: .black))
                 .foregroundColor(LuxuryTheme.gold400)
                 .tracking(1.2)
@@ -392,8 +392,8 @@ public struct SubscriptionPaywallView: View {
         switch (selectedTier, isAnnual) {
         case (.plus, true): targetId = SubscriptionManager.ProductID.plusAnnual
         case (.plus, false): targetId = SubscriptionManager.ProductID.plusMonthly
-        case (.studio, true): targetId = SubscriptionManager.ProductID.studioAnnual
-        case (.studio, false): targetId = SubscriptionManager.ProductID.studioMonthly
+        case (.premium, true): targetId = SubscriptionManager.ProductID.premiumAnnual
+        case (.premium, false): targetId = SubscriptionManager.ProductID.premiumMonthly
         default: targetId = SubscriptionManager.ProductID.plusMonthly
         }
         
@@ -420,7 +420,7 @@ public struct SubscriptionPaywallView: View {
 }
 
 // MARK: - Xcode Canvas Preview
-#Preview("SubscriptionPaywallView - Plus & Studio") {
-    SubscriptionPaywallView(initialTier: .studio)
+#Preview("SubscriptionPaywallView - Plus & Premium") {
+    SubscriptionPaywallView(initialTier: .premium)
         .previewWithSampleData()
 }

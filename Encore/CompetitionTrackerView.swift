@@ -30,7 +30,7 @@ public struct CompetitionTrackerView: View {
                     // 1. Couple Header Card
                     coupleSelectorHeaderCard
 
-                    // 2. Class Advancement Progress Card (Gated for Plus/Studio)
+                    // 2. Class Advancement Progress Card (Gated for Plus/Premium)
                     if !subscriptionManager.canTrackOwnPoints {
                         freeTierPaywallCard
                     } else {
@@ -131,7 +131,7 @@ public struct CompetitionTrackerView: View {
                 ZStack {
                     Circle()
                         .fill(
-                            subscriptionManager.currentTier == .studio
+                            subscriptionManager.currentTier == .premium
                                 ? LinearGradient(colors: [LuxuryTheme.gold400, LuxuryTheme.gold500], startPoint: .topLeading, endPoint: .bottomTrailing)
                                 : (subscriptionManager.currentTier == .plus
                                     ? LinearGradient(colors: [Color.amberGold, LuxuryTheme.gold400], startPoint: .topLeading, endPoint: .bottomTrailing)
@@ -147,8 +147,8 @@ public struct CompetitionTrackerView: View {
                 VStack(alignment: .leading, spacing: 2) {
                     HStack(spacing: 6) {
                         Text(
-                            subscriptionManager.currentTier == .studio
-                                ? "ENCORE STUDIO"
+                            subscriptionManager.currentTier == .premium
+                                ? "ENCORE PREMIUM"
                                 : (subscriptionManager.currentTier == .plus ? "ENCORE PLUS" : "ENCORE FREE")
                         )
                         .font(.system(size: 12, weight: .black, design: .rounded))
@@ -175,7 +175,7 @@ public struct CompetitionTrackerView: View {
                     }
 
                     Text(
-                        subscriptionManager.currentTier == .studio
+                        subscriptionManager.currentTier == .premium
                             ? "Plný prístup • KSIS Radar súperov, Roster a Posture duel"
                             : (subscriptionManager.currentTier == .plus
                                 ? "Odomknuté • Sledovanie bodov & Apple Kalendár súťaží"
@@ -1416,7 +1416,7 @@ public struct KSISCoupleManagementSheet: View {
 
                         // Section 2: Pridať alebo Aktualizovať pár
                         if manager.couples.count >= 1 && !subscriptionManager.canTrackRosterPoints {
-                            // Studio Tier Upsell Card for Roster & Tracking other couples
+                            // Premium upsell card for Roster & Tracking other couples
                             VStack(alignment: .leading, spacing: 12) {
                                 HStack(spacing: 8) {
                                     Image(systemName: "building.columns.fill")
@@ -1425,7 +1425,7 @@ public struct KSISCoupleManagementSheet: View {
                                         .font(.system(size: 13, weight: .bold))
                                         .foregroundColor(.white)
                                 }
-                                Text("V balíku Encore Plus môžete sledovať 1 svoj vlastný tanečný pár. Sledovanie celého rosteru zverencov v klube alebo sledovanie priateľov je súčasťou prémiového balíka Encore Studio.")
+                                Text("V balíku Encore Plus môžete sledovať 1 svoj vlastný tanečný pár. Sledovanie celého rosteru zverencov v klube alebo sledovanie priateľov je súčasťou prémiového balíka Encore Premium.")
                                     .font(.system(size: 12))
                                     .foregroundColor(Color.white.opacity(0.75))
                                 
@@ -1433,7 +1433,7 @@ public struct KSISCoupleManagementSheet: View {
                                     showPaywallSheet = true
                                 } label: {
                                     HStack(spacing: 6) {
-                                        Text("Prejsť na Encore Studio")
+                                        Text("Prejsť na Encore Premium")
                                         Image(systemName: "arrow.up.right")
                                     }
                                     .font(.system(size: 13, weight: .bold))
@@ -1566,7 +1566,7 @@ public struct KSISCoupleManagementSheet: View {
                 }
             }
             .sheet(isPresented: $showPaywallSheet) {
-                SubscriptionPaywallView(initialTier: .studio)
+                SubscriptionPaywallView(initialTier: .premium)
             }
         }
     }

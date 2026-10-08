@@ -1,5 +1,6 @@
 import Foundation
 import SwiftUI
+import OSLog
 import Combine
 import Supabase
 
@@ -22,9 +23,11 @@ public final class ConnectionManager: ObservableObject {
     private init() {
         // Refresh connections when auth changes
         AuthManager.shared.$currentUser
+            .map { $0?.id }
+            .removeDuplicates()
             .receive(on: RunLoop.main)
-            .sink { [weak self] user in
-                if user != nil {
+            .sink { [weak self] userId in
+                if userId != nil {
                     Task { [weak self] in
                         await self?.fetchAllConnections()
                     }
@@ -171,7 +174,7 @@ public final class ConnectionManager: ObservableObject {
             self.outgoingRequests = outgoing
             
         } catch {
-            print("[ConnectionManager] fetchAllConnections notice: \(error.localizedDescription)")
+            Logger.general.notice("fetchAllConnections: \(error.localizedDescription, privacy: .public)")
             self.errorMessage = error.localizedDescription
         }
     }
@@ -205,8 +208,9 @@ public final class ConnectionManager: ObservableObject {
                 userB = myId
             }
         case .coachStudent:
-            // Ak má volajúci Studio tier alebo je App Owner, predpokladá sa, že pozýva žiaka
-            if SubscriptionManager.shared.canAccessStudioRoster {
+            // The direction follows the role, not the plan: a coach invites a student, a dancer invites a coach.
+            // (A dancer with Premium is still the student; the plan is personal.)
+            if UserProfileStore.shared.isCoach {
                 userA = targetUserId // Žiak (vlastník obsahu)
                 userB = myId          // Tréner
             } else {
@@ -344,7 +348,7 @@ public final class ConnectionManager: ObservableObject {
             let myId = AuthManager.shared.currentUser?.id
             return res.filter { $0.id != myId }
         } catch {
-            print("[ConnectionManager] search_dancers RPC fallback notice: \(error.localizedDescription)")
+            Logger.general.notice("search_dancers RPC fallback: \(error.localizedDescription, privacy: .public)")
             
             // Direct query fallback if RPC function is not yet deployed
             do {

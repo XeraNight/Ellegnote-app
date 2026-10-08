@@ -12,13 +12,14 @@ struct FieldEdgeSweep: View {
             let height = geo.size.height
             let width = geo.size.width
             let length = min(110, height * 0.55)
+            let tint = Color.gold400
 
             Color.clear
                 .keyframeAnimator(initialValue: 0.0, trigger: reduceMotion ? 0 : trigger) { _, progress in
                     let y = -length + progress * (height + length)
                     ZStack(alignment: .topLeading) {
-                        bar(length).offset(x: 0, y: y)
-                        bar(length).offset(x: width - 2, y: y)
+                        bar(length, tint: tint).offset(x: 0, y: y)
+                        bar(length, tint: tint).offset(x: width - 2, y: y)
                     }
                     .frame(width: width, height: height, alignment: .topLeading)
                     .clipped()
@@ -30,11 +31,11 @@ struct FieldEdgeSweep: View {
         .allowsHitTesting(false)
     }
 
-    private func bar(_ length: CGFloat) -> some View {
+    nonisolated private func bar(_ length: CGFloat, tint: Color) -> some View {
         Capsule()
             .fill(
                 LinearGradient(
-                    colors: [.clear, Color.gold400.opacity(0.9), .clear],
+                    colors: [.clear, tint.opacity(0.9), .clear],
                     startPoint: .top,
                     endPoint: .bottom
                 )

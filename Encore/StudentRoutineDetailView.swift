@@ -206,7 +206,7 @@ struct StudentRoutineDetailView: View {
                 }
             }
             
-            // Notes & Coach remarks
+            // Dancer's own notes (read-only for the coach) and the coach's remark
             if !node.notes.isEmpty {
                 HStack(alignment: .top, spacing: 6) {
                     Image(systemName: "quote.bubble.fill")
@@ -224,7 +224,23 @@ struct StudentRoutineDetailView: View {
                 .cornerRadius(10)
             }
             
-            // Edit notes button
+            if let remark = node.coach_notes, !remark.isEmpty {
+                HStack(alignment: .top, spacing: 6) {
+                    Image(systemName: "person.badge.shield.checkmark.fill")
+                        .font(.system(size: 11))
+                        .foregroundColor(LuxuryTheme.gold400)
+                        .padding(.top, 2)
+                    Text(remark)
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundColor(LuxuryTheme.gold300)
+                }
+                .padding(10)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(LuxuryTheme.gold500.opacity(0.10))
+                .cornerRadius(10)
+            }
+
+            // Edit coach remark button
             HStack {
                 if !node.transition_notes.isEmpty {
                     Text(node.transition_notes)
@@ -236,11 +252,11 @@ struct StudentRoutineDetailView: View {
                 
                 Button {
                     editingNode = node
-                    editedNotesText = node.notes
+                    editedNotesText = node.coach_notes ?? ""
                 } label: {
                     HStack(spacing: 4) {
                         Image(systemName: "pencil")
-                        Text(node.notes.isEmpty ? "Pridať poznámku" : "Upraviť poznámku")
+                        Text((node.coach_notes ?? "").isEmpty ? "Pridať poznámku trénera" : "Upraviť poznámku trénera")
                     }
                     .font(.system(size: 11, weight: .semibold))
                     .foregroundColor(LuxuryTheme.gold400)

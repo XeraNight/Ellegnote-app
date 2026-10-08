@@ -105,8 +105,18 @@ final class CalendarExporter {
     private let store = EKEventStore()
     private init() {}
 
+    /// Every event the app creates carries this line, so it can find and remove only its own events later.
+    private static let trainingMarker = "Encore · týždenný tréning"
+    private static let competitionMarker = "Encore · súťaž"
+
     private func requestAccess() async -> Bool {
         (try? await store.requestWriteOnlyAccessToEvents()) ?? false
+    }
+
+    /// Removing needs full access. The app only touches events it created itself (by stored id or by the
+    /// marker line above) and never reads or changes any other event.
+    private func requestFullAccess() async -> Bool {
+        (try? await store.requestFullAccessToEvents()) ?? false
     }
 
     /// Returns the event identifier, or nil when access was denied or saving failed.
@@ -119,9 +129,11 @@ final class CalendarExporter {
         event.isAllDay = true
         event.startDate = PlannerCalendar.startOfDay(competition.date)
         event.endDate = event.startDate
+        var notes = [Self.competitionMarker]
         if !competition.targetCategories.isEmpty {
-            event.notes = "Kategórie: " + competition.targetCategories.joined(separator: ", ")
+            notes.append("Kategórie: " + competition.targetCategories.joined(separator: ", "))
         }
+        event.notes = notes.joined(separator: "\n")
         event.addAlarm(EKAlarm(relativeOffset: -24 * 60 * 60))
         return save(event)
     }
@@ -145,6 +157,7 @@ final class CalendarExporter {
         event.calendar = store.defaultCalendarForNewEvents
         event.title = cadence.title.isEmpty ? "Tréning" : cadence.title
         event.location = cadence.location.isEmpty ? nil : cadence.location
+        event.notes = Self.trainingMarker
         event.startDate = PlannerCalendar.date(on: first, minutes: cadence.startMinutes)
         event.endDate = PlannerCalendar.date(on: first, minutes: cadence.endMinutes)
         // EKWeekday: 1 = nedeľa … 7 = sobota.
@@ -162,6 +175,46 @@ final class CalendarExporter {
         ))
         event.addAlarm(EKAlarm(relativeOffset: -30 * 60))
         return save(event)
+    }
+
+    enum RemovalResult {
+        case removed(Int)
+        case accessDenied
+    }
+
+    /// Removes the weekly series of the given trainings from Apple Calendar (all future occurrences).
+    /// Already deleted events count as done. Past occurrences stay in the calendar history.
+    func removeTrainings(eventIds: [String], includeUnknownSeries: Bool = false) async -> RemovalResult {
+        guard await requestFullAccess() else { return .accessDenied }
+        var removed = Set<String>()
+
+        for id in eventIds {
+            guard let event = store.event(withIdentifier: id) else { continue }
+            if remove(event) { removed.insert(event.calendarItemIdentifier) }
+        }
+
+        // Safety net for series whose id was lost (reinstall, other device): the marker line finds them.
+        guard includeUnknownSeries else { return .removed(removed.count) }
+        let cal = PlannerCalendar.calendar
+        let start = cal.date(byAdding: .day, value: -1, to: Date()) ?? Date()
+        let end = cal.date(byAdding: .year, value: 2, to: Date()) ?? Date()
+        let predicate = store.predicateForEvents(withStart: start, end: end, calendars: nil)
+        for event in store.events(matching: predicate)
+        where event.notes?.contains(Self.trainingMarker) == true
+            && !removed.contains(event.calendarItemIdentifier) {
+            if remove(event) { removed.insert(event.calendarItemIdentifier) }
+        }
+        return .removed(removed.count)
+    }
+
+    private func remove(_ event: EKEvent) -> Bool {
+        do {
+            try store.remove(event, span: .futureEvents)
+            return true
+        } catch {
+            Logger.general.warning("Calendar removal failed: \(error.localizedDescription, privacy: .public)")
+            return false
+        }
     }
 
     private func save(_ event: EKEvent) -> String? {

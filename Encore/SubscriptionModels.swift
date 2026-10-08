@@ -5,9 +5,22 @@ import SwiftUI
 public enum SubscriptionTier: String, CaseIterable, Codable, Sendable {
     case free = "Free"
     case plus = "Plus"
-    case studio = "Studio"
+    case premium = "Premium"
     
     public var title: String { rawValue }
+
+    /// The tier as `user_entitlements.tier` stores it ("free", "plus", "premium").
+    public var serverValue: String { rawValue.lowercased() }
+
+    /// Reads the server value. "studio" is the old name of Premium, kept so grants made before the rename still count.
+    public init?(serverValue: String) {
+        switch serverValue.lowercased() {
+        case "free": self = .free
+        case "plus": self = .plus
+        case "premium", "studio": self = .premium
+        default: return nil
+        }
+    }
     
     public var shortDescription: String {
         switch self {
@@ -15,7 +28,7 @@ public enum SubscriptionTier: String, CaseIterable, Codable, Sendable {
             return "Základné tréningové plátno, 1 zostava na každý tanec, metronóm"
         case .plus:
             return "Neobmedzené zostavy na tanec, Apple Kalendár sync, Top 3 priority, hosťovský kľúč trénera, KSIS kalkulačka, Optima parket (Košice)"
-        case .studio:
+        case .premium:
             return "KSIS Radar súperov & priateľov s notifikáciami, biomechanická video analýza držania tela, Video Duel, trénerský denník"
         }
     }
@@ -24,7 +37,7 @@ public enum SubscriptionTier: String, CaseIterable, Codable, Sendable {
         switch self {
         case .free: return "0,00 €"
         case .plus: return "5,99 €"
-        case .studio: return "14,99 €"
+        case .premium: return "14,99 €"
         }
     }
     
@@ -32,7 +45,7 @@ public enum SubscriptionTier: String, CaseIterable, Codable, Sendable {
         switch self {
         case .free: return "0,00 €"
         case .plus: return "49,99 €"
-        case .studio: return "129,99 €"
+        case .premium: return "129,99 €"
         }
     }
     
@@ -40,7 +53,7 @@ public enum SubscriptionTier: String, CaseIterable, Codable, Sendable {
         switch self {
         case .free: return Color.gray
         case .plus: return Color.amberGold
-        case .studio: return Color.gold400
+        case .premium: return Color.gold400
         }
     }
     
@@ -48,7 +61,7 @@ public enum SubscriptionTier: String, CaseIterable, Codable, Sendable {
         switch self {
         case .free: return "sparkles"
         case .plus: return "crown.fill"
-        case .studio: return "building.columns.fill"
+        case .premium: return "diamond.fill"
         }
     }
 }
@@ -59,7 +72,7 @@ extension SubscriptionTier: Comparable {
         switch self {
         case .free: return 0
         case .plus: return 1
-        case .studio: return 2
+        case .premium: return 2
         }
     }
     

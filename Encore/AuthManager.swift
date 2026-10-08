@@ -15,6 +15,8 @@ private struct GoogleCredentialPayload: Sendable {
     let name: String
     let sub: String
     let avatar: String
+    /// Raw nonce that belongs to the hashed one sent to Google. nil when no nonce was used.
+    let nonce: String?
 }
 
 private enum GoogleSignInOutcome: Sendable {
@@ -40,16 +42,26 @@ final class AuthManager: ObservableObject {
     @Published var showSettingsLink: Bool = false
     /// Presented globally (RootAppView) after the user opens a password-recovery link.
     @Published var showPasswordRecoverySheet: Bool = false
+    /// Set after a sign-up that still needs the e-mail code; the login screen shows the code entry.
+    @Published var pendingConfirmationEmail: String? = nil
 
     @AppStorage("profileName") var userName: String = "Tanečník"
     @AppStorage("userEmail")   var userEmail: String = ""
     @AppStorage("userAvatarURL") var userAvatarURL: String = ""
     @AppStorage("googleSubId") var googleSubId: String = ""
-    @AppStorage("isBiometricsEnabled") var isBiometricsEnabled: Bool = true
+    /// Off until the user turns it on (Settings or the offer after the first sign-in); turning it on
+    /// asks for Face ID first, so only the owner of the iPhone can enable it.
+    @AppStorage("isBiometricsEnabled") var isBiometricsEnabled: Bool = false
+
+    /// App lock: with Face ID sign-in on, the user stays signed in and unlocks Encore with Face ID
+    /// when opening it (after a restart or more than 5 minutes in the background).
+    @Published var isAppLocked = false
+    private var backgroundedAt: Date?
+    private static let lockGracePeriod: TimeInterval = 5 * 60
 
     private static let authCallbackURL = URL(string: "encore://auth-callback")!
     private static let pendingResetKey = "encore_pending_password_reset_at"
-    private static let minPasswordLength = 6
+    private static let freshInstallKey = "encore.hasLaunchedBefore"
 
     // Uses the shared SupabaseConfig.client singleton
     nonisolated private var client: SupabaseClient? { SupabaseConfig.client }
@@ -66,6 +78,7 @@ final class AuthManager: ObservableObject {
 
     // MARK: - Initial Auth Restoration
     private func checkInitialAuth() async {
+        await signOutLeftoverSessionAfterReinstall()
         Task { await startAuthListener() }
 
         if let client {
@@ -90,7 +103,23 @@ final class AuthManager: ObservableObject {
             _ = await restoreGoogleSignInAsync(silent: true)
         }
 
+        // A restored session opens locked when Face ID sign-in is on; a fresh sign-in never does.
+        if isAuthenticated && isBiometricsEnabled { isAppLocked = true }
         isCheckingInitialAuth = false
+    }
+
+    /// The Keychain survives deleting the app, but the local database does not. After a reinstall the
+    /// user would look signed in with an empty app, so a fresh install starts signed out.
+    /// An update keeps UserDefaults (the stored e-mail), so it is not treated as a fresh install.
+    private func signOutLeftoverSessionAfterReinstall() async {
+        let defaults = UserDefaults.standard
+        guard !defaults.bool(forKey: Self.freshInstallKey) else { return }
+        defaults.set(true, forKey: Self.freshInstallKey)
+        guard userEmail.isEmpty else { return }
+        if let client, client.auth.currentSession != nil {
+            try? await client.auth.signOut(scope: .local)
+        }
+        KeychainHelper.shared.deleteCredentials()
     }
 
     // MARK: - Reactive Auth State Listener
@@ -125,6 +154,9 @@ final class AuthManager: ObservableObject {
     }
 
     private func applySession(_ session: Session) {
+        let isNewUser = currentUser?.id != session.user.id
+        // Before anything is shown or synced for a different account, drop the previous one's data.
+        if isNewUser { LocalDataGuard.claim(for: session.user.id) }
         currentUser = session.user
         isAuthenticated = true
         if let email = session.user.email, !email.isEmpty {
@@ -135,10 +167,12 @@ final class AuthManager: ObservableObject {
                 userName = str
             }
         }
-        UserProfileStore.shared.refreshForActiveUser()
+        // Token refreshes arrive as new sessions too; only a real user change reloads the profile.
+        if isNewUser { UserProfileStore.shared.refreshForActiveUser() }
     }
 
     private func clearSession() {
+        isAppLocked = false
         currentUser = nil
         isAuthenticated = false
         userEmail = ""
@@ -218,16 +252,27 @@ final class AuthManager: ObservableObject {
         }
     }
 
+    private static let missingConfigMessage = "Chyba spojenia: Chýba platná konfigurácia Supabase servera."
+
+    /// Keeps only the digits of a pasted code ("123 456" -> "123456").
+    private static func digits(_ text: String) -> String {
+        text.filter { $0.isASCII && $0.isNumber }
+    }
+
     // MARK: - Sign In (Email & Password)
     func signIn(email: String, pass: String) async -> Bool {
         guard let client else {
-            authErrorMessage = "Chyba spojenia: Chýba platná konfigurácia Supabase servera."
+            authErrorMessage = Self.missingConfigMessage
             return false
         }
         let cleanEmail = email.trimmingCharacters(in: .whitespacesAndNewlines)
         // Passwords may legitimately contain leading/trailing spaces – never trim them.
         guard !cleanEmail.isEmpty, !pass.isEmpty else {
             authErrorMessage = "Zadaj prosím e-mail aj heslo."
+            return false
+        }
+        guard EmailValidator.isValid(cleanEmail) else {
+            authErrorMessage = "Zadaj platný formát e-mailovej adresy (napr. meno@domena.sk)."
             return false
         }
 
@@ -241,22 +286,40 @@ final class AuthManager: ObservableObject {
             persistLogin(email: cleanEmail, provider: "email")
             return true
         } catch {
+            // Registered but never confirmed: send a fresh code and go straight to code entry.
+            if let authError = error as? AuthError, authError.errorCode == .emailNotConfirmed {
+                try? await client.auth.resend(email: cleanEmail, type: .signup, emailRedirectTo: Self.authCallbackURL)
+                pendingConfirmationEmail = cleanEmail
+                return false
+            }
             authErrorMessage = friendlyAuthError(from: error, isSignUp: false)
             return false
         }
     }
 
     // MARK: - Sign Up (Email & Password)
-    func signUp(email: String, pass: String, name: String) async -> Bool {
+    func signUp(email: String, pass: String, name: String, danceRole: String = "dancer", ageConfirmed: Bool) async -> Bool {
         guard let client else {
-            authErrorMessage = "Chyba spojenia: Chýba platná konfigurácia Supabase servera."
+            authErrorMessage = Self.missingConfigMessage
             return false
         }
         let cleanEmail = email.trimmingCharacters(in: .whitespacesAndNewlines)
         let cleanName = name.trimmingCharacters(in: .whitespacesAndNewlines)
 
-        guard !cleanEmail.isEmpty, pass.count >= Self.minPasswordLength, !cleanName.isEmpty else {
-            authErrorMessage = "Vyplň prosím meno, platný e-mail a heslo s aspoň \(Self.minPasswordLength) znakmi."
+        guard !cleanName.isEmpty, cleanName.count <= NameRules.maxLength else {
+            authErrorMessage = "Zadaj meno (najviac \(NameRules.maxLength) znakov)."
+            return false
+        }
+        guard EmailValidator.isValid(cleanEmail) else {
+            authErrorMessage = "Zadaj platný formát e-mailovej adresy (napr. meno@domena.sk)."
+            return false
+        }
+        if let issue = PasswordPolicy.issue(for: pass, email: cleanEmail) {
+            authErrorMessage = issue
+            return false
+        }
+        guard ageConfirmed else {
+            authErrorMessage = "Potvrď vek, aby si mohol pokračovať."
             return false
         }
 
@@ -272,14 +335,16 @@ final class AuthManager: ObservableObject {
                     "name": .string(cleanName),
                     "platform": .string("ios"),
                     "last_platform": .string("ios"),
-                    "client_type": .string("ios_native")
+                    "client_type": .string("ios_native"),
+                    "dance_role": .string(danceRole == "coach" ? "coach" : "dancer"),
+                    "age_confirmed": .bool(true)
                 ],
                 redirectTo: Self.authCallbackURL
             )
 
             // Supabase hides "already registered" by returning a user without identities.
             if response.user.identities?.isEmpty == true {
-                authErrorMessage = "Účet s týmto e-mailom už existuje. Prejdi na záložku Prihlásenie."
+                authErrorMessage = "Účet s týmto e-mailom už existuje. Prihlás sa alebo si obnov heslo."
                 return false
             }
 
@@ -291,9 +356,9 @@ final class AuthManager: ObservableObject {
                 persistLogin(email: cleanEmail, provider: "email")
                 return true
             } else {
-                // E-mail confirmation required by the server.
+                // The server wants the e-mail confirmed: the login screen asks for the 6-digit code.
                 persistLogin(email: cleanEmail, provider: "email")
-                authSuccessMessage = "Účet bol vytvorený! Na tvoj e-mail sme poslali potvrdzovací odkaz. Po potvrdení sa môžeš prihlásiť."
+                pendingConfirmationEmail = cleanEmail
                 return false
             }
         } catch {
@@ -302,13 +367,52 @@ final class AuthManager: ObservableObject {
         }
     }
 
+    // MARK: - E-mail confirmation (6-digit code)
+    /// Confirms the e-mail with the code from the message and signs the user in.
+    /// Returns an error message, or nil on success.
+    func verifySignupCode(_ rawCode: String) async -> String? {
+        guard let client else { return Self.missingConfigMessage }
+        guard let email = pendingConfirmationEmail else { return "Najprv sa zaregistruj alebo prihlás." }
+        let code = Self.digits(rawCode)
+        guard code.count == 6 else { return "Zadaj 6-miestny kód z e-mailu." }
+        do {
+            let response = try await client.auth.verifyOTP(email: email, token: code, type: .signup)
+            guard let session = response.session else { return "Kód sa nepodarilo overiť. Skús to znova." }
+            applySession(session)
+            if case let .string(name)? = session.user.userMetadata["name"], !name.isEmpty {
+                UserProfileStore.shared.saveProfile(name: name, club: "")
+            }
+            persistLogin(email: email, provider: "email")
+            pendingConfirmationEmail = nil
+            return nil
+        } catch {
+            return friendlyAuthError(from: error, fallbackPrefix: "Overenie zlyhalo")
+        }
+    }
+
+    /// Sends a new confirmation code. Returns an error message, or nil on success.
+    func resendSignupCode() async -> String? {
+        guard let client else { return Self.missingConfigMessage }
+        guard let email = pendingConfirmationEmail else { return "Najprv sa zaregistruj alebo prihlás." }
+        do {
+            try await client.auth.resend(email: email, type: .signup, emailRedirectTo: Self.authCallbackURL)
+            return nil
+        } catch {
+            return friendlyAuthError(from: error, fallbackPrefix: "Odoslanie kódu zlyhalo")
+        }
+    }
+
+    func cancelPendingConfirmation() {
+        pendingConfirmationEmail = nil
+    }
+
     // MARK: - Password Reset (forgot password)
-    /// Sends a recovery e-mail. Returns an error message, or nil on success.
+    /// Sends a recovery e-mail (with a 6-digit code). Returns an error message, or nil on success.
     /// Supabase answers identically for unknown addresses (no account enumeration).
     func sendPasswordReset(email: String) async -> String? {
-        guard let client else { return "Chyba spojenia: Chýba platná konfigurácia Supabase servera." }
+        guard let client else { return Self.missingConfigMessage }
         let clean = email.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard clean.contains("@"), clean.contains("."), clean.count >= 5 else {
+        guard EmailValidator.isValid(clean) else {
             return "Zadaj platný formát e-mailovej adresy (napr. meno@domena.sk)."
         }
         do {
@@ -316,21 +420,40 @@ final class AuthManager: ObservableObject {
             UserDefaults.standard.set(Date().timeIntervalSince1970, forKey: Self.pendingResetKey)
             return nil
         } catch {
-            return friendlyAuthError(from: error, fallbackPrefix: "Odoslanie odkazu zlyhalo")
+            return friendlyAuthError(from: error, fallbackPrefix: "Odoslanie kódu zlyhalo")
         }
     }
 
-    /// Sets a new password for the current session (used after opening a recovery link).
-    /// Returns an error message, or nil on success.
-    func setNewPassword(_ newPassword: String) async -> String? {
-        guard let client else { return "Chyba spojenia: Chýba platná konfigurácia Supabase servera." }
-        guard newPassword.count >= Self.minPasswordLength else {
-            return "Heslo musí mať aspoň \(Self.minPasswordLength) znakov."
+    /// Verifies the recovery code. On success the user holds a session and the app opens the
+    /// "new password" sheet. Returns an error message, or nil on success.
+    func verifyRecoveryCode(email: String, code rawCode: String) async -> String? {
+        guard let client else { return Self.missingConfigMessage }
+        let clean = email.trimmingCharacters(in: .whitespacesAndNewlines)
+        let code = Self.digits(rawCode)
+        guard code.count == 6 else { return "Zadaj 6-miestny kód z e-mailu." }
+        do {
+            let response = try await client.auth.verifyOTP(email: clean, token: code, type: .recovery)
+            guard let session = response.session else { return "Kód sa nepodarilo overiť. Skús to znova." }
+            UserDefaults.standard.removeObject(forKey: Self.pendingResetKey)
+            applySession(session)
+            showPasswordRecoverySheet = true
+            return nil
+        } catch {
+            return friendlyAuthError(from: error, fallbackPrefix: "Overenie zlyhalo")
         }
+    }
+
+    /// Sets a new password for the current session (used after the recovery code or link).
+    /// Ends every other session so a stolen token stops working. Returns an error message, or nil.
+    func setNewPassword(_ newPassword: String) async -> String? {
+        guard let client else { return Self.missingConfigMessage }
+        let email = currentUser?.email ?? userEmail
+        if let issue = PasswordPolicy.issue(for: newPassword, email: email) { return issue }
         do {
             _ = try await client.auth.update(user: UserAttributes(password: newPassword))
-            let email = currentUser?.email ?? userEmail
             persistLogin(email: email, provider: "email")
+            UserDefaults.standard.removeObject(forKey: Self.pendingResetKey)
+            try? await client.auth.signOut(scope: .others)
             return nil
         } catch {
             return friendlyAuthError(from: error, fallbackPrefix: "Zmena hesla zlyhala")
@@ -340,22 +463,19 @@ final class AuthManager: ObservableObject {
     /// Changes the password of a signed-in e-mail user after verifying the current one.
     /// Returns an error message, or nil on success.
     func changePassword(current: String, new newPassword: String) async -> String? {
-        guard let client else { return "Chyba spojenia: Chýba platná konfigurácia Supabase servera." }
+        guard let client else { return Self.missingConfigMessage }
         let email = (currentUser?.email ?? userEmail).trimmingCharacters(in: .whitespacesAndNewlines)
         guard !email.isEmpty else { return "Nepodarilo sa zistiť e-mail účtu. Prihlás sa znova." }
         guard !current.isEmpty else { return "Zadaj súčasné heslo." }
-        guard newPassword.count >= Self.minPasswordLength else {
-            return "Nové heslo musí mať aspoň \(Self.minPasswordLength) znakov."
-        }
         guard newPassword != current else { return "Nové heslo musí byť iné ako súčasné." }
+        if let issue = PasswordPolicy.issue(for: newPassword, email: email) { return issue }
 
         // Re-verify the current password (also guarantees a fresh session for the update).
         do {
             let session = try await client.auth.signIn(email: email, password: current)
             applySession(session)
         } catch {
-            let desc = error.localizedDescription.lowercased()
-            if desc.contains("invalid login credentials") || desc.contains("invalid_credentials") || desc.contains("invalid_grant") {
+            if let authError = error as? AuthError, authError.errorCode == .invalidCredentials {
                 return "Súčasné heslo nie je správne."
             }
             return friendlyAuthError(from: error, fallbackPrefix: "Overenie hesla zlyhalo")
@@ -364,6 +484,57 @@ final class AuthManager: ObservableObject {
     }
 
     // MARK: - Biometric Auth (Face ID / Touch ID)
+    /// Face ID / Touch ID, or the iPhone passcode when biometrics are not set up.
+    /// Used before sensitive actions (turning on quick sign-in, deleting the account).
+    /// Returns true when the device has no passcode at all, because there is nothing to verify with.
+    func confirmDeviceOwner(reason: String) async -> Bool {
+        let context = LAContext()
+        context.localizedCancelTitle = "Zrušiť"
+        guard context.canEvaluatePolicy(.deviceOwnerAuthentication, error: nil) else { return true }
+        return (try? await context.evaluatePolicy(.deviceOwnerAuthentication, localizedReason: reason)) ?? false
+    }
+
+    // MARK: - App lock
+    func appDidEnterBackground() {
+        backgroundedAt = Date()
+    }
+
+    func appDidBecomeActive() {
+        defer { backgroundedAt = nil }
+        guard isAuthenticated, isBiometricsEnabled, let backgroundedAt,
+              Date().timeIntervalSince(backgroundedAt) > Self.lockGracePeriod else { return }
+        isAppLocked = true
+    }
+
+    func unlockApp() async {
+        if await confirmDeviceOwner(reason: "Odomknúť Encore") {
+            isAppLocked = false
+        }
+    }
+
+    /// Offered once per account, right after the first sign-in on this iPhone.
+    var shouldOfferBiometricLogin: Bool {
+        guard isAuthenticated, !isBiometricsEnabled, let id = currentUser?.id.uuidString else { return false }
+        guard !UserDefaults.standard.bool(forKey: "biometricOfferShown_\(id)") else { return false }
+        return LAContext().canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: nil)
+    }
+
+    func markBiometricOfferShown() {
+        guard let id = currentUser?.id.uuidString else { return }
+        UserDefaults.standard.set(true, forKey: "biometricOfferShown_\(id)")
+    }
+
+    /// Turns quick sign-in on after Face ID confirms the owner; turning it off needs no check.
+    func setBiometricLogin(_ enabled: Bool) async {
+        guard enabled else {
+            isBiometricsEnabled = false
+            return
+        }
+        if await confirmDeviceOwner(reason: "Zapnúť prihlásenie cez \(biometryName)") {
+            isBiometricsEnabled = true
+        }
+    }
+
     func authenticateWithBiometrics() async -> Bool {
         let context = LAContext()
         context.localizedCancelTitle = "Zrušiť"
@@ -451,43 +622,7 @@ final class AuthManager: ObservableObject {
     }
 
     private func friendlyAuthError(from error: Error, fallbackPrefix: String) -> String {
-        let desc = error.localizedDescription.lowercased()
-
-        if desc.contains("email not confirmed") || desc.contains("email_not_confirmed") || desc.contains("not confirmed") {
-            return "Tvoj e-mail zatiaľ nebol potvrdený. Skontroluj si doručenú poštu alebo spam a klikni na potvrdzovací odkaz."
-        }
-        if desc.contains("invalid login credentials") || desc.contains("invalid_grant") || desc.contains("bad credentials") {
-            return "Účet s týmto e-mailom a heslom neexistuje alebo je heslo nesprávne. Skontroluj údaje alebo sa najprv zaregistruj."
-        }
-        if desc.contains("user already registered") || desc.contains("already exists") || desc.contains("user_already_exists") {
-            return "Účet s týmto e-mailom už existuje. Prejdi na záložku Prihlásenie."
-        }
-        if desc.contains("different from the old password") || desc.contains("same_password") {
-            return "Nové heslo musí byť iné ako súčasné."
-        }
-        if desc.contains("password should be at least") || desc.contains("weak_password") || desc.contains("weak password") {
-            return "Heslo je príliš slabé. Použi aspoň \(Self.minPasswordLength) znakov."
-        }
-        if desc.contains("unable to validate email") || desc.contains("invalid email") || desc.contains("email address is invalid") {
-            return "Zadaj platný formát e-mailovej adresy (napr. meno@domena.sk)."
-        }
-        if desc.contains("offline") || desc.contains("network") || desc.contains("timed out") || desc.contains("connection lost") || desc.contains("could not connect") {
-            return "Nepodarilo sa spojiť so serverom. Skontroluj internetové pripojenie."
-        }
-        if desc.contains("rate limit") || desc.contains("too many requests") || desc.contains("over_email_send_rate_limit") {
-            return "Príliš veľa pokusov za krátky čas. Počkaj prosím chvíľu a skús to znova."
-        }
-        if desc.contains("provider is not enabled") || desc.contains("unsupported provider") {
-            return "Tento spôsob prihlásenia momentálne nie je dostupný. Skús Google alebo e-mail."
-        }
-        if desc.contains("session") && (desc.contains("missing") || desc.contains("not found")) {
-            return "Prihlásenie vypršalo. Prihlás sa prosím znova."
-        }
-        if desc.contains("expired") || desc.contains("otp_expired") {
-            return "Odkaz už vypršal. Vyžiadaj si nový."
-        }
-
-        return "\(fallbackPrefix): \(error.localizedDescription)"
+        AuthErrorMapper.message(for: error, fallback: fallbackPrefix)
     }
 
     // MARK: - Google Sign In (native SDK → Supabase ID-token exchange)
@@ -497,8 +632,19 @@ final class AuthManager: ObservableObject {
         authSuccessMessage = nil
         defer { isLoading = false }
 
+        // Google puts the nonce into the ID token and Supabase checks it: Google gets the SHA-256 hash,
+        // Supabase gets the raw value. Without it the server rejects the token
+        // ("Passed nonce and nonce in id_token should either both exist or not").
+        let rawNonce = AuthManager.randomNonceString()
+        let hashedNonce = AuthManager.sha256(rawNonce)
+
         let outcome: GoogleSignInOutcome = await withCheckedContinuation { continuation in
-            GIDSignIn.sharedInstance.signIn(withPresenting: rootViewController) { signInResult, error in
+            GIDSignIn.sharedInstance.signIn(
+                withPresenting: rootViewController,
+                hint: nil,
+                additionalScopes: nil,
+                nonce: hashedNonce
+            ) { signInResult, error in
                 if let error {
                     let nsError = error as NSError
                     if nsError.code == GIDSignInError.canceled.rawValue {
@@ -517,7 +663,8 @@ final class AuthManager: ObservableObject {
                     email: user.profile?.email ?? "",
                     name: user.profile?.name ?? "Tanečník",
                     sub: user.userID ?? "",
-                    avatar: user.profile?.imageURL(withDimension: 200)?.absoluteString ?? ""
+                    avatar: user.profile?.imageURL(withDimension: 200)?.absoluteString ?? "",
+                    nonce: rawNonce
                 )))
             }
         }
@@ -543,7 +690,7 @@ final class AuthManager: ObservableObject {
         }
         do {
             let session = try await client.auth.signInWithIdToken(
-                credentials: .init(provider: .google, idToken: payload.idToken)
+                credentials: .init(provider: .google, idToken: payload.idToken, nonce: payload.nonce)
             )
             applySession(session)
             if userName == "Tanečník" { userName = payload.name }
@@ -580,7 +727,8 @@ final class AuthManager: ObservableObject {
                     email: user.profile?.email ?? "",
                     name: user.profile?.name ?? "Tanečník",
                     sub: user.userID ?? "",
-                    avatar: user.profile?.imageURL(withDimension: 200)?.absoluteString ?? ""
+                    avatar: user.profile?.imageURL(withDimension: 200)?.absoluteString ?? "",
+                    nonce: nil
                 ))
             }
         }
@@ -650,24 +798,23 @@ final class AuthManager: ObservableObject {
         }
     }
 
-    // MARK: - Google OAuth Sign In (Browser Fallback)
+    // MARK: - Google OAuth Sign In (system web sheet fallback)
+    /// Used when the native Google sheet cannot be presented. Runs in an ASWebAuthenticationSession
+    /// and only reports success when a real session was created.
     func signInWithGoogle() async -> Bool {
         guard let client else { return false }
         isLoading = true
         authErrorMessage = nil
         defer { isLoading = false }
         do {
-            let oauthURL = try client.auth.getOAuthSignInURL(
-                provider: .google,
-                redirectTo: Self.authCallbackURL
-            )
-            await MainActor.run {
-                UIApplication.shared.open(oauthURL)
-            }
+            let session = try await client.auth.signInWithOAuth(provider: .google, redirectTo: Self.authCallbackURL)
+            applySession(session)
+            persistLogin(email: session.user.email ?? userEmail, provider: "google")
             AnalyticsManager.shared.signInGoogle()
             return true
         } catch {
-            authErrorMessage = "Prihlásenie cez Google zlyhalo: \(error.localizedDescription)"
+            if (error as? ASWebAuthenticationSessionError)?.code == .canceledLogin { return false }
+            authErrorMessage = friendlyAuthError(from: error, fallbackPrefix: "Prihlásenie cez Google zlyhalo")
             return false
         }
     }
@@ -682,12 +829,10 @@ final class AuthManager: ObservableObject {
             let session = try await client.auth.session(from: url)
             applySession(session)
 
-            if isRecoveryLink(url) {
-                showPasswordRecoverySheet = true
-                authSuccessMessage = nil
-            } else {
-                authSuccessMessage = "E-mail bol úspešne potvrdený!"
-            }
+            // A link only proves the e-mail; the code flow is the main path. No misleading
+            // "e-mail confirmed" text here: this also runs for OAuth and recovery links.
+            showPasswordRecoverySheet = isRecoveryLink(url)
+            authSuccessMessage = nil
             authErrorMessage = nil
         } catch {
             Logger.auth.error("[AuthManager] Deep link error: \(error.localizedDescription, privacy: .public)")
@@ -724,23 +869,37 @@ final class AuthManager: ObservableObject {
         clearSession()
     }
 
-    // MARK: - Delete Account (Apple Guideline 5.1.1(v) Compliant)
-    func deleteAccount() async {
-        GIDSignIn.sharedInstance.signOut()
-        userAvatarURL = ""
-        googleSubId = ""
+    // MARK: - Delete Account (Apple Guideline 5.1.1(v), GDPR art. 17)
+    /// Deletes the account on the server (files, data, login) and only then cleans this device.
+    /// Returns nil when the server confirmed the deletion, otherwise a message for the user;
+    /// in that case nothing was deleted and the user stays signed in.
+    func deleteAccount() async -> String? {
+        guard let client else { return Self.missingConfigMessage }
 
-        if let client {
-            do {
-                try await client.rpc("delete_user_account").execute()
-            } catch {
-                Logger.auth.warning("[AuthManager] RPC delete_user_account: \(error.localizedDescription, privacy: .public)")
+        do {
+            try await client.functions.invoke(
+                "delete-account",
+                options: FunctionInvokeOptions(body: ["confirm": "DELETE"])
+            )
+        } catch {
+            Logger.auth.error("[AuthManager] delete-account failed: \(error.localizedDescription, privacy: .public)")
+            if (error as NSError).domain == NSURLErrorDomain {
+                return friendlyAuthError(from: error, fallbackPrefix: "Účet sa nepodarilo zmazať")
             }
-            try? await client.auth.signOut(scope: .local)
+            return "Účet sa nepodarilo zmazať. Nič nebolo zmazané. Skús to znova alebo napíš na podporu."
         }
 
+        if GIDSignIn.sharedInstance.hasPreviousSignIn() {
+            try? await GIDSignIn.sharedInstance.disconnect()
+        }
+        userAvatarURL = ""
+        googleSubId = ""
+        try? await client.auth.signOut(scope: .local)
+        LocalDataGuard.wipeAll()
+        LocalDataGuard.forgetOwner()
         KeychainHelper.shared.deleteCredentials()
         isBiometricsEnabled = false
         clearSession()
+        return nil
     }
 }

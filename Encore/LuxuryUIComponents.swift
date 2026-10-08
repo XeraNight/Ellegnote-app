@@ -59,6 +59,23 @@ public struct EllegancePageBackground: View {
     }
 }
 
+// MARK: - 0A. Encore wordmark
+/// The one way "ENCORE" is written next to the logo (Home header, login), so the brand reads the same everywhere.
+public struct EncoreWordmark: View {
+    var size: CGFloat = 13
+    var color: Color = .white
+
+    public var body: some View {
+        Text("ENCORE")
+            .font(.system(size: size, weight: .black, design: .rounded))
+            .foregroundColor(color)
+            .tracking(size * 0.2)
+            .lineLimit(1)
+            .fixedSize()
+            .accessibilityLabel("Encore")
+    }
+}
+
 // MARK: - 0B. Encore Rehearsal Tool Background (Calm Deep Obsidian Surface)
 public struct ElleganceToolBackground: View {
     public init() {}

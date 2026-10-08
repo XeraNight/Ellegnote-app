@@ -1,4 +1,5 @@
 import SwiftUI
+import OSLog
 import SwiftData
 import GoogleSignIn
 import UIKit
@@ -33,13 +34,15 @@ struct EncoreApp: App {
         do {
             container = try ModelContainer(for: schema, configurations: config)
         } catch {
-            print("ModelContainer init failed: \(error). Attempting recovery…")
+            Logger.general.error("ModelContainer init failed: \(error.localizedDescription, privacy: .public). Attempting recovery.")
             do {
                 container = try DatabaseRecoveryManager.recoverContainer(schema: schema, configuration: config)
             } catch {
                 fatalError("Could not initialize ModelContainer after recovery: \(error)")
             }
         }
+
+        MainActor.assumeIsolated { AppContainer.shared = container }
 
         // Seed on a true background task — never touches the main thread
         let containerRef = container
@@ -92,7 +95,7 @@ struct EncoreApp: App {
             guard existing.isEmpty else { return }   // already seeded
             populateDefaultData(context: bgContext)
         } catch {
-            print("Seed check failed: \(error)")
+            Logger.general.error("Seed check failed: \(error.localizedDescription, privacy: .public)")
         }
     }
 
@@ -161,6 +164,13 @@ struct RootAppView: View {
                 .zIndex(190)
             }
             
+            // Face ID app lock (only while signed in and the splash is gone)
+            if !isSplashActive && authManager.isAuthenticated && authManager.isAppLocked {
+                AppLockView()
+                    .transition(.opacity)
+                    .zIndex(150)
+            }
+
             // Account Banned / Suspended Interceptor
             if subscriptionManager.isAccountBanned {
                 AccountBannedNoticeView(reason: subscriptionManager.banReason) {
@@ -176,6 +186,7 @@ struct RootAppView: View {
         .animation(.easeInOut(duration: 0.32), value: isSplashActive)
         .animation(.easeInOut(duration: 0.32), value: subscriptionManager.isAccountBanned)
         .animation(.easeInOut(duration: 0.32), value: authManager.isAuthenticated)
+        .animation(.easeInOut(duration: 0.3), value: authManager.isAppLocked)
         .animation(.easeInOut(duration: 0.28), value: remoteConfig.needsForceUpdate)
         .animation(.easeInOut(duration: 0.28), value: remoteConfig.isMaintenanceMode)
         .sheet(isPresented: $friendManager.showInviteSheet) {
@@ -196,6 +207,8 @@ struct RootAppView: View {
             await remoteConfig.syncConfig()
         }
         .onChange(of: scenePhase) { oldPhase, newPhase in
+            if newPhase == .background { authManager.appDidEnterBackground() }
+            if newPhase == .active && oldPhase == .background { authManager.appDidBecomeActive() }
             if newPhase == .active && (oldPhase == .background || oldPhase == .inactive) {
                 // Device woke up from lock screen or returned from background!
                 UserProfileStore.shared.refreshForActiveUser()

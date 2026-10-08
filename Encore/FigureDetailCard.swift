@@ -6,512 +6,458 @@ import Combine
 import UniformTypeIdentifiers
 
 
+// MARK: - Figure screen
+/// Full-screen page of one figure: the video on top (portrait or landscape frame, Duel next to it)
+/// and the notes on a white sheet below. While writing, the formatting bar replaces everything
+/// else at the bottom, and the top and bottom edges blur the content scrolling under them.
 struct FigureDetailCard: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Bindable var node: CanvasNode
-    
+
     var realtimeManager: CanvasRealtimeManager? = nil
+    /// Set when the screen is shown over another one; nil = presented modally and closed with dismiss.
+    var onClose: (() -> Void)? = nil
+    var onWritingChange: ((Bool) -> Void)? = nil
     @AppStorage("profileName") private var userName = "Tanečník"
-    
-    @State private var playbackRate: Float = 1.0
-    @State private var notesText = ""
-    @State private var showCamera = false
+
+    // Notes
+    @State private var text = AttributedString()
+    @State private var selection = AttributedTextSelection()
+    @State private var didLoadNotes = false
+    @State private var saveTask: Task<Void, Never>? = nil
+    @State private var sweepTrigger = 0
+    @FocusState private var isWriting: Bool
+
+    // Video
     @State private var player: AVPlayer? = nil
     @State private var playerObserverToken: (any NSObjectProtocol)? = nil
-    @State private var showFigureVideoVault = false
+    @State private var playerGeneration = 0
+    @State private var videoUnavailable = false
+    @State private var detectedPortrait: Bool? = nil
+    @State private var videoHeightOverride: CGFloat? = nil
+    @State private var dragStartHeight: CGFloat? = nil
+    @State private var showCamera = false
     @State private var showDuelComparison = false
+    @State private var confirmDeleteVideo = false
 
-    // Auto-save and Cloud Indicator state
-    @State private var autoSaveTask: Task<Void, Never>? = nil
-    @State private var isAutoSaved = false
-    
-    // Voice note state
-    @StateObject private var speechManager = SpeechRecognizerHelper()
-    @State private var isListening = false
-    
+    private var rotation: Int { ((node.videoRotation ?? 0) % 360 + 360) % 360 }
+
+    /// Portrait frame when the picture is upright-tall after the user's rotation.
+    private var isPortraitLayout: Bool {
+        let natural = detectedPortrait ?? false
+        return rotation % 180 == 0 ? natural : !natural
+    }
+
     var body: some View {
-        NavigationStack {
+        GeometryReader { geo in
             ZStack {
                 EllegancePageBackground()
-                
-                GeometryReader { geo in
-                    let autoSidePadding = max(geo.size.width * 0.08, 22)
-                    
-                    ScrollView {
-                        VStack(alignment: .leading, spacing: 20) {
-                            
-                            // Video loop and Vault section
-                        VStack(alignment: .leading, spacing: 10) {
-                            HStack {
-                                Text("Tréningové & Referenčné Videá")
-                                    .font(.system(size: 14, weight: .bold))
-                                    .foregroundColor(.gray)
-                                Spacer()
-                                Button {
-                                    showFigureVideoVault = true
-                                } label: {
-                                    HStack(spacing: 4) {
-                                        Image(systemName: "film.stack")
-                                        Text("Inventár (\(node.mediaVault.count))")
-                                            .font(.system(size: 12, weight: .bold))
-                                    }
-                                    .foregroundColor(.themeAccent)
-                                    .padding(.horizontal, 8)
-                                    .padding(.vertical, 4)
-                                    .background(Color.themeAccent.opacity(0.12))
-                                    .cornerRadius(6)
-                                }
-                            }
-                            
-                            if let mediaPath = node.videoPath {
-                                VStack(spacing: 12) {
-                                    if MediaResolver.isImagePath(path: mediaPath),
-                                       let uiImage = MediaResolver.resolveImage(path: mediaPath) {
-                                        Image(uiImage: uiImage)
-                                            .resizable()
-                                            .scaledToFit()
-                                            .frame(maxHeight: 220)
-                                            .cornerRadius(16)
-                                            .overlay(
-                                                RoundedRectangle(cornerRadius: 16)
-                                                    .stroke(Color.gold400.opacity(0.3), lineWidth: 1)
-                                            )
-                                    } else if let player = player {
-                                        VideoPlayer(player: player)
-                                            .frame(height: 220)
-                                            .cornerRadius(16)
-                                            .overlay(
-                                                RoundedRectangle(cornerRadius: 16)
-                                                    .stroke(Color.gold400.opacity(0.25), lineWidth: 1)
-                                            )
-                                    } else {
-                                        MediaThumbnailView(path: mediaPath, cornerRadius: 16)
-                                            .frame(height: 220)
-                                    }
-                                    
-                                    // Playback Speed Controls & Actions
-                                    HStack(spacing: 8) {
-                                        if !MediaResolver.isImagePath(path: mediaPath) {
-                                            Text("Rýchlosť:")
-                                                .font(.system(size: 12, weight: .bold, design: .serif))
-                                                .foregroundColor(.themeDark)
-                                            
-                                            ForEach([0.5, 0.75, 1.0, 1.5], id: \.self) { speed in
-                                                Button(action: { playbackRate = Float(speed) }) {
-                                                    Text(String(format: "%.2fx", speed))
-                                                        .font(.system(size: 11, weight: .black))
-                                                        .foregroundColor(playbackRate == Float(speed) ? .white : .themeDark)
-                                                }
-                                                .buttonStyle(playbackRate == Float(speed)
-                                                    ? .neubrutalist(accentColor: Color.themeAccent, cornerRadius: 8)
-                                                    : .neubrutalistSecondary(cornerRadius: 8)
-                                                )
-                                            }
-                                        }
-                                        
-                                        Spacer()
-                                        
-                                        // Duel button
-                                        Button {
-                                            showDuelComparison = true
-                                        } label: {
-                                            HStack(spacing: 4) {
-                                                Image(systemName: "rectangle.split.2x1.fill")
-                                                Text("Duel")
-                                                    .font(.system(size: 12, weight: .bold))
-                                            }
-                                            .foregroundColor(.white)
-                                            .padding(.horizontal, 10)
-                                            .padding(.vertical, 6)
-                                            .background(Color.themeAccent)
-                                            .cornerRadius(8)
-                                        }
-                                        
-                                        // Delete Media Option
-                                        Button(action: deleteVideo) {
-                                            Image(systemName: "trash.circle.fill")
-                                                .font(.system(size: 22))
-                                                .foregroundColor(.latinRed)
-                                        }
-                                    }
-                                    .padding(.horizontal, 4)
-                                }
-                            } else {
-                                // No Video Placeholder
-                                Button(action: { showCamera = true }) {
-                                    VStack(spacing: 12) {
-                                        Image(systemName: "video.badge.plus.fill")
-                                            .font(.system(size: 32))
-                                            .foregroundColor(.themeAccent)
-                                        Text("Nahrať tréningové video")
-                                            .font(.system(size: 14, weight: .bold, design: .serif))
-                                            .foregroundColor(.themeDark)
-                                    }
-                                    .frame(maxWidth: .infinity)
-                                    .frame(height: 180)
-                                    .neubrutalistCard(cornerRadius: 16, shadowOffset: 3)
-                                }
-                                .buttonStyle(.plain)
-                            }
-                        }
-                        
-                        // Mastery Star Rating & Coach Evaluation (Funkcia 19)
-                        VStack(alignment: .leading, spacing: 8) {
-                            HStack {
-                                Text("Úroveň zvládnutia figúry")
-                                    .font(.system(size: 14, weight: .bold, design: .serif))
-                                    .foregroundColor(.themeDark)
-                                Spacer()
-                                Text(ratingLabel(node.masteryRating))
-                                    .font(.system(size: 11, weight: .black))
-                                    .foregroundColor(ratingColor(node.masteryRating))
-                            }
-                            
-                            HStack(spacing: 12) {
-                                ForEach(1...5, id: \.self) { star in
-                                    Button {
-                                        node.masteryRating = star
-                                        let gen = UIImpactFeedbackGenerator(style: .light)
-                                        gen.impactOccurred()
-                                    } label: {
-                                        Image(systemName: star <= node.masteryRating ? "star.fill" : "star")
-                                            .font(.system(size: 22))
-                                            .foregroundColor(star <= node.masteryRating ? .amberGold : Color.themeBorder)
-                                    }
-                                }
-                            }
-                            .padding(.vertical, 8)
-                            .padding(.horizontal, 12)
-                            .background(Color.themeCard)
-                            .cornerRadius(12)
-                            .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.gold400.opacity(0.25), lineWidth: 1))
-                        }
-                        
-                        // Text notes section
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("Moje poznámky k figúre")
-                                .font(.system(size: 14, weight: .bold, design: .serif))
-                                .foregroundColor(.themeDark)
-                            
-                            TextEditor(text: $notesText)
-                                .scrollContentBackground(.hidden)
-                                .frame(height: 120)
-                                .padding(8)
-                                .background(Color.themeCard)
-                                .foregroundColor(.themeDark)
-                                .cornerRadius(12)
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 12)
-                                        .stroke(Color.gold400.opacity(0.25), lineWidth: 1)
-                                )
-                        }
-                        
-                        // Trainer voice dictation section
-                        VStack(alignment: .leading, spacing: 10) {
-                            HStack {
-                                Text("Hlasová poznámka trénera")
-                                    .font(.system(size: 14, weight: .bold, design: .serif))
-                                    .foregroundColor(.themeDark)
-                                Spacer()
-                                if speechManager.isRecording {
-                                    Circle()
-                                        .fill(Color.red)
-                                        .frame(width: 8, height: 8)
-                                        .opacity(isListening ? 0.3 : 1.0)
-                                        .animation(.easeInOut(duration: 0.5).repeatForever(), value: isListening)
-                                        .onAppear { isListening = true }
-                                        .onDisappear { isListening = false }
-                                }
-                            }
-                            
-                            Button(action: toggleVoiceRecording) {
-                                  HStack(spacing: 8) {
-                                      Image(systemName: speechManager.isRecording ? "stop.circle.fill" : "mic.circle.fill")
-                                          .font(.system(size: 20))
-                                      Text(speechManager.isRecording ? "Zastaviť nahrávanie" : "Diktovať (Hlasový vstup)")
-                                          .font(.system(size: 14, weight: .bold))
-                                  }
-                                  .foregroundColor(speechManager.isRecording ? .white : .themeDark)
-                                  .frame(maxWidth: .infinity)
-                            }
-                            .buttonStyle(speechManager.isRecording
-                                ? .neubrutalist(accentColor: Color.red, cornerRadius: 12)
-                                : .neubrutalistSecondary(cornerRadius: 12)
-                            )
-                            
-                            if !speechManager.transcript.isEmpty {
-                                Text("Prepísaný text:")
-                                    .font(.system(size: 11, weight: .bold, design: .serif))
-                                    .foregroundColor(.themeDark)
-                                
-                                Text("\"\(speechManager.transcript)\"")
-                                    .font(.system(size: 13, weight: .semibold))
-                                    .foregroundColor(.themeDark)
-                                    .italic()
-                                    .padding()
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-                                    .neubrutalistCard(cornerRadius: 10, shadowOffset: 2)
-                                
-                                Button("Použiť prepis") {
-                                    if !notesText.isEmpty {
-                                        notesText += "\n" + speechManager.transcript
-                                    } else {
-                                        notesText = speechManager.transcript
-                                    }
-                                    speechManager.transcript = ""
-                                }
-                                .font(.system(size: 12, weight: .bold))
-                                .foregroundColor(.themeAccent)
-                            }
-                        }
-                        
-                        // Instant Notes Inbox Section
-                        InstantNotesInboxSection(
-                            onImportText: { text in
-                                if !notesText.isEmpty {
-                                    notesText += "\n" + text
-                                } else {
-                                    notesText = text
-                                }
-                            },
-                            onImportVideo: { videoPath in
-                                node.videoPath = videoPath
-                                try? modelContext.save()
-                                
-                                // Background Sync Video & Routine
-                                if let routine = node.routine {
-                                    Task.detached(priority: .background) {
-                                        await SupabaseSyncManager.shared.uploadFileAsync(localFileName: videoPath)
-                                        await SupabaseSyncManager.shared.syncRoutineOnBackground(routine)
-                                    }
-                                }
-                            }
-                        )
-                        
-                        Spacer()
+
+                ScrollView {
+                    VStack(spacing: 14) {
+                        videoSection(width: geo.size.width - 32, screenHeight: geo.size.height)
+                        notesSheet
+                        coachNotesCard
                     }
-                    .padding(.horizontal, autoSidePadding)
-                    .padding(.top, 16)
-                    .padding(.bottom, 40)
+                    .padding(.horizontal, 16)
+                    .padding(.top, 8)
+                    .padding(.bottom, 24)
+                    .frame(minHeight: geo.size.height - 60, alignment: .top)
+                    // Empty space around the page: tap it to put the keyboard away.
+                    .background {
+                        Color.clear
+                            .contentShape(Rectangle())
+                            .onTapGesture { isWriting = false }
                     }
                 }
+                .scrollDismissesKeyboard(.interactively)
             }
-            .navigationTitle(node.figureName)
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Zavrieť") {
-                        saveChanges()
-                        dismiss()
-                    }
-                    .foregroundColor(.themeDark)
-                }
-                
-                ToolbarItem(placement: .primaryAction) {
-                    HStack(spacing: 6) {
-                        if isAutoSaved {
-                            HStack(spacing: 4) {
-                                Image(systemName: "checkmark.cloud.fill")
-                                    .foregroundColor(.themeAccent)
-                                Text("Uložené")
-                                    .font(.system(size: 11, weight: .bold))
-                                    .foregroundColor(.themeDark)
-                            }
-                            .transition(.opacity)
-                        }
-                        
-                        Button("Hotovo") {
-                            saveChanges()
-                            dismiss()
-                        }
-                        .foregroundColor(.themeAccent)
-                        .font(.system(size: 14, weight: .bold))
-                    }
+            .safeAreaBar(edge: .top) { header }
+            .safeAreaBar(edge: .bottom) {
+                if isWriting {
+                    NoteFormatBar(text: $text, selection: $selection) { isWriting = false }
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
                 }
             }
-            .onAppear {
-                notesText = node.notes
-                speechManager.requestPermissions()
-                setupPlayer(for: node.videoPath)
+            .animation(reduceMotion ? nil : .spring(response: 0.35, dampingFraction: 0.85), value: isWriting)
+        }
+        .preferredColorScheme(.dark)
+
+        .onAppear {
+            if !didLoadNotes {
+                text = RichNote.attributed(for: node)
+                didLoadNotes = true
             }
-            .onChange(of: node.videoPath) { _, newValue in
-                setupPlayer(for: newValue)
-            }
-            .onChange(of: notesText) { _, newText in
-                autoSaveTask?.cancel()
-                autoSaveTask = Task {
-                    try? await Task.sleep(nanoseconds: 600_000_000)
-                    guard !Task.isCancelled else { return }
-                    
-                    node.notes = newText
-                    try? node.modelContext?.save()
-                    realtimeManager?.broadcastNodeUpdated(node: node, senderName: userName)
-                    
-                    if let routine = node.routine {
-                        routine.updatedAt = Date()
-                        routine.lastModifiedBy = userName
-                        try? routine.modelContext?.save()
-                        SupabaseSyncManager.shared.syncRoutineOnBackground(routine)
-                    }
-                    await MainActor.run {
-                        withAnimation { isAutoSaved = true }
-                    }
-                    try? await Task.sleep(nanoseconds: 2_000_000_000)
-                    await MainActor.run {
-                        withAnimation { isAutoSaved = false }
-                    }
+            setupPlayer(for: node.displayVideoPath)
+        }
+        .onDisappear {
+            persistNotes()
+            tearDownPlayer()
+        }
+        .onChange(of: text) { scheduleSave() }
+        .onChange(of: node.notes) {
+            // Changed from elsewhere (partner, coach, inbox): show it unless the user is typing.
+            guard didLoadNotes, !isWriting else { return }
+            let fresh = RichNote.attributed(for: node)
+            if fresh != text { text = fresh }
+        }
+        .onChange(of: isWriting) { _, writing in
+            if writing { sweepTrigger += 1 } else { persistNotes() }
+            onWritingChange?(writing)
+        }
+        .onChange(of: node.displayVideoPath) { _, newValue in
+            videoHeightOverride = nil
+            setupPlayer(for: newValue)
+        }
+        .onChange(of: showCamera) { _, isShowing in
+            if isShowing { tearDownPlayer() } else { setupPlayer(for: node.displayVideoPath) }
+        }
+        .fullScreenCover(isPresented: $showCamera) {
+            DanceCameraView(ghostVideoPath: node.activeTargetVideoPath, savesToPhotos: true) { localPath in
+                node.videoPath = localPath
+                try? node.modelContext?.save()
+                showCamera = false
+
+                // Background Sync Video & Routine
+                if let routine = node.routine {
+                    routine.updatedAt = Date()
+                    routine.lastModifiedBy = userName
+                    try? routine.modelContext?.save()
+
+                    // The original stays in Fotky; sharing with partner and coach uploads its own copy.
+                    SupabaseSyncManager.shared.syncRoutineOnBackground(routine)
                 }
+                realtimeManager?.broadcastNodeUpdated(node: node, senderName: userName)
             }
-            .onChange(of: playbackRate) { _, newRate in
-                player?.rate = newRate
-            }
-            .onChange(of: showCamera) { _, isShowing in
-                if isShowing {
-                    if let token = playerObserverToken {
-                        NotificationCenter.default.removeObserver(token)
-                        playerObserverToken = nil
-                    }
-                    player?.pause()
-                    player = nil
-                    if speechManager.isRecording {
-                        speechManager.stopTranscribing()
-                    }
-                } else {
-                    setupPlayer(for: node.videoPath)
-                }
-            }
-            .fullScreenCover(isPresented: $showCamera) {
-                DanceCameraView(ghostVideoPath: node.activeTargetVideoPath) { localPath in
-                    node.videoPath = localPath
-                    try? node.modelContext?.save()
-                    showCamera = false
-                    
-                    // Background Sync Video & Routine
-                    if let routine = node.routine {
-                        routine.updatedAt = Date()
-                        routine.lastModifiedBy = userName
-                        try? routine.modelContext?.save()
-                        
-                        Task.detached(priority: .background) {
-                            await SupabaseSyncManager.shared.uploadFileAsync(localFileName: localPath)
-                            await SupabaseSyncManager.shared.syncRoutineOnBackground(routine)
-                        }
-                    }
-                    
-                    // Broadcast update
-                    realtimeManager?.broadcastNodeUpdated(node: node, senderName: userName)
-                }
-                .ignoresSafeArea()
-            }
-            .sheet(isPresented: $showFigureVideoVault) {
-                VideoVaultView(
-                    node: node,
-                    activeSlotAPath: $node.videoPath,
-                    activeSlotBPath: $node.activeTargetVideoPath
-                )
-            }
-            .sheet(isPresented: $showDuelComparison) {
-                DualVideoComparisonView(
-                    pathA: $node.videoPath,
-                    pathB: $node.activeTargetVideoPath,
-                    titleA: "\(node.figureName) (Moje)",
-                    titleB: "\(node.figureName) (Vzor)"
-                )
-            }
+            .ignoresSafeArea()
+        }
+        .sheet(isPresented: $showDuelComparison) {
+            DualVideoComparisonView(
+                pathA: $node.videoPath,
+                pathB: $node.activeTargetVideoPath,
+                titleA: "\(node.figureName) (Moje)",
+                titleB: "\(node.figureName) (Vzor)"
+            )
+        }
+        .confirmationDialog("Odstrániť video?", isPresented: $confirmDeleteVideo, titleVisibility: .visible) {
+            Button("Odstrániť video", role: .destructive) { deleteVideo() }
+        } message: {
+            Text("Video sa zmaže z tejto figúry aj z telefónu.")
         }
     }
-    
-    private func saveChanges() {
-        autoSaveTask?.cancel()
-        autoSaveTask = nil
-        
-        guard node.notes != notesText else { return }
-        node.notes = notesText
-        try? node.modelContext?.save()
-        
-        // Background Sync Routine
+
+    // MARK: - Header
+    private var header: some View {
+        HStack(spacing: 10) {
+            Button {
+                persistNotes()
+                if let onClose { onClose() } else { dismiss() }
+            } label: {
+                Text("Zavrieť")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 16)
+                    .frame(height: 40)
+                    .glassEffect(.regular, in: .capsule)
+            }
+            .buttonStyle(.pressable)
+
+            Text(node.figureName)
+                .font(.system(size: 18, weight: .bold, design: .rounded))
+                .foregroundStyle(.white)
+                .underline(true, color: Color.gold400.opacity(0.8))
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+            GlassEffectContainer(spacing: 8) {
+                HStack(spacing: 8) {
+                    LiquidGlassCircleButton(icon: "rotate.right", label: "Otočiť video") {
+                        node.videoRotation = (rotation + 90) % 360
+                        videoHeightOverride = nil
+                        try? node.modelContext?.save()
+                    }
+                    .disabled(node.displayVideoPath == nil)
+                    .opacity(node.displayVideoPath == nil ? 0.45 : 1)
+
+                    LiquidGlassCircleButton(icon: "rectangle.split.2x1", label: "Duel") { showDuelComparison = true }
+                }
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 6)
+    }
+
+    // MARK: - Video
+    @ViewBuilder
+    private func videoSection(width: CGFloat, screenHeight: CGFloat) -> some View {
+        let maxHeight = screenHeight * 0.72
+        let defaultHeight = isPortraitLayout ? min(screenHeight * 0.55, width * 1.25) : width * 9 / 16
+        let height = min(max(videoHeightOverride ?? defaultHeight, 150), maxHeight)
+
+        VStack(spacing: 6) {
+            ZStack {
+                Color.black.opacity(0.88)
+
+                if let path = node.displayVideoPath {
+                    if MediaResolver.isImagePath(path: path), let image = MediaResolver.resolveImage(path: path) {
+                        Image(uiImage: image)
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: rotation % 180 == 0 ? width : height, height: rotation % 180 == 0 ? height : width)
+                            .rotationEffect(.degrees(Double(rotation)))
+                    } else if let player {
+                        RotatableVideoView(player: player, rotation: rotation, size: CGSize(width: width, height: height))
+                    } else if videoUnavailable {
+                        unavailableVideo(path: path)
+                    } else {
+                        ProgressView().tint(.white)
+                    }
+                } else {
+                    emptyVideo
+                }
+            }
+            .frame(height: height)
+            .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+            .overlay(alignment: .topTrailing) {
+                if node.videoPath != nil { videoMenu }
+            }
+
+            if node.displayVideoPath != nil {
+                resizeHandle(currentHeight: height, maxHeight: maxHeight)
+            }
+        }
+        .animation(reduceMotion ? nil : .spring(response: 0.4, dampingFraction: 0.85), value: isPortraitLayout)
+        .animation(reduceMotion ? nil : .spring(response: 0.4, dampingFraction: 0.85), value: rotation)
+    }
+
+    /// The figure has a video, but it cannot be played here (deleted from Fotky, no access, offline).
+    private func unavailableVideo(path: String) -> some View {
+        VStack(spacing: 10) {
+            Image(systemName: "video.slash.fill")
+                .font(.title2)
+                .foregroundStyle(Color.gold400)
+            Text(unavailableMessage(for: path))
+                .font(.footnote)
+                .foregroundStyle(Color.white.opacity(0.75))
+                .multilineTextAlignment(.center)
+        }
+        .padding(20)
+        .accessibilityElement(children: .combine)
+    }
+
+    private func unavailableMessage(for path: String) -> String {
+        if PhotoLibraryVideoStore.isReference(path) {
+            return PhotoLibraryVideoStore.hasAccess
+                ? "Video bolo zmazané z Fotiek. Pridaj ho znova."
+                : "Povoľ Encore prístup k Fotkám v Nastaveniach iPhonu."
+        }
+        return node.videoPath == nil
+            ? "Zdieľané video sa nepodarilo načítať. Skontroluj pripojenie."
+            : "Video sa nenašlo. Pridaj ho znova."
+    }
+
+    private var emptyVideo: some View {
+        VStack(spacing: 12) {
+            Image(systemName: "video.badge.plus")
+                .font(.system(size: 30, weight: .regular))
+                .foregroundStyle(Color.gold400)
+            Text("Pridaj video figúry")
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(.white)
+            Button { showCamera = true } label: {
+                Text("Natočiť video")
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundStyle(Color.obsidian900)
+                    .padding(.horizontal, 18)
+                    .padding(.vertical, 10)
+                    .background(Color.gold400, in: Capsule())
+            }
+            .buttonStyle(.pressable)
+        }
+    }
+
+    private var videoMenu: some View {
+        Menu {
+            Button { showCamera = true } label: { Label("Natočiť znova", systemImage: "arrow.triangle.2.circlepath") }
+            Button(role: .destructive) { confirmDeleteVideo = true } label: { Label("Odstrániť video", systemImage: "trash") }
+        } label: {
+            GlassCircleLabel(icon: "ellipsis", size: 36)
+        }
+        .accessibilityLabel("Možnosti videa")
+        .padding(10)
+    }
+
+    /// Drag to make the video taller or shorter; the notes follow.
+    private func resizeHandle(currentHeight: CGFloat, maxHeight: CGFloat) -> some View {
+        Capsule()
+            .fill(Color.white.opacity(0.35))
+            .frame(width: 44, height: 5)
+            .frame(maxWidth: .infinity, minHeight: 22)
+            .contentShape(Rectangle())
+            .gesture(
+                DragGesture(minimumDistance: 2)
+                    .onChanged { value in
+                        if dragStartHeight == nil { dragStartHeight = currentHeight }
+                        videoHeightOverride = min(max((dragStartHeight ?? currentHeight) + value.translation.height, 150), maxHeight)
+                    }
+                    .onEnded { _ in dragStartHeight = nil }
+            )
+            .accessibilityLabel("Zmeniť výšku videa")
+            .accessibilityAdjustableAction { direction in
+                let step: CGFloat = 40
+                let base = videoHeightOverride ?? currentHeight
+                videoHeightOverride = min(max(direction == .increment ? base + step : base - step, 150), maxHeight)
+            }
+    }
+
+    // MARK: - Notes
+    private var notesSheet: some View {
+        ZStack(alignment: .topLeading) {
+            // An invisible copy of the text sets the height, so the page scrolls and the editor grows.
+            Text(text + AttributedString("\n"))
+                .font(.system(size: NoteStyle.defaultSize))
+                .padding(.horizontal, 5)
+                .padding(.vertical, 8)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .opacity(0)
+                .accessibilityHidden(true)
+
+            if text.characters.isEmpty {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Hlavné slovo")
+                        .font(.system(size: 22, weight: .bold))
+                    Text("Tu si píš poznámky k figúre…")
+                        .font(.system(size: NoteStyle.defaultSize))
+                }
+                .foregroundStyle(NoteStyle.ink.opacity(0.30))
+                .padding(.horizontal, 5)
+                .padding(.vertical, 8)
+                .allowsHitTesting(false)
+            }
+
+            TextEditor(text: $text, selection: $selection)
+                .focused($isWriting)
+                .scrollContentBackground(.hidden)
+                .scrollDisabled(true)
+                .font(.system(size: NoteStyle.defaultSize))
+                .foregroundStyle(NoteStyle.ink)
+                .tint(Color.encoreCrimson)
+        }
+        .frame(maxWidth: .infinity, minHeight: 260, alignment: .topLeading)
+        .padding(14)
+        .background(Color(white: 0.985), in: RoundedRectangle(cornerRadius: 26, style: .continuous))
+        .overlay { FieldEdgeSweep(trigger: sweepTrigger).padding(14) }
+        .contentShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
+        .onTapGesture { isWriting = true }
+    }
+
+    /// Remark from the coach: read-only here, written from the coach's own screen.
+    @ViewBuilder
+    private var coachNotesCard: some View {
+        if let remark = node.coachNotes, !remark.isEmpty {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(spacing: 6) {
+                    Image(systemName: "person.badge.shield.checkmark.fill")
+                    Text("Od trénera")
+                    Spacer(minLength: 8)
+                    if let author = node.coachNotesAuthor, !author.isEmpty {
+                        Text(author).lineLimit(1)
+                    }
+                    if let date = node.coachNotesAt {
+                        Text(date.formatted(.dateTime.day().month(.abbreviated)))
+                    }
+                }
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(Color.gold400)
+
+                Text(remark)
+                    .font(.system(size: 16))
+                    .foregroundStyle(.white.opacity(0.92))
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .textSelection(.enabled)
+            }
+            .padding(16)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+            .accessibilityElement(children: .combine)
+        }
+    }
+
+    // MARK: - Saving
+    private func scheduleSave() {
+        guard didLoadNotes else { return }
+        saveTask?.cancel()
+        saveTask = Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(700))
+            guard !Task.isCancelled else { return }
+            persistNotes()
+        }
+    }
+
+    /// Saves the notes if they really changed. Opening the screen never saves anything.
+    /// Formatting changes stay on this phone; only a change of the plain text is synced.
+    private func persistNotes() {
+        saveTask?.cancel()
+        saveTask = nil
+        guard didLoadNotes else { return }
+        guard RichNote.attributed(for: node) != text else { return }
+
+        let plain = RichNote.plain(text)
+        let plainChanged = plain != node.notes
+        let hasFormatting = text != AttributedString(plain)
+        node.notes = plain
+        node.notesRichData = hasFormatting ? RichNote.encode(text) : nil
+        try? modelContext.save()
+
+        guard plainChanged else { return }
+        realtimeManager?.broadcastNodeUpdated(node: node, senderName: userName)
         if let routine = node.routine {
             routine.updatedAt = Date()
             routine.lastModifiedBy = userName
             try? routine.modelContext?.save()
             SupabaseSyncManager.shared.syncRoutineOnBackground(routine)
         }
-        
-        // Broadcast update
+    }
+
+    private func deleteVideo() {
+        guard let videoPath = node.videoPath else { return }
+        tearDownPlayer()
+        MediaStorageManager.removeFile(named: videoPath)
+        node.videoPath = nil
+        try? node.modelContext?.save()
+
+        if let routine = node.routine {
+            routine.updatedAt = Date()
+            routine.lastModifiedBy = userName
+            try? routine.modelContext?.save()
+            SupabaseSyncManager.shared.syncRoutineOnBackground(routine)
+        }
         realtimeManager?.broadcastNodeUpdated(node: node, senderName: userName)
     }
-    
-    private func deleteVideo() {
-        if let videoPath = node.videoPath {
-            MediaStorageManager.removeFile(named: videoPath)
-            node.videoPath = nil
-            try? node.modelContext?.save()
-            
-            // Background Sync Routine
-            if let routine = node.routine {
-                routine.updatedAt = Date()
-                routine.lastModifiedBy = userName
-                try? routine.modelContext?.save()
-                SupabaseSyncManager.shared.syncRoutineOnBackground(routine)
-            }
-            // Cleanup observer a player pred vymazaním
-            if let token = playerObserverToken {
-                NotificationCenter.default.removeObserver(token)
-                playerObserverToken = nil
-            }
-            player = nil
-            Task { await AudioSessionCoordinator.shared.deactivate(.player) }
-            
-            // Broadcast update
-            realtimeManager?.broadcastNodeUpdated(node: node, senderName: userName)
-        }
-    }
-    
-    private func ratingLabel(_ rating: Int) -> String {
-        switch rating {
-        case 1: return "🔴 Potrebuje tréning"
-        case 2: return "🟠 Začiatočná fáza"
-        case 3: return "🟡 Dobre zvládnuté"
-        case 4: return "🔵 Pokročilá technika"
-        case 5: return "🟢 Súťažná istota"
-        default: return "🟡 Dobre zvládnuté"
-        }
-    }
-    
-    private func ratingColor(_ rating: Int) -> Color {
-        switch rating {
-        case 1: return .red
-        case 2: return .orange
-        case 3: return .amberGold
-        case 4: return .blue
-        case 5: return .green
-        default: return .amberGold
-        }
-    }
-    
+
+    // MARK: - Player
     private func setupPlayer(for path: String?) {
+        tearDownPlayer()
+        videoUnavailable = false
+        guard let path, !MediaResolver.isImagePath(path: path) else { return }
 
-        // ✅ OPRAVA 1: Vždy odober starý observer pred novou inštanciou.
-        // Pôvodný kód ukladal token do nicoho → removeObserver nešlo nikdy zavolať.
-        if let token = playerObserverToken {
-            NotificationCenter.default.removeObserver(token)
-            playerObserverToken = nil
+        // A video in Fotky is looked up asynchronously. Only the newest request may start a player:
+        // closing the card or opening the camera meanwhile bumps the generation.
+        let generation = playerGeneration
+        Task { @MainActor in
+            let url = await MediaResolver.videoURL(path: path)
+            guard generation == playerGeneration else { return }
+            if let url { startPlayer(url) } else { videoUnavailable = true }
         }
-        player?.pause()
-        player = nil
+    }
 
-        guard let path = path,
-              let url = resolveVideoURL(path: path),
-              (url.isFileURL ? MediaStorageManager.fileExists(path) : true) else {
-            return
-        }
-
+    private func startPlayer(_ url: URL) {
         let ap = AVPlayer(url: url)
-
-        // ✅ OPRAVA 2: Token uložený → observer sa dá neskôr odstrániť.
-        // ✅ OPRAVA 3: [weak ap] → žiadny retain cycle (pôvodný kód držal ap silno).
-        let token = NotificationCenter.default.addObserver(
+        // Loop: jump back to the start when it ends. [weak ap] avoids a retain cycle.
+        playerObserverToken = NotificationCenter.default.addObserver(
             forName: .AVPlayerItemDidPlayToEndTime,
             object: ap.currentItem,
             queue: .main
@@ -519,32 +465,38 @@ struct FigureDetailCard: View {
             ap?.seek(to: .zero)
             ap?.play()
         }
-        playerObserverToken = token
         player = ap
 
-        // ✅ OPRAVA 4: Prehrávač ide cez koordinátora — koniec konfliktu so speech session.
         Task { @MainActor in
             try? await AudioSessionCoordinator.shared.activate(.player)
+            guard player === ap else { return }   // replaced or closed meanwhile
             ap.play()
-            ap.rate = playbackRate
+        }
+        Task { @MainActor in
+            detectedPortrait = await Self.isPortrait(url)
         }
     }
-    
-    private func resolveVideoURL(path: String) -> URL? {
-        return MediaResolver.resolveVideoURL(path: path)
-    }
-    
-    private func toggleVoiceRecording() {
-        if speechManager.isRecording {
-            // Capture transcript BEFORE stopTranscribing clears the task
-            let captured = speechManager.stopTranscribing()
-            if !captured.isEmpty {
-                speechManager.transcript = captured
-            }
-        } else {
-            speechManager.transcript = ""
-            speechManager.startTranscribing()
+
+    private func tearDownPlayer() {
+        playerGeneration += 1
+        if let token = playerObserverToken {
+            NotificationCenter.default.removeObserver(token)
+            playerObserverToken = nil
         }
+        guard player != nil else { return }
+        player?.pause()
+        player = nil
+        Task { await AudioSessionCoordinator.shared.deactivate(.player) }
+    }
+
+    /// True when the video was recorded upright (taller than wide, after rotation).
+    private static func isPortrait(_ url: URL) async -> Bool? {
+        let asset = AVURLAsset(url: url)
+        guard let track = try? await asset.loadTracks(withMediaType: .video).first,
+              let size = try? await track.load(.naturalSize),
+              let transform = try? await track.load(.preferredTransform) else { return nil }
+        let rotated = size.applying(transform)
+        return abs(rotated.height) > abs(rotated.width)
     }
 }
 
@@ -553,13 +505,14 @@ class LoopingPlayerUIView: UIView {
     private let playerLayer = AVPlayerLayer()
     private var playerLooper: AVPlayerLooper?
     private var queuePlayer: AVQueuePlayer?
-    
+    private var rate: Float
+    private var isPaused = false
+
     init(url: URL, rate: Float) {
+        self.rate = rate
         super.init(frame: .zero)
 
-        let asset = AVURLAsset(url: url)
-        let playerItem = AVPlayerItem(asset: asset)
-
+        let playerItem = AVPlayerItem(asset: AVURLAsset(url: url))
         let player = AVQueuePlayer(playerItem: playerItem)
         player.actionAtItemEnd = .none
         self.queuePlayer = player
@@ -569,23 +522,36 @@ class LoopingPlayerUIView: UIView {
         playerLayer.videoGravity = .resizeAspectFill
         layer.addSublayer(playerLayer)
 
-        // ✅ Audio session cez koordinátora — nie priamo, aby nenarazil do kamery.
-        Task {
+        // Audio session through the coordinator, so it never collides with the camera.
+        Task { [weak self] in
             try? await AudioSessionCoordinator.shared.activate(.player)
+            guard let self, !self.isPaused else { return }
             player.play()
-            player.rate = rate
+            player.rate = self.rate
         }
     }
-    
+
     override func layoutSubviews() {
         super.layoutSubviews()
         playerLayer.frame = bounds
     }
-    
-    func setRate(_ rate: Float) {
-        queuePlayer?.rate = rate
+
+    func setRate(_ newRate: Float) {
+        rate = newRate
+        if !isPaused { queuePlayer?.rate = newRate }
     }
-    
+
+    func setPaused(_ paused: Bool) {
+        guard paused != isPaused else { return }
+        isPaused = paused
+        if paused {
+            queuePlayer?.pause()
+        } else {
+            queuePlayer?.play()
+            queuePlayer?.rate = rate
+        }
+    }
+
     func stop() {
         queuePlayer?.pause()
         playerLooper?.disableLooping()
@@ -595,25 +561,109 @@ class LoopingPlayerUIView: UIView {
             await AudioSessionCoordinator.shared.deactivate(.player)
         }
     }
-    
+
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
 }
 
-struct LoopingVideoPlayer: UIViewRepresentable {
+/// A clip that plays in a loop. Tap the video (or the small button) to pause and resume.
+/// Looping preview for any stored video path (app file, Supabase or Fotky). It looks the video up itself,
+/// so callers never have to know where the video lives.
+struct LoopingVideoPlayer: View {
+    let videoPath: String
+    let rate: Float
+
+    private enum Source: Equatable { case loading, ready(URL), missing }
+
+    @State private var source: Source = .loading
+
+    var body: some View {
+        ZStack {
+            switch source {
+            case .loading:
+                Color.obsidian800
+                ProgressView().tint(Color.gold400)
+            case .ready(let url):
+                LoopingPlayback(videoURL: url, rate: rate)
+                    .transition(.opacity)
+            case .missing:
+                Color.obsidian800
+                VStack(spacing: 6) {
+                    Image(systemName: "video.slash.fill")
+                        .font(.title3)
+                        .foregroundColor(Color.gold400)
+                    Text(missingMessage)
+                        .font(.caption)
+                        .foregroundColor(Color.white.opacity(0.7))
+                        .multilineTextAlignment(.center)
+                }
+                .padding(12)
+            }
+        }
+        .animation(.easeOut(duration: 0.2), value: source)
+        .task(id: videoPath) {
+            source = .loading
+            source = await MediaResolver.videoURL(path: videoPath).map(Source.ready) ?? .missing
+        }
+    }
+
+    private var missingMessage: String {
+        guard PhotoLibraryVideoStore.isReference(videoPath) else { return "Video sa nenašlo." }
+        return PhotoLibraryVideoStore.hasAccess
+            ? "Video bolo zmazané z Fotiek."
+            : "Povoľ Encore prístup k Fotkám v Nastaveniach iPhonu."
+    }
+}
+
+private struct LoopingPlayback: View {
     let videoURL: URL
     let rate: Float
-    
-    func makeUIView(context: Context) -> LoopingPlayerUIView {
-        let view = LoopingPlayerUIView(url: videoURL, rate: rate)
-        return view
+
+    @State private var isPaused = false
+
+    var body: some View {
+        LoopingPlayerLayerView(videoURL: videoURL, rate: rate, isPaused: isPaused)
+            .contentShape(Rectangle())
+            .onTapGesture { isPaused.toggle() }
+            .overlay {
+                if isPaused {
+                    Image(systemName: "play.fill")
+                        .font(.title2.weight(.bold))
+                        .foregroundStyle(.white)
+                        .frame(width: 60, height: 60)
+                        .glassEffect(.regular, in: .circle)
+                        .allowsHitTesting(false)
+                        .transition(.scale(scale: 0.6).combined(with: .opacity))
+                }
+            }
+            .overlay(alignment: .bottomLeading) {
+                LiquidGlassCircleButton(
+                    icon: isPaused ? "play.fill" : "pause.fill",
+                    label: isPaused ? "Prehrať video" : "Pozastaviť video",
+                    size: 36
+                ) { isPaused.toggle() }
+                .padding(10)
+            }
+            .animation(.spring(response: 0.3, dampingFraction: 0.75), value: isPaused)
+            .sensoryFeedback(.selection, trigger: isPaused)
     }
-    
+}
+
+private struct LoopingPlayerLayerView: UIViewRepresentable {
+    let videoURL: URL
+    let rate: Float
+    let isPaused: Bool
+
+    func makeUIView(context: Context) -> LoopingPlayerUIView {
+        LoopingPlayerUIView(url: videoURL, rate: rate)
+    }
+
     func updateUIView(_ uiView: LoopingPlayerUIView, context: Context) {
         uiView.setRate(rate)
+        uiView.setPaused(isPaused)
     }
-    
+
     static func dismantleUIView(_ uiView: LoopingPlayerUIView, context: Context) {
         uiView.stop()
     }
@@ -625,6 +675,8 @@ class SpeechRecognizerHelper: ObservableObject {
     @Published var transcript = ""
     @Published var isRecording = false
     @Published var audioLevel: CGFloat = 0.0
+    /// Slovak message when dictation cannot start (permission denied, no recogniser, engine failure).
+    @Published var errorMessage: String?
     
     private var audioEngine: AVAudioEngine?
     private var request: SFSpeechAudioBufferRecognitionRequest?
@@ -651,6 +703,35 @@ class SpeechRecognizerHelper: ObservableObject {
     }
     
     func startTranscribing() {
+        errorMessage = nil
+        Task {
+            guard await ensurePermissions() else { return }
+            beginTranscribing()
+        }
+    }
+
+    /// Asks for both permissions the first time and explains clearly when one was refused.
+    private func ensurePermissions() async -> Bool {
+        let speechStatus = await withCheckedContinuation { continuation in
+            SFSpeechRecognizer.requestAuthorization { continuation.resume(returning: $0) }
+        }
+        guard speechStatus == .authorized else {
+            errorMessage = "Povoľ rozpoznávanie reči v Nastaveniach iPhonu (Encore → Rozpoznávanie reči)."
+            return false
+        }
+        let micGranted = await AVAudioApplication.requestRecordPermission()
+        guard micGranted else {
+            errorMessage = "Povoľ mikrofón v Nastaveniach iPhonu (Encore → Mikrofón)."
+            return false
+        }
+        guard let recognizer, recognizer.isAvailable else {
+            errorMessage = "Rozpoznávanie reči teraz nie je dostupné. Skontroluj pripojenie na internet."
+            return false
+        }
+        return true
+    }
+
+    private func beginTranscribing() {
         guard let recognizer = recognizer, recognizer.isAvailable else { return }
 
         // ✅ Audio session cez koordinátora — aktivujeme .speech PRED štartom audioEngine.
@@ -668,6 +749,8 @@ class SpeechRecognizerHelper: ObservableObject {
 
             guard let audioEngine = audioEngine, let request = request else { return }
             request.shouldReportPartialResults = true
+            request.taskHint = .dictation
+            request.addsPunctuation = true
             request.contextualStrings = [
                 "Waltz", "Valčík", "Tango", "Slowfox", "Quickstep", "Samba", "Cha-Cha", "Čača", "Rumba", "Paso Doble", "Jive",
                 "Chassé", "Rondé", "Fleckerl", "Contra Check", "Whisk", "Feather Step", "Hover Corte", "Telemark", "Impetus",
@@ -703,7 +786,16 @@ class SpeechRecognizerHelper: ObservableObject {
             }
 
             audioEngine.prepare()
-            try? audioEngine.start()
+            do {
+                try audioEngine.start()
+            } catch {
+                errorMessage = "Mikrofón sa nepodarilo spustiť. Skús to znova."
+                inputNode.removeTap(onBus: 0)
+                self.audioEngine = nil
+                self.request = nil
+                await AudioSessionCoordinator.shared.deactivate(.speech)
+                return
+            }
 
             isRecording = true
             transcript = ""
@@ -716,7 +808,8 @@ class SpeechRecognizerHelper: ObservableObject {
                 let isDone = error != nil || result?.isFinal == true
 
                 DispatchQueue.main.async {
-                    self.transcript = text
+                    // A cancelled task reports an empty result: never wipe what was already heard.
+                    if !text.isEmpty { self.transcript = text }
                     if isDone {
                         self.stopTranscribing()
                     }

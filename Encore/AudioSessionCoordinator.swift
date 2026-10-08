@@ -7,7 +7,7 @@ actor AudioSessionCoordinator {
     private init() {}
 
     enum Client: String {
-        case player, speech
+        case player, speech, voiceNote
     }
 
     private var activeClient: Client?
@@ -21,11 +21,16 @@ actor AudioSessionCoordinator {
 
         switch client {
         case .player:
-            try avSession.setCategory(
-                .playback,
-                mode: .moviePlayback,
-                options: [.allowBluetoothHFP, .allowAirPlay]
-            )
+            // Playback already routes to AirPlay and Bluetooth headphones on its own. The HFP and AirPlay
+            // options are only valid with .playAndRecord; passing them here made setCategory fail (-50).
+            try avSession.setCategory(.playback, mode: .moviePlayback)
+            try avSession.setActive(true)
+
+        case .voiceNote:
+            // Plain voice recording and playback of it: default mode (no measurement/raw processing),
+            // no Bluetooth hands-free input (it would drop the recording to phone-call quality).
+            try avSession.setCategory(.playAndRecord, mode: .default, options: [.defaultToSpeaker])
+            try avSession.setPreferredSampleRate(48_000)
             try avSession.setActive(true)
 
         case .speech:

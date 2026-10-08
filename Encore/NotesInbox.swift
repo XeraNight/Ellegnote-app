@@ -1,13 +1,9 @@
 import SwiftUI
 import SwiftData
 
-// MARK: - Shared note vocabulary
-enum NoteTags {
-    static let quick = ["#Držanie", "#Rytmus", "#Sway", "#Rotácia", "#Nášľap", "#Partner", "#Hudba"]
-}
-
 private extension InstantNote {
     var kindIcon: String {
+        if audioPath != nil { return "waveform" }
         if videoPath != nil { return "video.fill" }
         if imagePath != nil { return "photo.fill" }
         return "text.alignleft"
@@ -16,12 +12,14 @@ private extension InstantNote {
     var previewText: String {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         if !trimmed.isEmpty { return trimmed }
+        if audioPath != nil { return "Hlasová poznámka · \(voiceTimeString(audioDuration ?? 0))" }
         return videoPath != nil ? "Tréningové video" : "Prázdna poznámka"
     }
 }
 
 // MARK: - Home strip
-/// Horizontal strip of not-yet-imported notes shown under the capture field on Home.
+/// Not-yet-imported notes under the capture field on Home. One note fills the row; more notes scroll
+/// and snap to the same left edge as the rest of the screen.
 struct NotesInboxStrip: View {
     let notes: [InstantNote]
     let onOpenAll: () -> Void
@@ -31,152 +29,136 @@ struct NotesInboxStrip: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 8) {
-                Image(systemName: "tray.full.fill")
-                    .font(.system(size: 12, weight: .bold))
-                    .foregroundColor(Color.gold400)
-                    .symbolEffect(.bounce, value: notes.count)
-
-                Text("SCHRÁNKA")
-                    .font(.system(size: 11, weight: .black, design: .rounded))
-                    .foregroundColor(Color.gold400)
-                    .tracking(1.4)
-
-                if !notes.isEmpty {
-                    Text("\(notes.count)")
-                        .font(.system(size: 10, weight: .bold, design: .rounded))
-                        .foregroundColor(Color.obsidian900)
-                        .padding(.horizontal, 7)
-                        .padding(.vertical, 2)
-                        .background(Color.gold400, in: Capsule())
-                        .contentTransition(.numericText())
-                }
-
-                Spacer()
-
+            HomeSectionHeader(title: "POZNÁMKY", systemImage: "tray.full.fill", count: notes.count) {
                 Button(action: onOpenAll) {
                     HStack(spacing: 4) {
                         Text("Všetky")
                         Image(systemName: "chevron.right")
                     }
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundColor(Color.white.opacity(0.55))
+                    .font(.caption.weight(.semibold))
+                    .foregroundColor(Color.white.opacity(0.7))
+                    .frame(minHeight: 44)
+                    .contentShape(Rectangle())
                 }
                 .buttonStyle(.pressable)
+                .accessibilityLabel("Všetky poznámky")
             }
 
             if notes.isEmpty {
                 Text("Tvoje rýchle poznámky sa objavia tu. Neskôr ich jedným ťuknutím pridáš k figúre.")
-                    .font(.system(size: 12))
-                    .foregroundColor(Color.white.opacity(0.40))
+                    .font(.caption)
+                    .foregroundColor(Color.white.opacity(0.6))
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.vertical, 6)
+            } else if notes.count == 1, let note = notes.first {
+                card(note, isFullWidth: true)
             } else {
                 ScrollView(.horizontal, showsIndicators: false) {
                     LazyHStack(spacing: 10) {
                         ForEach(notes.prefix(12)) { note in
-                            Button { onOpenNote(note) } label: { NoteCard(note: note) }
-                                .buttonStyle(.pressable)
-                                .contextMenu {
-                                    Button {
-                                        note.isPinned.toggle()
-                                        try? modelContext.save()
-                                    } label: {
-                                        Label(note.isPinned ? "Odopnúť" : "Pripnúť", systemImage: note.isPinned ? "pin.slash" : "pin")
-                                    }
-                                    Button(role: .destructive) {
-                                        modelContext.delete(note)
-                                        try? modelContext.save()
-                                    } label: {
-                                        Label("Zmazať", systemImage: "trash")
-                                    }
-                                }
+                            card(note, isFullWidth: false)
                                 .transition(.asymmetric(
                                     insertion: .scale(scale: 0.7, anchor: .leading).combined(with: .opacity),
                                     removal: .opacity
                                 ))
                         }
                     }
+                    .scrollTargetLayout()
                     .padding(.vertical, 2)
                 }
+                .scrollTargetBehavior(.viewAligned)
                 .scrollClipDisabled()
             }
         }
         .animation(.spring(response: 0.38, dampingFraction: 0.8), value: notes.map(\.id))
         .sensoryFeedback(.selection, trigger: notes.first?.isPinned)
     }
+
+    private func card(_ note: InstantNote, isFullWidth: Bool) -> some View {
+        Button { onOpenNote(note) } label: { NoteCard(note: note, isFullWidth: isFullWidth) }
+            .buttonStyle(.pressable)
+            .contextMenu {
+                Button {
+                    note.isPinned.toggle()
+                    try? modelContext.save()
+                } label: {
+                    Label(note.isPinned ? "Odopnúť" : "Pripnúť", systemImage: note.isPinned ? "pin.slash" : "pin")
+                }
+                Button(role: .destructive) {
+                    MediaStorageManager.removeFile(named: note.audioPath)
+                    modelContext.delete(note)
+                    try? modelContext.save()
+                } label: {
+                    Label("Zmazať", systemImage: "trash")
+                }
+            }
+    }
 }
 
 private struct NoteCard: View {
     let note: InstantNote
+    var isFullWidth = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 6) {
                 Image(systemName: note.kindIcon)
-                    .font(.system(size: 10, weight: .bold))
+                    .font(.caption2.weight(.bold))
                     .foregroundColor(Color.gold400)
                 if note.isPinned {
                     Image(systemName: "pin.fill")
-                        .font(.system(size: 9, weight: .bold))
+                        .font(.caption2.weight(.bold))
                         .foregroundColor(Color.gold300)
+                        .accessibilityLabel("Pripnutá")
                 }
                 Spacer(minLength: 0)
                 Text(note.createdAt, format: .relative(presentation: .numeric, unitsStyle: .abbreviated))
-                    .font(.system(size: 10, weight: .medium))
-                    .foregroundColor(Color.white.opacity(0.40))
+                    .font(.caption2.weight(.medium))
+                    .foregroundColor(Color.white.opacity(0.6))
             }
 
             Text(note.previewText)
-                .font(.system(size: 13, weight: .medium))
+                .font(.footnote.weight(.medium))
                 .foregroundColor(.white.opacity(0.92))
                 .lineLimit(3)
                 .multilineTextAlignment(.leading)
                 .frame(maxWidth: .infinity, alignment: .topLeading)
 
-            HStack(spacing: 5) {
-                if let dance = note.danceName {
-                    chip(dance, filled: true)
-                }
-                ForEach(note.tags.prefix(2), id: \.self) { chip($0, filled: false) }
+            if let dance = note.danceName {
+                Text(dance)
+                    .font(.caption2.weight(.bold))
+                    .foregroundColor(Color.obsidian900)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(Color.gold400, in: Capsule())
+                    .lineLimit(1)
             }
-            .frame(height: 18, alignment: .leading)
         }
         .padding(12)
-        .frame(width: 186, height: 118, alignment: .topLeading)
-        .background(Color.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .stroke(Color.white.opacity(0.08), lineWidth: 1)
-        )
-        .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-    }
-
-    private func chip(_ text: String, filled: Bool) -> some View {
-        Text(text)
-            .font(.system(size: 9, weight: .bold))
-            .foregroundColor(filled ? Color.obsidian900 : Color.gold300)
-            .padding(.horizontal, 6)
-            .padding(.vertical, 2)
-            .background(filled ? Color.gold400 : Color.gold500.opacity(0.14), in: Capsule())
-            .lineLimit(1)
+        .frame(width: isFullWidth ? nil : 186, height: 118, alignment: .topLeading)
+        .frame(maxWidth: isFullWidth ? .infinity : nil, alignment: .topLeading)
+        .homeCard(cornerRadius: 16)
+        .accessibilityElement(children: .combine)
     }
 }
 
 // MARK: - Full list
+/// All notes, in the same look as Home: velvet background, one card per note, filters as capsules.
 struct NotesInboxSheet: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Query(sort: \InstantNote.createdAt, order: .reverse) private var allNotes: [InstantNote]
-    @Query(sort: \Dance.name) private var dances: [Dance]
 
     @State private var search = ""
-    @State private var filter: Filter = .inbox
-    @State private var danceFilter: String? = nil
+    @State private var filter: Filter = .new
+    @State private var danceFilter: String?
     @State private var noteToEdit: InstantNote?
+    @State private var changeTick = 0
+    @Namespace private var filterNamespace
 
     private enum Filter: String, CaseIterable, Identifiable {
-        case inbox = "Schránka", pinned = "Pripnuté", imported = "Importované", all = "Všetky"
+        case new = "Nové", pinned = "Pripnuté", imported = "Pridané", all = "Všetky"
         var id: String { rawValue }
     }
 
@@ -185,67 +167,64 @@ struct NotesInboxSheet: View {
         return allNotes
             .filter { note in
                 switch filter {
-                case .inbox: return !note.isImported
+                case .new: return !note.isImported
                 case .pinned: return note.isPinned
                 case .imported: return note.isImported
                 case .all: return true
                 }
             }
             .filter { danceFilter == nil || $0.danceName == danceFilter }
-            .filter { q.isEmpty || $0.text.lowercased().contains(q) || $0.tags.contains { $0.lowercased().contains(q) } }
+            .filter { q.isEmpty || $0.text.lowercased().contains(q) }
             .sorted { ($0.isPinned ? 1 : 0, $0.createdAt) > ($1.isPinned ? 1 : 0, $1.createdAt) }
     }
 
     var body: some View {
         NavigationStack {
-            List {
-                Section {
-                    Picker("Filter", selection: $filter) {
-                        ForEach(Filter.allCases) { Text($0.rawValue).tag($0) }
+            ZStack {
+                EllegancePageBackground()
+
+                List {
+                    controls
+                        .listRowBackground(Color.clear)
+                        .listRowSeparator(.hidden)
+                        .listRowInsets(EdgeInsets(top: 8, leading: 20, bottom: 8, trailing: 20))
+
+                    if filtered.isEmpty {
+                        ContentUnavailableView(
+                            "Nič tu nie je",
+                            systemImage: "tray",
+                            description: Text(filter == .new ? "Všetky poznámky sú pridané k figúram." : "Skús iný filter.")
+                        )
+                        .listRowBackground(Color.clear)
+                        .listRowSeparator(.hidden)
                     }
-                    .pickerStyle(.segmented)
-                    .listRowBackground(Color.clear)
-                    .listRowInsets(EdgeInsets())
-                }
 
-                if filtered.isEmpty {
-                    ContentUnavailableView(
-                        "Nič tu nie je",
-                        systemImage: "tray",
-                        description: Text(filter == .inbox ? "Všetky poznámky sú pridané k figúram." : "Skús iný filter.")
-                    )
-                    .listRowBackground(Color.clear)
-                }
-
-                ForEach(filtered) { note in
-                    Button { noteToEdit = note } label: { row(note) }
-                        .buttonStyle(.plain)
-                        .listRowBackground(Color.white.opacity(0.05))
-                        .swipeActions(edge: .trailing) {
-                            Button(role: .destructive) {
-                                modelContext.delete(note)
-                                try? modelContext.save()
-                            } label: { Label("Zmazať", systemImage: "trash") }
-                        }
-                        .swipeActions(edge: .leading) {
-                            Button {
-                                note.isPinned.toggle()
-                                try? modelContext.save()
-                            } label: { Label(note.isPinned ? "Odopnúť" : "Pripnúť", systemImage: "pin") }
-                            .tint(Color.gold500)
-
-                            if note.isImported {
-                                Button {
-                                    note.importedAt = nil
-                                    try? modelContext.save()
-                                } label: { Label("Vrátiť", systemImage: "arrow.uturn.backward") }
-                                .tint(.blue)
+                    ForEach(filtered) { note in
+                        Button { noteToEdit = note } label: { NoteRow(note: note) }
+                            .buttonStyle(.pressable(scale: 0.97))
+                            .listRowBackground(Color.clear)
+                            .listRowSeparator(.hidden)
+                            .listRowInsets(EdgeInsets(top: 5, leading: 20, bottom: 5, trailing: 20))
+                            .swipeActions(edge: .trailing) {
+                                Button(role: .destructive) { delete(note) } label: { Label("Zmazať", systemImage: "trash") }
                             }
-                        }
+                            .swipeActions(edge: .leading) {
+                                Button { togglePin(note) } label: {
+                                    Label(note.isPinned ? "Odopnúť" : "Pripnúť", systemImage: note.isPinned ? "pin.slash" : "pin")
+                                }
+                                .tint(Color.gold500)
+
+                                if note.isImported {
+                                    Button { restore(note) } label: { Label("Vrátiť", systemImage: "arrow.uturn.backward") }
+                                        .tint(Color.standardBlue)
+                                }
+                            }
+                    }
                 }
+                .listStyle(.plain)
+                .scrollContentBackground(.hidden)
+                .animation(reduceMotion ? nil : .spring(response: 0.35, dampingFraction: 0.85), value: filtered.map(\.id))
             }
-            .scrollContentBackground(.hidden)
-            .background(Color.obsidian900.ignoresSafeArea())
             .navigationTitle("Poznámky")
             .navigationBarTitleDisplayMode(.inline)
             .searchable(text: $search, prompt: "Hľadať v poznámkach")
@@ -253,109 +232,198 @@ struct NotesInboxSheet: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Hotovo") { dismiss() }
                 }
-                ToolbarItem(placement: .topBarLeading) {
-                    Menu {
-                        Button("Všetky tance") { danceFilter = nil }
-                        ForEach(dances) { dance in
-                            Button(dance.name) { danceFilter = dance.name }
-                        }
-                    } label: {
-                        Label(danceFilter ?? "Tanec", systemImage: "line.3.horizontal.decrease.circle")
-                    }
-                }
             }
             .sheet(item: $noteToEdit) { NoteDetailSheet(note: $0) }
+            .sensoryFeedback(.selection, trigger: filter)
+            .sensoryFeedback(.impact(weight: .light), trigger: changeTick)
+            .environment(\.locale, Locale(identifier: "sk"))
         }
         .preferredColorScheme(.dark)
     }
 
-    private func row(_ note: InstantNote) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
+    private var controls: some View {
+        VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 6) {
-                Image(systemName: note.kindIcon)
-                    .font(.system(size: 11, weight: .bold))
-                    .foregroundColor(Color.gold400)
-                if note.isPinned {
-                    Image(systemName: "pin.fill").font(.system(size: 10)).foregroundColor(Color.gold300)
+                ForEach(Filter.allCases) { item in
+                    let isSelected = filter == item
+                    Button {
+                        withAnimation(reduceMotion ? nil : .spring(response: 0.32, dampingFraction: 0.78)) { filter = item }
+                    } label: {
+                        Text(item.rawValue)
+                            .font(.footnote.weight(isSelected ? .bold : .medium))
+                            .foregroundColor(isSelected ? .white : Color.white.opacity(0.75))
+                            .lineLimit(1)
+                            .padding(.vertical, 9)
+                            .frame(maxWidth: .infinity)
+                            .background {
+                                ZStack {
+                                    Capsule().fill(Color.white.opacity(0.05))
+                                    if isSelected {
+                                        Capsule()
+                                            .fill(Color.white.opacity(0.14))
+                                            .matchedGeometryEffect(id: "noteFilter", in: filterNamespace)
+                                    }
+                                }
+                            }
+                            .overlay(
+                                Capsule().stroke(isSelected ? Color.gold400.opacity(0.45) : Color.white.opacity(0.08), lineWidth: 1)
+                            )
+                    }
+                    .buttonStyle(.pressable)
+                    .accessibilityAddTraits(isSelected ? .isSelected : [])
                 }
-                if let dance = note.danceName {
-                    Text(dance).font(.system(size: 11, weight: .bold)).foregroundColor(Color.gold300)
-                }
+            }
+
+            HStack {
+                DanceMenuCapsule(selection: $danceFilter, emptyTitle: "Všetky tance", clearTitle: "Všetky tance")
                 Spacer()
-                Text(note.createdAt.formatted(date: .abbreviated, time: .shortened))
-                    .font(.system(size: 11)).foregroundColor(.white.opacity(0.4))
-            }
-            Text(note.previewText)
-                .font(.system(size: 14))
-                .foregroundColor(.white)
-                .lineLimit(3)
-            if !note.tags.isEmpty {
-                Text(note.tags.joined(separator: "  "))
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundColor(Color.gold300.opacity(0.8))
-            }
-            if note.isImported {
-                Label("Pridané k figúre", systemImage: "checkmark.circle.fill")
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundColor(Color.syncEmerald)
+                Text(countLabel)
+                    .font(.caption.weight(.medium))
+                    .foregroundColor(Color.white.opacity(0.6))
+                    .contentTransition(.numericText())
             }
         }
-        .padding(.vertical, 4)
+    }
+
+    private var countLabel: String {
+        slovakCount(filtered.count, one: "poznámka", few: "poznámky", many: "poznámok")
+    }
+
+    private func togglePin(_ note: InstantNote) {
+        withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) { note.isPinned.toggle() }
+        try? modelContext.save()
+        changeTick += 1
+    }
+
+    private func restore(_ note: InstantNote) {
+        withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) { note.importedAt = nil }
+        try? modelContext.save()
+        changeTick += 1
+    }
+
+    private func delete(_ note: InstantNote) {
+        MediaStorageManager.removeFile(named: note.audioPath)
+        withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) { modelContext.delete(note) }
+        try? modelContext.save()
+        changeTick += 1
+    }
+}
+
+/// One note in the full list.
+private struct NoteRow: View {
+    let note: InstantNote
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 12) {
+            Image(systemName: note.kindIcon)
+                .font(.footnote.weight(.bold))
+                .foregroundColor(Color.gold400)
+                .frame(width: 34, height: 34)
+                .background(Color.white.opacity(0.08), in: Circle())
+                .accessibilityHidden(true)
+
+            VStack(alignment: .leading, spacing: 5) {
+                HStack(spacing: 6) {
+                    if let dance = note.danceName {
+                        Text(dance)
+                            .font(.caption2.weight(.bold))
+                            .foregroundColor(Color.obsidian900)
+                            .padding(.horizontal, 7)
+                            .padding(.vertical, 2)
+                            .background(Color.gold400, in: Capsule())
+                    }
+                    if note.isPinned {
+                        Image(systemName: "pin.fill")
+                            .font(.caption2.weight(.bold))
+                            .foregroundColor(Color.gold300)
+                            .transition(.scale.combined(with: .opacity))
+                            .accessibilityLabel("Pripnutá")
+                    }
+                    Spacer(minLength: 6)
+                    Text(note.createdAt, format: .dateTime.day().month(.abbreviated).hour().minute())
+                        .font(.caption2.weight(.medium))
+                        .foregroundColor(Color.white.opacity(0.6))
+                }
+
+                Text(note.previewText)
+                    .font(.subheadline.weight(.medium))
+                    .foregroundColor(.white)
+                    .lineLimit(3)
+                    .multilineTextAlignment(.leading)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                if note.isImported {
+                    Label("Pridané k figúre", systemImage: "checkmark.circle.fill")
+                        .font(.caption.weight(.semibold))
+                        .foregroundColor(Color.syncEmerald)
+                        .transition(.opacity)
+                }
+            }
+        }
+        .padding(14)
+        .homeCard()
+        .accessibilityElement(children: .combine)
     }
 }
 
 // MARK: - Edit one note
+/// One note, laid out like Home: recording or video on top, the text field, then what to do with it.
 struct NoteDetailSheet: View {
     @Bindable var note: InstantNote
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
-    @Query(sort: \Dance.name) private var dances: [Dance]
     @State private var showFigurePicker = false
     @State private var confirmDelete = false
+    @State private var sweepTrigger = 0
+    @FocusState private var isWriting: Bool
+
+    private var hasText: Bool { !note.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
 
     var body: some View {
         NavigationStack {
-            Form {
-                Section("Text") {
-                    TextEditor(text: $note.text)
-                        .frame(minHeight: 140)
-                }
+            ZStack {
+                EllegancePageBackground()
 
-                Section("Tanec") {
-                    Picker("Tanec", selection: $note.danceName) {
-                        Text("Bez tanca").tag(String?.none)
-                        ForEach(dances) { Text($0.name).tag(String?.some($0.name)) }
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 22) {
+                        meta
+
+                        if let audioPath = note.audioPath {
+                            section("NAHRÁVKA", systemImage: "waveform") {
+                                VStack(alignment: .leading, spacing: 10) {
+                                    VoiceNotePlayerView(fileName: audioPath)
+                                    Text("Vypočuj si nahrávku a nižšie napíš, čo z nej chceš ponechať.")
+                                        .font(.caption)
+                                        .foregroundColor(Color.white.opacity(0.65))
+                                }
+                                .padding(14)
+                                .homeCard()
+                            }
+                        }
+
+                        if let videoPath = note.videoPath {
+                            section("VIDEO", systemImage: "video.fill") {
+                                VStack(alignment: .leading, spacing: 10) {
+                                    LoopingVideoPlayer(videoPath: videoPath, rate: 1.0)
+                                        .frame(height: 220)
+                                        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                                    Text("K figúre ho pripojíš v jej detaile.")
+                                        .font(.caption)
+                                        .foregroundColor(Color.white.opacity(0.65))
+                                }
+                            }
+                        }
+
+                        section("TEXT", systemImage: "text.alignleft") { editor }
+
+                        actions
                     }
+                    .padding(.horizontal, 20)
+                    .padding(.top, 8)
+                    .padding(.bottom, 40)
                 }
-
-                Section("Značky") {
-                    FlowTags(selected: $note.tags)
-                }
-
-                if note.videoPath != nil {
-                    Section {
-                        Label("Poznámka obsahuje video. Pripojíš ho v detaile figúry.", systemImage: "video.fill")
-                            .font(.footnote)
-                    }
-                }
-
-                Section {
-                    Button {
-                        showFigurePicker = true
-                    } label: {
-                        Label(note.isImported ? "Pridať k ďalšej figúre" : "Pridať k figúre", systemImage: "arrow.down.doc.fill")
-                    }
-                    .disabled(note.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-
-                    Button(role: .destructive) {
-                        confirmDelete = true
-                    } label: {
-                        Label("Zmazať poznámku", systemImage: "trash")
-                    }
-                }
+                .scrollDismissesKeyboard(.interactively)
             }
-            .scrollContentBackground(.hidden)
-            .background(Color.obsidian900.ignoresSafeArea())
             .navigationTitle("Poznámka")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -371,39 +439,100 @@ struct NoteDetailSheet: View {
             }
             .confirmationDialog("Zmazať poznámku?", isPresented: $confirmDelete, titleVisibility: .visible) {
                 Button("Zmazať", role: .destructive) {
+                    MediaStorageManager.removeFile(named: note.audioPath)
                     modelContext.delete(note)
                     try? modelContext.save()
                     dismiss()
                 }
             }
+            .onChange(of: isWriting) { _, writing in
+                if writing { sweepTrigger += 1 }
+            }
+            .environment(\.locale, Locale(identifier: "sk"))
         }
         .preferredColorScheme(.dark)
     }
-}
 
-private struct FlowTags: View {
-    @Binding var selected: [String]
-
-    var body: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
-                ForEach(NoteTags.quick, id: \.self) { tag in
-                    let isOn = selected.contains(tag)
-                    Button {
-                        if isOn { selected.removeAll { $0 == tag } } else { selected.append(tag) }
-                    } label: {
-                        Text(tag)
-                            .font(.system(size: 12, weight: .semibold))
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 6)
-                            .foregroundColor(isOn ? Color.obsidian900 : Color.gold300)
-                            .background(isOn ? Color.gold400 : Color.gold500.opacity(0.14), in: Capsule())
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
+    private var meta: some View {
+        HStack(spacing: 10) {
+            Image(systemName: note.kindIcon)
+                .font(.footnote.weight(.bold))
+                .foregroundColor(Color.gold400)
+                .frame(width: 34, height: 34)
+                .background(Color.white.opacity(0.08), in: Circle())
+                .accessibilityHidden(true)
+            Text(note.createdAt, format: .dateTime.weekday(.wide).day().month(.wide).hour().minute())
+                .font(.footnote.weight(.medium))
+                .foregroundColor(Color.white.opacity(0.75))
+            Spacer(minLength: 8)
+            DanceMenuCapsule(selection: $note.danceName)
         }
-        .sensoryFeedback(.selection, trigger: selected)
+    }
+
+    private var editor: some View {
+        ZStack(alignment: .topLeading) {
+            if note.text.isEmpty {
+                Text(note.audioPath != nil ? "Napíš, čo si z nahrávky chceš zapamätať…" : "Napíš poznámku…")
+                    .font(.callout)
+                    .foregroundColor(Color.white.opacity(0.5))
+                    .padding(.top, 8)
+                    .padding(.leading, 5)
+                    .allowsHitTesting(false)
+                    .accessibilityHidden(true)
+            }
+            TextEditor(text: $note.text)
+                .focused($isWriting)
+                .scrollContentBackground(.hidden)
+                .font(.callout.weight(.medium))
+                .foregroundColor(.white)
+                .frame(minHeight: 160)
+                .accessibilityLabel("Text poznámky")
+        }
+        .padding(12)
+        .homeCard()
+        .overlay { FieldEdgeSweep(trigger: sweepTrigger).padding(12) }
+    }
+
+    private var actions: some View {
+        VStack(spacing: 10) {
+            if note.isImported {
+                Label("Pridané k figúre", systemImage: "checkmark.seal.fill")
+                    .font(.footnote.weight(.semibold))
+                    .foregroundColor(Color.syncEmerald)
+                    .frame(maxWidth: .infinity)
+            }
+
+            PrimarySheetButton(
+                title: note.isImported ? "Pridať k ďalšej figúre" : "Pridať k figúre",
+                isLoading: false,
+                isEnabled: hasText
+            ) {
+                showFigurePicker = true
+            }
+
+            if !hasText {
+                Text("Najprv napíš text, ktorý chceš k figúre pridať.")
+                    .font(.caption)
+                    .foregroundColor(Color.white.opacity(0.6))
+                    .transition(.opacity)
+            }
+
+            Button(role: .destructive) { confirmDelete = true } label: {
+                Label("Zmazať poznámku", systemImage: "trash")
+                    .font(.footnote.weight(.semibold))
+                    .foregroundColor(Color.latinRed)
+                    .frame(maxWidth: .infinity, minHeight: 44)
+            }
+            .buttonStyle(.pressable)
+        }
+        .animation(.spring(response: 0.3, dampingFraction: 0.85), value: hasText)
+    }
+
+    private func section<Content: View>(_ title: String, systemImage: String, @ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HomeSectionHeader(title: title, systemImage: systemImage)
+            content()
+        }
     }
 }
 
@@ -439,34 +568,31 @@ struct FigurePickerSheet: View {
 
     var body: some View {
         NavigationStack {
-            List {
-                if !matchingNodes.isEmpty {
-                    Section("Zo mojich zostáv") {
-                        ForEach(matchingNodes) { node in
-                            Button { add(to: node) } label: {
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text(node.figureName).font(.system(size: 15, weight: .semibold))
-                                    Text(node.routine?.name ?? "")
-                                        .font(.system(size: 12)).foregroundColor(.secondary)
-                                }
+            ZStack {
+                EllegancePageBackground()
+
+                ScrollView {
+                    LazyVStack(alignment: .leading, spacing: 10) {
+                        if !matchingNodes.isEmpty {
+                            HomeSectionHeader(title: "Z MOJICH ZOSTÁV", systemImage: "square.grid.2x2.fill")
+                            ForEach(matchingNodes) { node in
+                                figureRow(title: node.figureName, subtitle: node.routine?.name ?? "") { add(to: node) }
                             }
                         }
-                    }
-                }
-                if !matchingLibrary.isEmpty {
-                    Section("Knižnica figúr") {
-                        ForEach(matchingLibrary) { item in
-                            Button { add(to: item) } label: {
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text(item.name).font(.system(size: 15, weight: .semibold))
-                                    Text(item.danceName).font(.system(size: 12)).foregroundColor(.secondary)
-                                }
+                        if !matchingLibrary.isEmpty {
+                            HomeSectionHeader(title: "KNIŽNICA FIGÚR", systemImage: "books.vertical.fill")
+                                .padding(.top, matchingNodes.isEmpty ? 0 : 12)
+                            ForEach(matchingLibrary) { item in
+                                figureRow(title: item.name, subtitle: item.danceName) { add(to: item) }
                             }
                         }
+                        if matchingNodes.isEmpty && matchingLibrary.isEmpty {
+                            ContentUnavailableView.search(text: search)
+                                .padding(.top, 40)
+                        }
                     }
-                }
-                if matchingNodes.isEmpty && matchingLibrary.isEmpty {
-                    ContentUnavailableView.search(text: search)
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 8)
                 }
             }
             .searchable(text: $search, prompt: "Hľadať figúru alebo zostavu")
@@ -477,6 +603,32 @@ struct FigurePickerSheet: View {
             }
         }
         .preferredColorScheme(.dark)
+    }
+
+    private func figureRow(title: String, subtitle: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 12) {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(title)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundColor(.white)
+                    if !subtitle.isEmpty {
+                        Text(subtitle)
+                            .font(.caption)
+                            .foregroundColor(Color.white.opacity(0.65))
+                    }
+                }
+                Spacer(minLength: 8)
+                Image(systemName: "plus.circle.fill")
+                    .font(.title3)
+                    .foregroundColor(Color.gold400)
+                    .accessibilityHidden(true)
+            }
+            .padding(14)
+            .homeCard()
+        }
+        .buttonStyle(.pressable(scale: 0.97))
+        .accessibilityHint("Pridá poznámku k tejto figúre")
     }
 
     private var stamped: String {

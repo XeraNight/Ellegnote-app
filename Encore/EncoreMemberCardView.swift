@@ -16,6 +16,8 @@ struct EncoreMemberCardView: View {
     @State private var isDragging = false
     @State private var showShareSheet = false
     @State private var renderedCardImage: UIImage? = nil
+    /// Made once per link, not on every redraw (the card redraws on every tilt frame).
+    @State private var qrImage: UIImage?
     
     @ObservedObject private var walletManager = AppleWalletPassManager.shared
     @ObservedObject private var friendManager = FriendManager.shared
@@ -241,6 +243,10 @@ struct EncoreMemberCardView: View {
                 secondaryButton: .cancel(Text("Rozumiem"))
             )
         }
+        .task(id: targetQRString) {
+            let link = targetQRString
+            qrImage = await Task.detached(priority: .utility) { QRGenerator.generateQRCode(from: link) }.value
+        }
     }
     
     // MARK: - Toggle 3D Flip
@@ -297,7 +303,7 @@ struct EncoreMemberCardView: View {
                             .tracking(0.8)
                             .foregroundColor(Color(red: 0.90, green: 0.78, blue: 0.45).opacity(0.85))
                         
-                        Text(name.isEmpty ? "Jakub Kalina" : name)
+                        Text(name.isEmpty ? "Tanečník" : name)
                             .font(calligraphicFont)
                             .foregroundColor(Color(red: 0.98, green: 0.90, blue: 0.60))
                             .shadow(color: Color.black.opacity(0.9), radius: 3, x: 1, y: 1.5)
@@ -309,7 +315,7 @@ struct EncoreMemberCardView: View {
                     Spacer()
                     
                     // QR Code placed in Bottom Right corner
-                    if let qrImage = QRGenerator.generateQRCode(from: targetQRString) {
+                    if let qrImage {
                         ZStack {
                             RoundedRectangle(cornerRadius: 8, style: .continuous)
                                 .fill(Color.white)
@@ -440,7 +446,7 @@ struct EncoreMemberCardView: View {
                             .font(.system(size: 8, weight: .bold))
                             .tracking(0.8)
                             .foregroundColor(Color(red: 0.90, green: 0.78, blue: 0.45).opacity(0.8))
-                        Text(name.isEmpty ? "Jakub Kalina" : name)
+                        Text(name.isEmpty ? "Tanečník" : name)
                             .font(.system(size: 13, weight: .bold, design: .serif))
                             .foregroundColor(.white)
                     }

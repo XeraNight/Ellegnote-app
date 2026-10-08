@@ -1,17 +1,12 @@
 import SwiftUI
 
-/// Voice dictation on Home. Owns the speech recognizer so the rapidly changing audio level only
-/// redraws this small view and not the whole Home screen.
+/// Voice notes on Home. Records the real audio in full quality; the dancer listens to it later and
+/// writes down what matters. Owns the recorder so the fast-changing level only redraws this view.
 struct VoiceCaptureView: View {
-    /// Called with the final transcript when the user taps "Uložiť prepis".
-    let onSave: (String) -> Void
+    /// Called with the saved file name and its length when the recording is kept.
+    let onSave: (String, TimeInterval) -> Void
 
-    @StateObject private var speech = SpeechRecognizerHelper()
-    @State private var text = ""
-
-    private var hasText: Bool {
-        !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-    }
+    @StateObject private var recorder = VoiceNoteRecorder()
 
     var body: some View {
         VStack(spacing: 20) {
@@ -19,70 +14,108 @@ struct VoiceCaptureView: View {
 
             waveform
 
-            if hasText {
-                Text(text)
-                    .font(.system(size: 15, weight: .medium))
-                    .foregroundColor(.white)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 16)
-                    .lineLimit(5)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 12)
-                    .background(Color.white.opacity(0.05), in: RoundedRectangle(cornerRadius: 14))
-                    .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.white.opacity(0.10), lineWidth: 1))
-            } else {
-                Text(speech.isRecording
-                     ? "Hovorte zreteľne o choreografii alebo technike..."
-                     : "Stlačte mikrofón a začnite diktovať tréningovú poznámku")
+            switch recorder.state {
+            case .idle:
+                Text(recorder.errorMessage ?? "Klepni na mikrofón a nahraj poznámku. Zvuk sa uloží v plnej kvalite, vypočuješ si ho neskôr.")
                     .font(.system(size: 14))
-                    .foregroundColor(.white.opacity(0.45))
+                    .foregroundColor(recorder.errorMessage == nil ? .white.opacity(0.45) : Color.latinRed)
                     .multilineTextAlignment(.center)
                     .fixedSize(horizontal: false, vertical: true)
                     .padding(.horizontal, 20)
+            case .recording:
+                Text(voiceTimeString(recorder.elapsed))
+                    .font(.system(size: 34, weight: .semibold, design: .monospaced))
+                    .foregroundColor(.white)
+                    .contentTransition(.numericText())
+            case .recorded:
+                if let fileName = recorder.fileName {
+                    VoiceNotePlayerView(fileName: fileName)
+                        .padding(14)
+                        .background(Color.white.opacity(0.05), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                        .padding(.horizontal, 8)
+                }
             }
 
             Spacer()
 
-            HStack(spacing: 20) {
-                micButton
+            controls
+                .padding(.bottom, 22)
+                .animation(.spring(response: 0.3, dampingFraction: 0.75), value: recorder.state)
+        }
+        .onDisappear(perform: keepWhatWasRecorded)
+        .sensoryFeedback(.impact(flexibility: .rigid), trigger: recorder.state)
+    }
 
-                if hasText {
-                    Button(action: save) {
-                        Text("Uložiť prepis")
-                            .font(.system(size: 14, weight: .bold))
-                            .foregroundColor(Color.obsidian900)
-                            .padding(.horizontal, 18)
-                            .padding(.vertical, 11)
-                            .background(
-                                LinearGradient(colors: [Color.gold500, Color.gold400], startPoint: .leading, endPoint: .trailing),
-                                in: Capsule()
-                            )
-                    }
+    // MARK: Controls
+    @ViewBuilder
+    private var controls: some View {
+        switch recorder.state {
+        case .idle, .recording:
+            micButton
+        case .recorded:
+            HStack(spacing: 14) {
+                Button("Zahodiť") { recorder.discard() }
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(Color.white.opacity(0.7))
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 11)
+                    .background(Color.white.opacity(0.08), in: Capsule())
                     .buttonStyle(.pressable)
-                    .transition(.scale.combined(with: .opacity))
+
+                Button(action: save) {
+                    Text("Uložiť nahrávku")
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundColor(Color.obsidian900)
+                        .padding(.horizontal, 18)
+                        .padding(.vertical, 11)
+                        .background(
+                            LinearGradient(colors: [Color.gold500, Color.gold400], startPoint: .leading, endPoint: .trailing),
+                            in: Capsule()
+                        )
                 }
+                .buttonStyle(.pressable)
             }
-            .padding(.bottom, 22)
-            .animation(.spring(response: 0.3, dampingFraction: 0.75), value: hasText)
+            .transition(.scale.combined(with: .opacity))
         }
-        .onChange(of: speech.transcript) { _, newTranscript in
-            if !newTranscript.isEmpty { text = newTranscript }
+    }
+
+    private var micButton: some View {
+        let isRecording = recorder.state == .recording
+        return Button {
+            if isRecording { recorder.stop() } else { Task { await recorder.start() } }
+        } label: {
+            ZStack {
+                Circle()
+                    .fill(isRecording ? Color.latinCrimson.opacity(0.20) : Color.gold500.opacity(0.15))
+                    .frame(width: 76, height: 76)
+                    .scaleEffect(isRecording ? 1.0 + min(recorder.level, 1.0) * 0.35 : 1.0)
+                    .animation(.easeOut(duration: 0.1), value: recorder.level)
+
+                Circle()
+                    .fill(isRecording ? Color.latinCrimson : Color.gold500)
+                    .frame(width: 60, height: 60)
+
+                Image(systemName: isRecording ? "stop.fill" : "mic.fill")
+                    .font(.system(size: 22, weight: .bold))
+                    .foregroundColor(isRecording ? .white : Color.obsidian900)
+                    .contentTransition(.symbolEffect(.replace))
+            }
         }
-        .onAppear { speech.requestPermissions() }
-        .onDisappear { _ = speech.stopTranscribing() }
-        .sensoryFeedback(.impact(flexibility: .rigid), trigger: speech.isRecording)
+        .buttonStyle(.pressable(scale: 0.9))
+        .accessibilityLabel(isRecording ? "Zastaviť nahrávanie" : "Nahrať hlasovú poznámku")
     }
 
     private var waveform: some View {
-        HStack(spacing: 4) {
+        let isRecording = recorder.state == .recording
+        return HStack(spacing: 4) {
             ForEach(0..<20, id: \.self) { index in
                 let waveFactor = sin(Double(index) / 20.0 * .pi)
-                let barHeight: CGFloat = speech.isRecording
-                    ? max(6, 10 + speech.audioLevel * 50 * CGFloat(waveFactor))
+                let barHeight: CGFloat = isRecording
+                    ? max(6, 10 + recorder.level * 50 * CGFloat(waveFactor))
                     : 6
                 Capsule()
                     .fill(
-                        speech.isRecording
+                        isRecording
                         ? LinearGradient(colors: [Color.latinCrimson, Color.gold400], startPoint: .top, endPoint: .bottom)
                         : LinearGradient(colors: [Color.white.opacity(0.18), Color.white.opacity(0.08)], startPoint: .top, endPoint: .bottom)
                     )
@@ -93,47 +126,15 @@ struct VoiceCaptureView: View {
         .frame(height: 70)
     }
 
-    private var micButton: some View {
-        Button(action: toggle) {
-            ZStack {
-                Circle()
-                    .fill(speech.isRecording ? Color.latinCrimson.opacity(0.20) : Color.gold500.opacity(0.15))
-                    .frame(width: 76, height: 76)
-                    .scaleEffect(speech.isRecording ? 1.0 + min(speech.audioLevel, 1.0) * 0.35 : 1.0)
-                    .animation(.easeOut(duration: 0.1), value: speech.audioLevel)
-
-                Circle()
-                    .fill(speech.isRecording ? Color.latinCrimson : Color.gold500)
-                    .frame(width: 60, height: 60)
-
-                Image(systemName: speech.isRecording ? "stop.fill" : "mic.fill")
-                    .font(.system(size: 22, weight: .bold))
-                    .foregroundColor(speech.isRecording ? .white : Color.obsidian900)
-                    .contentTransition(.symbolEffect(.replace))
-            }
-        }
-        .buttonStyle(.pressable(scale: 0.9))
-    }
-
-    private func toggle() {
-        if speech.isRecording {
-            let captured = speech.stopTranscribing()
-            if !captured.isEmpty { text = captured }
-        } else {
-            speech.transcript = ""
-            speech.startTranscribing()
-        }
-    }
-
+    // MARK: Saving
     private func save() {
-        if speech.isRecording {
-            let captured = speech.stopTranscribing()
-            if !captured.isEmpty { text = captured }
-        }
-        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return }
-        onSave(trimmed)
-        text = ""
-        speech.transcript = ""
+        guard let result = recorder.takeResult() else { return }
+        onSave(result.fileName, result.duration)
+    }
+
+    /// Leaving the screen never loses a recording: what was captured goes to the inbox.
+    private func keepWhatWasRecorded() {
+        if recorder.state == .recording { recorder.stop() }
+        if recorder.state == .recorded { save() }
     }
 }

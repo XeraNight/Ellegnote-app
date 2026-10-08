@@ -502,11 +502,9 @@ struct LibraryFigureDetailSheet: View {
                                 .font(.system(size: 14, weight: .bold, design: .serif))
                                 .foregroundColor(.white)
                             
-                            if let videoPath = figure.videoPath,
-                               let videoURL = MediaResolver.resolveVideoURL(path: videoPath) {
-                                
+                            if let videoPath = figure.videoPath {
                                 VStack(spacing: 12) {
-                                    LoopingVideoPlayer(videoURL: videoURL, rate: playbackRate)
+                                    LoopingVideoPlayer(videoPath: videoPath, rate: playbackRate)
                                         .frame(height: 200)
                                         .cornerRadius(16)
                                         .overlay(

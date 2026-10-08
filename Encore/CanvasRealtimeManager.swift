@@ -25,7 +25,7 @@ struct CanvasActionMessage: Codable, Sendable {
     let y: Double
     let rhythm: String
     let notes: String
-    let videoPath: String?
+    let sharedVideoPath: String?   // the shared copy; the original never leaves its iPhone
     let orderIndex: Int
     let transitionNotes: String
     let senderId: UUID
@@ -167,10 +167,10 @@ final class CanvasRealtimeManager {
                             figureName: actionMsg.figureName,
                             rhythm: actionMsg.rhythm,
                             notes: actionMsg.notes,
-                            videoPath: actionMsg.videoPath,
                             orderIndex: actionMsg.orderIndex,
                             transitionNotes: actionMsg.transitionNotes
                         )
+                        node.sharedVideoPath = actionMsg.sharedVideoPath
                         self.onNodeAdded?(node, actionMsg.senderName)
                     } else if actionMsg.action == "deleted" {
                         self.onNodeDeleted?(actionMsg.nodeId, actionMsg.figureName, actionMsg.senderName)
@@ -182,10 +182,10 @@ final class CanvasRealtimeManager {
                             figureName: actionMsg.figureName,
                             rhythm: actionMsg.rhythm,
                             notes: actionMsg.notes,
-                            videoPath: actionMsg.videoPath,
                             orderIndex: actionMsg.orderIndex,
                             transitionNotes: actionMsg.transitionNotes
                         )
+                        node.sharedVideoPath = actionMsg.sharedVideoPath
                         self.onNodeUpdated?(node, actionMsg.senderName)
                     } else if actionMsg.action == "transition_updated" {
                         self.onTransitionUpdated?(actionMsg.nodeId, actionMsg.transitionNotes, actionMsg.senderName)
@@ -320,7 +320,7 @@ final class CanvasRealtimeManager {
     func broadcastNodeAdded(node: CanvasNode, senderName: String) {
         guard let ch = channel, ch.status == .subscribed else { return }
         let message = CanvasActionMessage(action: "added", nodeId: node.id, figureName: node.figureName,
-            x: node.x, y: node.y, rhythm: node.rhythm, notes: node.notes, videoPath: node.videoPath,
+            x: node.x, y: node.y, rhythm: node.rhythm, notes: node.notes, sharedVideoPath: node.sharedVideoPath,
             orderIndex: node.orderIndex, transitionNotes: node.transitionNotes, senderId: senderId, senderName: senderName)
         Task { try? await ch.broadcast(event: "canvas_action", message: message) }
     }
@@ -328,7 +328,7 @@ final class CanvasRealtimeManager {
     func broadcastNodeDeleted(nodeId: UUID, figureName: String, senderName: String) {
         guard let ch = channel, ch.status == .subscribed else { return }
         let message = CanvasActionMessage(action: "deleted", nodeId: nodeId, figureName: figureName,
-            x: 0, y: 0, rhythm: "", notes: "", videoPath: nil, orderIndex: 0, transitionNotes: "",
+            x: 0, y: 0, rhythm: "", notes: "", sharedVideoPath: nil, orderIndex: 0, transitionNotes: "",
             senderId: senderId, senderName: senderName)
         Task { try? await ch.broadcast(event: "canvas_action", message: message) }
     }
@@ -336,7 +336,7 @@ final class CanvasRealtimeManager {
     func broadcastNodeUpdated(node: CanvasNode, senderName: String) {
         guard let ch = channel, ch.status == .subscribed else { return }
         let message = CanvasActionMessage(action: "updated", nodeId: node.id, figureName: node.figureName,
-            x: node.x, y: node.y, rhythm: node.rhythm, notes: node.notes, videoPath: node.videoPath,
+            x: node.x, y: node.y, rhythm: node.rhythm, notes: node.notes, sharedVideoPath: node.sharedVideoPath,
             orderIndex: node.orderIndex, transitionNotes: node.transitionNotes, senderId: senderId, senderName: senderName)
         Task { try? await ch.broadcast(event: "canvas_action", message: message) }
     }
@@ -344,7 +344,7 @@ final class CanvasRealtimeManager {
     func broadcastTransitionUpdated(node: CanvasNode, senderName: String) {
         guard let ch = channel, ch.status == .subscribed else { return }
         let message = CanvasActionMessage(action: "transition_updated", nodeId: node.id, figureName: node.figureName,
-            x: node.x, y: node.y, rhythm: node.rhythm, notes: node.notes, videoPath: node.videoPath,
+            x: node.x, y: node.y, rhythm: node.rhythm, notes: node.notes, sharedVideoPath: node.sharedVideoPath,
             orderIndex: node.orderIndex, transitionNotes: node.transitionNotes, senderId: senderId, senderName: senderName)
         Task { try? await ch.broadcast(event: "canvas_action", message: message) }
     }

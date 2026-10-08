@@ -1,5 +1,6 @@
 import Foundation
 import SwiftUI
+import OSLog
 import Combine
 import Supabase
 
@@ -24,6 +25,7 @@ final class FriendManager: ObservableObject {
         
         // Reload friends and check pending invite codes when active user changes
         UserProfileStore.shared.$currentName
+            .removeDuplicates()
             .receive(on: RunLoop.main)
             .sink { [weak self] _ in
                 self?.loadFriends()
@@ -41,13 +43,22 @@ final class FriendManager: ObservableObject {
     }
     
     // MARK: - Token Management
-    func fetchOrGenerateInviteToken() async {
+    /// Reuses the stored invite token while it is still valid for at least a day. A new one (which
+    /// revokes the old one on the server) is only made when none exists, it is about to expire,
+    /// or the user explicitly asks for a new QR code (`force`).
+    func fetchOrGenerateInviteToken(force: Bool = false) async {
         guard AuthManager.shared.isAuthenticated else { return }
         let client = SupabaseConfig.client
         let uid = UserProfileStore.shared.activeUserId
+        let defaults = UserDefaults.standard
+        let tokenKey = "encore_active_invite_token_\(uid)"
+        let expiryKey = "encore_active_invite_token_exp_\(uid)"
         
-        if let cached = UserDefaults.standard.string(forKey: "encore_active_invite_token_\(uid)"), !cached.isEmpty {
+        if let cached = defaults.string(forKey: tokenKey), !cached.isEmpty {
             self.activeInviteToken = cached
+            let expiry = defaults.double(forKey: expiryKey)
+            let hasDayLeft = expiry > Date().addingTimeInterval(24 * 60 * 60).timeIntervalSince1970
+            if !force && hasDayLeft { return }
         }
         
         do {
@@ -60,9 +71,10 @@ final class FriendManager: ObservableObject {
             ).execute().value
             
             self.activeInviteToken = token
-            UserDefaults.standard.set(token, forKey: "encore_active_invite_token_\(uid)")
+            defaults.set(token, forKey: tokenKey)
+            defaults.set(Date().addingTimeInterval(7 * 24 * 60 * 60).timeIntervalSince1970, forKey: expiryKey)
         } catch {
-            print("Token generation fallback: \(error.localizedDescription)")
+            Logger.general.notice("Invite token generation fallback: \(error.localizedDescription, privacy: .public)")
             if activeInviteToken.isEmpty {
                 activeInviteToken = "tok_" + UUID().uuidString.replacingOccurrences(of: "-", with: "").prefix(16)
             }
@@ -72,7 +84,7 @@ final class FriendManager: ObservableObject {
     func refreshInviteToken() async {
         isRefreshingToken = true
         HapticFeedback.light()
-        await fetchOrGenerateInviteToken()
+        await fetchOrGenerateInviteToken(force: true)
         isRefreshingToken = false
         HapticFeedback.success()
     }

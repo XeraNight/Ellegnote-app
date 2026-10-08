@@ -90,7 +90,11 @@ export function errorResponse(
     | "parse_failed"
     | "not_found"
     | "not_official"
-    | "conflict_deleted",
+    | "conflict_deleted"
+    | "server_error"
+    | "too_large"
+    | "upload_missing"
+    | "size_mismatch",
   message: string,
   status = 400,
   extra: Record<string, unknown> = {},

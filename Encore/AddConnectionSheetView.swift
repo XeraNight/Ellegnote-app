@@ -4,7 +4,7 @@ import SwiftUI
 struct AddConnectionSheetView: View {
     @Environment(\.dismiss) private var dismiss
     @ObservedObject private var connectionManager = ConnectionManager.shared
-    @ObservedObject private var subscriptionManager = SubscriptionManager.shared
+    @ObservedObject private var profileStore = UserProfileStore.shared
     
     @State private var searchQuery: String = ""
     @State private var selectedType: ConnectionRelationshipType = .partner
@@ -106,9 +106,9 @@ struct AddConnectionSheetView: View {
                 
                 typeButton(
                     type: .coachStudent,
-                    title: subscriptionManager.canAccessStudioRoster ? "Môj Zverenec" : "Môj Tréner",
+                    title: profileStore.isCoach ? "Môj Zverenec" : "Môj Tréner",
                     icon: "graduationcap.fill",
-                    desc: subscriptionManager.canAccessStudioRoster ? "Tréningový manažment" : "Dohľad nad choreografiami"
+                    desc: profileStore.isCoach ? "Tréningový manažment" : "Dohľad nad choreografiami"
                 )
             }
         }

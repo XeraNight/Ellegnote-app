@@ -1,7 +1,4 @@
 import SwiftUI
-import LocalAuthentication
-import GoogleSignIn
-import GoogleSignInSwift
 import AuthenticationServices
 
 // MARK: - Native Official Google "G" Vector Mark
@@ -65,343 +62,43 @@ struct GoogleLogoView: View {
     }
 }
 
-// MARK: - Spotify-Inspired Glowing Luxury Card for iOS
+// MARK: - Login & registration
+/// Brand screen: gold-on-obsidian card. All logic lives in `AuthManager`; this view only collects input.
 struct AuthSheetView: View {
     var isSheet: Bool = false
     @Environment(\.dismiss) private var dismiss
-    @StateObject private var authManager = AuthManager.shared
-    
-    enum AuthTab: String, CaseIterable {
-        case signIn = "Prihlásenie"
-        case signUp = "Registrácia"
+    @ObservedObject private var authManager = AuthManager.shared
+
+    enum AuthTab {
+        case signIn, signUp
     }
-    
+
     @State private var selectedTab: AuthTab = .signIn
     @State private var email = ""
     @State private var password = ""
     @State private var nickname = ""
-    @State private var showLegalSheet = false
+    @State private var legalTab: LegalComplianceView.LegalTab?
     @State private var showForgotPassword = false
-    
+    @State private var showCodeSheet = false
+    @State private var ageConfirmed = false
+    @State private var danceRole = "dancer"
+    @State private var showBiometricButton = false
+    @State private var tapFeedback = 0
+    @FocusState private var focus: AuthField?
+
+    private var isSignUp: Bool { selectedTab == .signUp }
+
     var body: some View {
         NavigationStack {
             ZStack {
-                // Dark Canvas Base
-                Color.obsidian900.ignoresSafeArea()
-                    .contentShape(Rectangle())
-                    .onTapGesture {
-                        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
-                    }
-                
-                // Ambient Background Glows
-                RadialGradient(
-                    gradient: Gradient(colors: [Color.gold500.opacity(0.18), Color.clear]),
-                    center: .topTrailing,
-                    startRadius: 20,
-                    endRadius: 350
-                )
-                .ignoresSafeArea()
-                .allowsHitTesting(false)
-                
+                background
+
                 GeometryReader { geometry in
                     ScrollView(showsIndicators: false) {
                         VStack(spacing: 0) {
                             Spacer(minLength: 24)
-                            
-                            // ── Glowing Card Container (Spotify-style) ──
-                            ZStack {
-                                // Outer Ambient Glow Bleed (behind the card)
-                                RoundedRectangle(cornerRadius: 32)
-                                    .fill(
-                                        LinearGradient(
-                                            colors: [Color.gold500.opacity(0.35), Color.gold400.opacity(0.15), Color.clear],
-                                            startPoint: .topTrailing,
-                                            endPoint: .bottomLeading
-                                        )
-                                    )
-                                    .blur(radius: 20)
-                                    .offset(x: 8, y: 0)
-                                
-                                // The Card
-                                VStack(spacing: 0) {
-                                    
-                                    // ── Official Logo ──
-                                    ZStack {
-                                        Circle()
-                                            .fill(Color.gold500.opacity(0.25))
-                                            .frame(width: 80, height: 80)
-                                            .blur(radius: 16)
-                                        
-                                        Image("EncoreLogo")
-                                            .resizable()
-                                            .scaledToFit()
-                                            .frame(width: 68, height: 68)
-                                            .shadow(color: Color.gold500.opacity(0.5), radius: 14)
-                                    }
-                                    .padding(.top, 32)
-                                    .padding(.bottom, 12)
-                                    
-                                    // ── Title (Encore) ──
-                                    Text("Encore")
-                                        .font(.system(size: 32, weight: .black, design: .serif))
-                                        .foregroundColor(.gold400)
-                                        .shadow(color: Color.gold500.opacity(0.55), radius: 18)
-                                        .padding(.bottom, 22)
-                                    
-                                    // ── Form Inputs ──
-                                    VStack(spacing: 14) {
-                                        if selectedTab == .signUp {
-                                            TextField("", text: $nickname, prompt: Text("Dancer Name / Nickname").foregroundColor(Color.gold300.opacity(0.45)))
-                                                .textContentType(.name)
-                                                .autocorrectionDisabled()
-                                                .foregroundColor(.white)
-                                                .font(.system(size: 14, weight: .medium))
-                                                .padding(.horizontal, 16)
-                                                .padding(.vertical, 14)
-                                                .background(Color.obsidian800)
-                                                .cornerRadius(14)
-                                                .overlay(
-                                                    RoundedRectangle(cornerRadius: 14)
-                                                        .stroke(Color.gold500.opacity(0.35), lineWidth: 1.5)
-                                                )
-                                        }
-                                        
-                                        TextField("", text: $email, prompt: Text("Email Address").foregroundColor(Color.gold300.opacity(0.45)))
-                                            .textContentType(.username)
-                                            .keyboardType(.emailAddress)
-                                            .textInputAutocapitalization(.never)
-                                            .autocorrectionDisabled()
-                                            .foregroundColor(.white)
-                                            .font(.system(size: 14, weight: .medium))
-                                            .padding(.horizontal, 16)
-                                            .padding(.vertical, 14)
-                                            .background(Color.obsidian800)
-                                            .cornerRadius(14)
-                                            .overlay(
-                                                RoundedRectangle(cornerRadius: 14)
-                                                    .stroke(Color.gold500.opacity(0.35), lineWidth: 1.5)
-                                            )
-                                        
-                                        SecureField("", text: $password, prompt: Text("Password").foregroundColor(Color.gold300.opacity(0.45)))
-                                            .textContentType(selectedTab == .signUp ? .newPassword : .password)
-                                            .foregroundColor(.white)
-                                            .font(.system(size: 14, weight: .medium))
-                                            .padding(.horizontal, 16)
-                                            .padding(.vertical, 14)
-                                            .background(Color.obsidian800)
-                                            .cornerRadius(14)
-                                            .overlay(
-                                                RoundedRectangle(cornerRadius: 14)
-                                                    .stroke(Color.gold500.opacity(0.35), lineWidth: 1.5)
-                                            )
-                                    }
-                                    .padding(.horizontal, 24)
-                                    
-                                    // ── Error Alert ──
-                                    if let errorMsg = authManager.authErrorMessage {
-                                        VStack(alignment: .leading, spacing: 8) {
-                                            HStack(spacing: 8) {
-                                                Image(systemName: "exclamationmark.triangle.fill")
-                                                    .foregroundColor(.latinRed)
-                                                    .font(.system(size: 13))
-                                                Text(errorMsg)
-                                                    .font(.system(size: 12, weight: .medium))
-                                                    .foregroundColor(.latinRed)
-                                                    .multilineTextAlignment(.leading)
-                                            }
-                                            
-                                            if authManager.showSettingsLink {
-                                                Button(action: {
-                                                    if let url = URL(string: UIApplication.openSettingsURLString) {
-                                                        UIApplication.shared.open(url)
-                                                    }
-                                                }) {
-                                                    HStack(spacing: 6) {
-                                                        Image(systemName: "gearshape.fill")
-                                                            .font(.system(size: 11))
-                                                        Text("Otvoriť Nastavenia iPhonu")
-                                                            .font(.system(size: 11, weight: .bold))
-                                                    }
-                                                    .foregroundColor(.gold400)
-                                                    .padding(.horizontal, 10)
-                                                    .padding(.vertical, 6)
-                                                    .background(Color.gold500.opacity(0.12))
-                                                    .cornerRadius(8)
-                                                    .overlay(
-                                                        RoundedRectangle(cornerRadius: 8)
-                                                            .stroke(Color.gold500.opacity(0.35), lineWidth: 1)
-                                                    )
-                                                }
-                                                .padding(.top, 2)
-                                            }
-                                        }
-                                        .padding(10)
-                                        .frame(maxWidth: .infinity, alignment: .leading)
-                                        .background(Color.latinRed.opacity(0.12))
-                                        .cornerRadius(10)
-                                        .overlay(
-                                            RoundedRectangle(cornerRadius: 10)
-                                                .stroke(Color.latinRed.opacity(0.5), lineWidth: 1)
-                                        )
-                                        .padding(.horizontal, 24)
-                                        .padding(.top, 10)
-                                    }
-                                    
-                                    // ── Success Alert ──
-                                    if let successMsg = authManager.authSuccessMessage {
-                                        HStack(spacing: 8) {
-                                            Image(systemName: "checkmark.circle.fill")
-                                                .foregroundColor(.gold400)
-                                                .font(.system(size: 13))
-                                            Text(successMsg)
-                                                .font(.system(size: 12, weight: .medium))
-                                                .foregroundColor(.gold400)
-                                                .multilineTextAlignment(.leading)
-                                        }
-                                        .padding(10)
-                                        .frame(maxWidth: .infinity, alignment: .leading)
-                                        .background(Color.gold500.opacity(0.12))
-                                        .cornerRadius(10)
-                                        .overlay(
-                                            RoundedRectangle(cornerRadius: 10)
-                                                .stroke(Color.gold500.opacity(0.4), lineWidth: 1)
-                                        )
-                                        .padding(.horizontal, 24)
-                                        .padding(.top, 10)
-                                    }
-                                    
-                                    // ── Primary Action Button (Login) ──
-                                    Button(action: handleAuthSubmit) {
-                                        HStack {
-                                            if authManager.isLoading {
-                                                ProgressView().tint(Color.gold400)
-                                            } else {
-                                                Text(selectedTab == .signIn ? "Login" : "Sign Up")
-                                                    .font(.system(size: 16, weight: .bold))
-                                                    .foregroundColor(canSubmit ? Color.gold400 : Color.white.opacity(0.35))
-                                            }
-                                        }
-                                        .frame(maxWidth: .infinity)
-                                        .frame(height: 48)
-                                        .background(Color.obsidian900)
-                                        .cornerRadius(14)
-                                        .overlay(
-                                            RoundedRectangle(cornerRadius: 14)
-                                                .stroke(canSubmit ? Color.gold500 : Color.white.opacity(0.15), lineWidth: 2)
-                                        )
-                                        .shadow(color: canSubmit ? Color.gold500.opacity(0.35) : Color.clear, radius: 12)
-                                    }
-                                    .disabled(!canSubmit || authManager.isLoading)
-                                    .padding(.horizontal, 24)
-                                    .padding(.top, 18)
-                                    
-                                    // ── Forgot Password ──
-                                    if selectedTab == .signIn {
-                                        Button(action: {
-                                            authManager.authErrorMessage = nil
-                                            authManager.authSuccessMessage = nil
-                                            showForgotPassword = true
-                                        }) {
-                                            Text("Zabudnuté heslo?")
-                                                .font(.system(size: 12, weight: .medium))
-                                                .foregroundColor(.white.opacity(0.6))
-                                        }
-                                        .padding(.top, 14)
-                                    }
-                                    
-                                    // ── Mode Switcher ──
-                                    Button(action: {
-                                        withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
-                                            selectedTab = selectedTab == .signIn ? .signUp : .signIn
-                                            authManager.authErrorMessage = nil
-                                        }
-                                    }) {
-                                        Text(selectedTab == .signIn ? "Nemáš účet? Zaregistruj sa" : "Už máš účet? Prihlás sa")
-                                            .font(.system(size: 12, weight: .semibold))
-                                            .foregroundColor(.gold400)
-                                    }
-                                    .padding(.top, 8)
-                                    
-                                    // ── Quick Google & Face ID ──
-                                    VStack(spacing: 8) {
-                                        Button(action: handleGoogleAuth) {
-                                            HStack(spacing: 10) {
-                                                GoogleLogoView(size: 18)
-                                                Text("Continue with Google")
-                                                    .font(.system(size: 13, weight: .semibold))
-                                            }
-                                            .foregroundColor(.white.opacity(0.9))
-                                            .frame(maxWidth: .infinity)
-                                            .frame(height: 42)
-                                            .background(Color.white.opacity(0.04))
-                                            .cornerRadius(12)
-                                            .overlay(
-                                                RoundedRectangle(cornerRadius: 12)
-                                                    .stroke(Color.gold500.opacity(0.35), lineWidth: 1.5)
-                                            )
-                                            .shadow(color: Color.gold500.opacity(0.12), radius: 8)
-                                        }
-
-                                        SignInWithAppleButton(.continue, onRequest: { request in
-                                            let hashedNonce = authManager.startAppleSignInNonce()
-                                            request.requestedScopes = [.fullName, .email]
-                                            request.nonce = hashedNonce
-                                        }, onCompletion: handleAppleAuthCompletion)
-                                        .signInWithAppleButtonStyle(.white)
-                                        .frame(height: 42)
-                                        .cornerRadius(12)
-                                        .overlay(
-                                            RoundedRectangle(cornerRadius: 12)
-                                                .stroke(Color.gold500.opacity(0.35), lineWidth: 1.5)
-                                        )
-                                        .shadow(color: Color.gold500.opacity(0.12), radius: 8)
-                                        
-                                        if selectedTab == .signIn && authManager.canUseBiometricLogin {
-                                            Button(action: handleFaceIDAuth) {
-                                                HStack(spacing: 8) {
-                                                    Image(systemName: authManager.biometrySystemImage)
-                                                        .font(.system(size: 16))
-                                                        .foregroundColor(.gold400)
-                                                    Text("Prihlásenie cez \(authManager.biometryName)")
-                                                        .font(.system(size: 12, weight: .semibold))
-                                                }
-                                                .foregroundColor(.white.opacity(0.85))
-                                                .frame(maxWidth: .infinity)
-                                                .frame(height: 38)
-                                                .background(Color.white.opacity(0.04))
-                                                .cornerRadius(10)
-                                                .overlay(
-                                                    RoundedRectangle(cornerRadius: 10)
-                                                        .stroke(Color.white.opacity(0.1), lineWidth: 1)
-                                                )
-                                            }
-                                        }
-                                        // ── Legal & Privacy Terms ──
-                                        Button(action: { showLegalSheet = true }) {
-                                            Text("Pokračovaním súhlasíte s Podmienkami používania a Zásadami ochrany osobných údajov.")
-                                                .font(.system(size: 10, weight: .regular))
-                                                .foregroundColor(.white.opacity(0.45))
-                                                .underline()
-                                                .multilineTextAlignment(.center)
-                                                .padding(.horizontal, 8)
-                                                .padding(.top, 4)
-                                        }
-                                    }
-                                    .padding(.horizontal, 24)
-                                    .padding(.top, 16)
-                                    .padding(.bottom, 24)
-                                }
-                                .background(Color.themeCard)
-                                .cornerRadius(28)
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 28)
-                                        .stroke(Color.gold500.opacity(0.55), lineWidth: 1.5)
-                                )
-                                .shadow(color: Color.gold500.opacity(0.25), radius: 25, x: 0, y: 10)
-                                .shadow(color: Color.black.opacity(0.8), radius: 30, x: 0, y: 15)
-                            }
-                            .padding(.horizontal, 20)
-                            
+                            card
+                                .padding(.horizontal, 20)
                             Spacer(minLength: 24)
                         }
                         .frame(minHeight: geometry.size.height)
@@ -410,16 +107,19 @@ struct AuthSheetView: View {
                     .scrollDismissesKeyboard(.interactively)
                 }
             }
-            .sheet(isPresented: $showLegalSheet) {
-                LegalComplianceView()
-            }
-            .sheet(isPresented: $showForgotPassword) {
-                ForgotPasswordSheet(prefillEmail: email)
-            }
+            .sheet(item: $legalTab) { LegalComplianceView(initialTab: $0) }
+            .sheet(isPresented: $showForgotPassword) { ForgotPasswordSheet(prefillEmail: email) }
+            .sheet(isPresented: $showCodeSheet) { EmailCodeSheet() }
             .onAppear {
                 if email.isEmpty, let saved = authManager.savedEmail {
                     email = saved
                 }
+                // Read once, not on every redraw (it touches the Keychain).
+                showBiometricButton = authManager.canUseBiometricLogin
+            }
+            .onChange(of: authManager.authErrorMessage) { _, message in
+                // VoiceOver users hear the error without hunting for it.
+                if let message { AccessibilityNotification.Announcement(message).post() }
             }
             .toolbar {
                 if isSheet {
@@ -429,43 +129,318 @@ struct AuthSheetView: View {
                     }
                 }
             }
+            .sensoryFeedback(.impact(weight: .medium), trigger: tapFeedback)
         }
     }
-    
-    private var canSubmit: Bool {
-        if selectedTab == .signUp {
-            return !email.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
-                   password.count >= 6 &&
-                   !nickname.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-        } else {
-            return !email.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
-                   !password.isEmpty
+
+    // MARK: Background
+    private var background: some View {
+        ZStack {
+            Color.obsidian900
+            RadialGradient(
+                colors: [Color.gold500.opacity(0.18), .clear],
+                center: .topTrailing,
+                startRadius: 20,
+                endRadius: 350
+            )
         }
+        .ignoresSafeArea()
+        .contentShape(Rectangle())
+        .onTapGesture { focus = nil }
     }
-    
-    private func handleAuthSubmit() {
-        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-        Task {
-            if selectedTab == .signUp {
-                let success = await authManager.signUp(email: email, pass: password, name: nickname)
-                if success {
-                    if isSheet { dismiss() }
-                } else if authManager.authSuccessMessage != nil {
-                    withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
-                        selectedTab = .signIn
-                    }
+
+    // MARK: Card
+    private var card: some View {
+        VStack(spacing: 0) {
+            header
+            form
+            messages
+            PrimarySheetButton(
+                title: isSignUp ? "Vytvoriť účet" : "Prihlásiť sa",
+                isLoading: authManager.isLoading,
+                isEnabled: canSubmit,
+                action: handleAuthSubmit
+            )
+            .padding(.top, 18)
+            accountLinks
+            alternativeSignIn
+            legalLinks
+        }
+        .padding(.horizontal, 24)
+        .padding(.top, 32)
+        .padding(.bottom, 24)
+        .background(Color.themeCard, in: RoundedRectangle(cornerRadius: 28, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 28, style: .continuous)
+                .stroke(Color.gold500.opacity(0.55), lineWidth: 1.5)
+        )
+        .shadow(color: Color.gold500.opacity(0.25), radius: 25, y: 10)
+        .shadow(color: Color.black.opacity(0.8), radius: 30, y: 15)
+        .animation(.spring(response: 0.3, dampingFraction: 0.85), value: selectedTab)
+    }
+
+    private var header: some View {
+        VStack(spacing: 10) {
+            Image("EncoreLogo")
+                .resizable()
+                .scaledToFit()
+                .frame(width: 64, height: 64)
+                .accessibilityHidden(true)
+            EncoreWordmark(size: 15, color: .gold400)
+            Text(isSignUp ? "Vytvor si účet" : "Vitaj späť")
+                .font(.title2.weight(.bold))
+                .foregroundColor(.white)
+                .contentTransition(.opacity)
+        }
+        .padding(.bottom, 22)
+    }
+
+    // MARK: Form
+    private var form: some View {
+        VStack(spacing: 14) {
+            if isSignUp {
+                Picker("Som", selection: $danceRole) {
+                    Text("Tanečník").tag("dancer")
+                    Text("Tréner").tag("coach")
                 }
+                .pickerStyle(.segmented)
+                .accessibilityLabel("Kto som")
+
+                TextField("", text: $nickname, prompt: fieldPrompt("Meno alebo prezývka"))
+                    .textContentType(.name)
+                    .autocorrectionDisabled()
+                    .focused($focus, equals: .name)
+                    .submitLabel(.next)
+                    .onSubmit { focus = .email }
+                    .onChange(of: nickname) { _, value in
+                        if value.count > NameRules.maxLength {
+                            nickname = String(value.prefix(NameRules.maxLength))
+                        }
+                    }
+                    .authFieldChrome()
+            }
+
+            TextField("", text: $email, prompt: fieldPrompt("E-mail"))
+                .textContentType(.username)
+                .keyboardType(.emailAddress)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+                .focused($focus, equals: .email)
+                .submitLabel(.next)
+                .onSubmit { focus = .password }
+                .authFieldChrome()
+
+            PasswordField(
+                prompt: isSignUp ? "Heslo (aspoň \(PasswordPolicy.minLength) znakov)" : "Heslo",
+                text: $password,
+                contentType: isSignUp ? .newPassword : .password,
+                submitLabel: isSignUp ? .done : .go,
+                focus: $focus,
+                field: .password,
+                onSubmit: { handleAuthSubmit() }
+            )
+
+            if isSignUp {
+                signUpExtras
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var signUpExtras: some View {
+        PasswordStrengthBar(password: password)
+
+        if !password.isEmpty, let issue = PasswordPolicy.issue(for: password, email: email) {
+            Text(issue)
+                .font(.caption.weight(.medium))
+                .foregroundColor(.latinRed)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+
+        Button {
+            ageConfirmed.toggle()
+        } label: {
+            HStack(alignment: .top, spacing: 10) {
+                Image(systemName: ageConfirmed ? "checkmark.square.fill" : "square")
+                    .font(.title3)
+                    .foregroundColor(.gold400)
+                Text("Mám aspoň 16 rokov, alebo mám súhlas rodiča či zákonného zástupcu.")
+                    .font(.caption)
+                    .foregroundColor(.white.opacity(0.75))
+                    .multilineTextAlignment(.leading)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(.isToggle)
+        .accessibilityValue(ageConfirmed ? "zapnuté" : "vypnuté")
+    }
+
+    private func fieldPrompt(_ text: String) -> Text {
+        Text(text).foregroundColor(Color.gold300.opacity(0.5))
+    }
+
+    // MARK: Messages
+    @ViewBuilder
+    private var messages: some View {
+        if let errorMessage = authManager.authErrorMessage {
+            VStack(alignment: .leading, spacing: 8) {
+                SheetBanner(text: errorMessage, isError: true)
+                if authManager.showSettingsLink {
+                    Button {
+                        if let url = URL(string: UIApplication.openSettingsURLString) {
+                            UIApplication.shared.open(url)
+                        }
+                    } label: {
+                        Label("Otvoriť Nastavenia iPhonu", systemImage: "gearshape.fill")
+                            .font(.caption.weight(.bold))
+                            .foregroundColor(.gold400)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 7)
+                            .background(Color.gold500.opacity(0.12), in: Capsule())
+                    }
+                    .buttonStyle(.pressable)
+                }
+            }
+            .padding(.top, 12)
+            .transition(.opacity.combined(with: .move(edge: .top)))
+        }
+
+        if let successMessage = authManager.authSuccessMessage {
+            SheetBanner(text: successMessage, isError: false)
+                .padding(.top, 12)
+                .transition(.opacity)
+        }
+    }
+
+    // MARK: Links under the main button
+    private var accountLinks: some View {
+        VStack(spacing: 4) {
+            if !isSignUp {
+                Button("Zabudnuté heslo?") {
+                    clearMessages()
+                    showForgotPassword = true
+                }
+                .font(.footnote.weight(.medium))
+                .foregroundColor(.white.opacity(0.65))
+                .frame(minHeight: 44)
+            }
+
+            Button(isSignUp ? "Už máš účet? Prihlás sa" : "Nemáš účet? Zaregistruj sa") {
+                selectedTab = isSignUp ? .signIn : .signUp
+                clearMessages()
+            }
+            .font(.footnote.weight(.semibold))
+            .foregroundColor(.gold400)
+            .frame(minHeight: 44)
+        }
+        .padding(.top, 6)
+    }
+
+    // MARK: Google, Apple, Face ID
+    private var alternativeSignIn: some View {
+        VStack(spacing: 10) {
+            Button(action: handleGoogleAuth) {
+                HStack(spacing: 10) {
+                    GoogleLogoView(size: 18)
+                    Text("Pokračovať cez Google")
+                        .font(.subheadline.weight(.semibold))
+                }
+                .foregroundColor(.white.opacity(0.92))
+                .frame(maxWidth: .infinity, minHeight: 46)
+                .background(Color.white.opacity(0.04), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .stroke(Color.gold500.opacity(0.35), lineWidth: 1.5)
+                )
+            }
+            .buttonStyle(.pressable)
+
+            if AuthFeatureFlags.appleSignInEnabled {
+                SignInWithAppleButton(.continue, onRequest: { request in
+                    let hashedNonce = authManager.startAppleSignInNonce()
+                    request.requestedScopes = [.fullName, .email]
+                    request.nonce = hashedNonce
+                }, onCompletion: handleAppleAuthCompletion)
+                .signInWithAppleButtonStyle(.white)
+                .frame(height: 46)
+                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            }
+
+            if !isSignUp && showBiometricButton {
+                Button(action: handleFaceIDAuth) {
+                    Label("Prihlásiť sa cez \(authManager.biometryName)", systemImage: authManager.biometrySystemImage)
+                        .font(.footnote.weight(.semibold))
+                        .foregroundColor(.white.opacity(0.85))
+                        .frame(maxWidth: .infinity, minHeight: 44)
+                        .background(Color.white.opacity(0.04), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                .stroke(Color.white.opacity(0.1), lineWidth: 1)
+                        )
+                }
+                .buttonStyle(.pressable)
+            }
+        }
+        .padding(.top, 10)
+    }
+
+    /// Two real links in one sentence; each opens its own section of the legal screen.
+    private var legalLinks: some View {
+        Text("Pokračovaním súhlasíš s [Podmienkami používania](encore-legal://terms) a [Zásadami ochrany súkromia](encore-legal://privacy).")
+            .font(.caption2)
+            .foregroundColor(.white.opacity(0.55))
+            .tint(.gold400)
+            .multilineTextAlignment(.center)
+            .padding(.top, 14)
+            .environment(\.openURL, OpenURLAction { url in
+                legalTab = url.host == "terms" ? .terms : .privacy
+                return .handled
+            })
+    }
+
+    // MARK: Actions
+    private var canSubmit: Bool {
+        let cleanEmail = email.trimmingCharacters(in: .whitespacesAndNewlines)
+        if isSignUp {
+            return EmailValidator.isValid(cleanEmail)
+                && PasswordPolicy.issue(for: password, email: cleanEmail) == nil
+                && !nickname.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                && ageConfirmed
+        }
+        return !cleanEmail.isEmpty && !password.isEmpty
+    }
+
+    private func clearMessages() {
+        authManager.authErrorMessage = nil
+        authManager.authSuccessMessage = nil
+    }
+
+    private func handleAuthSubmit() {
+        guard canSubmit, !authManager.isLoading else { return }
+        focus = nil
+        tapFeedback += 1
+        Task {
+            let success: Bool
+            if isSignUp {
+                success = await authManager.signUp(email: email, pass: password, name: nickname, danceRole: danceRole, ageConfirmed: ageConfirmed)
             } else {
-                let success = await authManager.signIn(email: email, pass: password)
-                if success && isSheet { dismiss() }
+                success = await authManager.signIn(email: email, pass: password)
+            }
+            if success {
+                if isSheet { dismiss() }
+            } else if authManager.pendingConfirmationEmail != nil {
+                showCodeSheet = true
             }
         }
     }
 
     private func handleGoogleAuth() {
-        UIImpactFeedbackGenerator(style: .light).impactOccurred()
-        guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-              let rootViewController = windowScene.windows.first(where: { $0.isKeyWindow })?.rootViewController else {
+        tapFeedback += 1
+        focus = nil
+        guard let presenter = UIViewController.topMost() else {
             Task {
                 let success = await authManager.signInWithGoogle()
                 if success && isSheet { dismiss() }
@@ -474,11 +449,11 @@ struct AuthSheetView: View {
         }
 
         Task {
-            let success = await authManager.signInWithGoogleNative(presenting: rootViewController)
+            let success = await authManager.signInWithGoogleNative(presenting: presenter)
             if success && isSheet { dismiss() }
         }
     }
-    
+
     private func handleAppleAuthCompletion(_ result: Result<ASAuthorization, Error>) {
         switch result {
         case .success(let authorization):
@@ -488,7 +463,7 @@ struct AuthSheetView: View {
                 authManager.authErrorMessage = "Nepodarilo sa získať Apple prihlasovací token."
                 return
             }
-            
+
             let fullName: String? = {
                 if let name = credential.fullName {
                     let parts = [name.givenName, name.familyName].compactMap { $0 }.filter { !$0.isEmpty }
@@ -497,8 +472,8 @@ struct AuthSheetView: View {
                 return nil
             }()
             let appleEmail = credential.email
-            
-            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+
+            tapFeedback += 1
             Task {
                 let success = await authManager.signInWithApple(
                     idToken: idTokenString,
@@ -511,13 +486,13 @@ struct AuthSheetView: View {
             // User cancelling the sheet isn't a real error — don't show a scary message for it.
             let nsError = error as NSError
             if nsError.code != ASAuthorizationError.canceled.rawValue {
-                authManager.authErrorMessage = "Prihlásenie cez Apple zlyhalo: \(error.localizedDescription)"
+                authManager.authErrorMessage = AuthErrorMapper.message(for: error, fallback: "Prihlásenie cez Apple zlyhalo")
             }
         }
     }
 
     private func handleFaceIDAuth() {
-        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        tapFeedback += 1
         Task {
             let success = await authManager.authenticateWithBiometrics()
             if success && isSheet { dismiss() }
@@ -525,8 +500,7 @@ struct AuthSheetView: View {
     }
 }
 
-// MARK: - Xcode Canvas Preview
-#Preview("AuthSheetView - Spotify Glowing Luxury") {
+#Preview("Prihlásenie") {
     AuthSheetView(isSheet: true)
         .preferredColorScheme(.dark)
 }

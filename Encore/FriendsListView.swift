@@ -80,7 +80,7 @@ struct FriendsListView: View {
             AddConnectionSheetView()
         }
         .sheet(isPresented: $showPaywallSheet) {
-            SubscriptionPaywallView(initialTier: .studio)
+            SubscriptionPaywallView(initialTier: .premium)
         }
         .qrScanner(isPresented: $showScanner) { scannedCode in
             handleScannedQRCode(scannedCode)
@@ -299,11 +299,11 @@ struct FriendsListView: View {
         }
     }
     
-    // MARK: - Students Tab Content (Gated for Studio Tier)
+    // MARK: - Students Tab Content (Gated for Premium)
     @ViewBuilder
     private var studentsTabContent: some View {
         if !subscriptionManager.canAccessStudioRoster {
-            // Upsell prompt to unlock Studio
+            // Upsell prompt to unlock Premium
             VStack(spacing: 16) {
                 ZStack {
                     Circle()
@@ -318,7 +318,7 @@ struct FriendsListView: View {
                     .font(.system(size: 18, weight: .heavy))
                     .foregroundColor(.white)
                 
-                Text("Správa viacerých párov, dohľad nad zostavami žiakov a sledovanie ich postupových bodov je súčasťou prémiového balíka Encore Studio.")
+                Text("Správa viacerých párov, dohľad nad zostavami žiakov a sledovanie ich postupových bodov je súčasťou prémiového balíka Encore Premium.")
                     .font(.system(size: 13))
                     .foregroundColor(.white.opacity(0.7))
                     .multilineTextAlignment(.center)
@@ -328,7 +328,7 @@ struct FriendsListView: View {
                     showPaywallSheet = true
                 } label: {
                     HStack(spacing: 6) {
-                        Text("Prejsť na Encore Studio")
+                        Text("Prejsť na Encore Premium")
                         Image(systemName: "crown.fill")
                     }
                     .font(.system(size: 14, weight: .bold))

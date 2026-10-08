@@ -9,6 +9,9 @@ struct PressableButtonStyle: ButtonStyle {
             .scaleEffect(configuration.isPressed ? scale : 1)
             .opacity(configuration.isPressed ? 0.88 : 1)
             .animation(.spring(response: 0.22, dampingFraction: 0.6), value: configuration.isPressed)
+            // The touch area stays full size while the picture shrinks. Without this a finger near the
+            // edge ends up "outside" the shrunken button on release and the tap is silently lost.
+            .contentShape(Rectangle())
     }
 }
 

@@ -28,8 +28,18 @@ public struct MediaResolver {
         return ["jpg", "jpeg", "png", "heic", "heif", "webp", "gif"].contains(ext)
     }
     
+    /// Any video path, also a video in Fotky (`photos:`), which has to be looked up asynchronously.
+    /// Players use this one; `resolveVideoURL` covers only files in the app and in Supabase.
+    public static func videoURL(path: String) async -> URL? {
+        if PhotoLibraryVideoStore.isReference(path) {
+            return await PhotoLibraryVideoStore.playableURL(for: path)
+        }
+        return resolveVideoURL(path: path)
+    }
+
     /// Rozhodne, či je video dostupné lokálne. Ak nie, vráti online stream URL zo Supabase a spustí sťahovanie na pozadí.
     public static func resolveVideoURL(path: String) -> URL? {
+        guard !PhotoLibraryVideoStore.isReference(path) else { return nil }
         let localURL = MediaStorageManager.url(for: path)
         if MediaStorageManager.fileExists(path) {
             return localURL
@@ -77,6 +87,13 @@ public struct MediaResolver {
             return nil
         }
         
+        // Fotky keep their own thumbnails; no need to download a video from iCloud for one frame.
+        if PhotoLibraryVideoStore.isReference(path) {
+            let thumb = await PhotoLibraryVideoStore.thumbnail(for: path, maxPixelSize: maxPixelSize)
+            if let thumb { imageCache.setObject(thumb, forKey: cacheKey) }
+            return thumb
+        }
+
         // Extrakcia náhľadu z videa cez moderné AVAssetImageGenerator API
         guard let videoURL = resolveVideoURL(path: path) else { return nil }
         let asset = AVURLAsset(url: videoURL)

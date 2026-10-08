@@ -4,7 +4,7 @@
     "policies" : [
       {
         "locale" : "sk",
-        "policyText" : "Predplatné Encore Plus a Encore Studio poskytuje prístup k prémiovým funkciám pre tanečníkov a trénerov."
+        "policyText" : "Predplatné Encore Plus a Encore Premium poskytuje prístup k prémiovým funkciám pre tanečníkov a trénerov."
       }
     ]
   },
@@ -102,13 +102,13 @@
           "localizations" : [
             {
               "description" : "KSIS Radar súperov, video duel a trénerský manažment",
-              "displayName" : "Encore Studio (Mesačne)",
+              "displayName" : "Encore Premium (Mesačne)",
               "locale" : "sk"
             }
           ],
-          "productID" : "com.jakub.encore.studio.monthly",
+          "productID" : "com.jakub.encore.premium.monthly",
           "recurringSubscriptionPeriod" : "P1M",
-          "referenceName" : "Encore Studio Monthly",
+          "referenceName" : "Encore Premium Monthly",
           "subscriptionGroupID" : "21487693",
           "type" : "RecurringSubscription",
           "winbackOffers" : [
@@ -130,13 +130,13 @@
           "localizations" : [
             {
               "description" : "KSIS Radar súperov, video duel so zľavou 30%",
-              "displayName" : "Encore Studio (Ročne)",
+              "displayName" : "Encore Premium (Ročne)",
               "locale" : "sk"
             }
           ],
-          "productID" : "com.jakub.encore.studio.annual",
+          "productID" : "com.jakub.encore.premium.annual",
           "recurringSubscriptionPeriod" : "P1Y",
-          "referenceName" : "Encore Studio Annual",
+          "referenceName" : "Encore Premium Annual",
           "subscriptionGroupID" : "21487693",
           "type" : "RecurringSubscription",
           "winbackOffers" : [

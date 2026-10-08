@@ -18,20 +18,18 @@ final class SubscriptionManager: ObservableObject {
     @Published var isCheckingEntitlements: Bool = false
     @Published var availableProducts: [Product] = []
     @Published var isPurchasing: Bool = false
-    
-    // Known Developer / Owner emails with automatic God-mode access
-    public static let ownerEmails: Set<String> = [
-        "jakubkalina05@gmail.com"
-    ]
+    /// Comes only from the server (`is_app_owner()`), so nobody can become the owner by changing the app
+    /// and the owner's e-mail is not stored in the app.
+    @Published private(set) var isAppOwner: Bool = false
     
     // Product IDs for Apple App Store (StoreKit 2)
     public enum ProductID {
         static let plusMonthly = "com.jakub.encore.plus.monthly"
         static let plusAnnual = "com.jakub.encore.plus.annual"
-        static let studioMonthly = "com.jakub.encore.studio.monthly"
-        static let studioAnnual = "com.jakub.encore.studio.annual"
+        static let premiumMonthly = "com.jakub.encore.premium.monthly"
+        static let premiumAnnual = "com.jakub.encore.premium.annual"
         
-        static let all: [String] = [plusMonthly, plusAnnual, studioMonthly, studioAnnual]
+        static let all: [String] = [plusMonthly, plusAnnual, premiumMonthly, premiumAnnual]
     }
     
     private var transactionListener: Task<Void, Error>? = nil
@@ -42,7 +40,10 @@ final class SubscriptionManager: ObservableObject {
         transactionListener = listenForTransactions()
         
         // React to auth changes to immediately refresh entitlements
+        // Only a real user change (not every token refresh) re-checks entitlements.
         AuthManager.shared.$currentUser
+            .map { $0?.id }
+            .removeDuplicates()
             .receive(on: RunLoop.main)
             .sink { [weak self] _ in
                 Task { [weak self] in
@@ -62,48 +63,51 @@ final class SubscriptionManager: ObservableObject {
     }
     
     // MARK: - Owner Check
-    /// UI-only convenience. Real protection is server-side (`is_app_owner()` in Supabase),
-    /// which also requires a confirmed e-mail, so we mirror that rule here and never trust
-    /// the locally stored `userEmail`.
-    public var isAppOwner: Bool {
-        guard let user = AuthManager.shared.currentUser,
-              user.emailConfirmedAt != nil,
-              let email = user.email?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased(),
-              !email.isEmpty else { return false }
-        return Self.ownerEmails.contains(email)
+    /// Asks the server. Every owner action is checked there again, this flag only shows the owner UI.
+    /// On a network error the last answer for the same user is kept.
+    private func refreshOwnerStatus() async {
+        guard AuthManager.shared.currentUser != nil else {
+            isAppOwner = false
+            return
+        }
+        do {
+            isAppOwner = try await SupabaseConfig.client.rpc("is_app_owner").execute().value
+        } catch {
+            Logger.general.notice("is_app_owner check failed: \(error.localizedDescription, privacy: .public)")
+        }
     }
     
     // MARK: - Capability Matrix
-    /// Tanečník si môže sledovať svoje vlastné body a históriu zo súťaží (Plus & Studio)
+    /// Tanečník si môže sledovať svoje vlastné body a históriu zo súťaží (Plus & Premium)
     public var canTrackOwnPoints: Bool {
-        isAppOwner || currentTier == .plus || currentTier == .studio
+        isAppOwner || currentTier == .plus || currentTier == .premium
     }
     
-    /// Tréner / pokročilý môže sledovať body a súťaže cudzích párov a zverencov (Iba Studio)
+    /// Tréner / pokročilý môže sledovať body a súťaže cudzích párov a zverencov (Iba Premium)
     public var canTrackRosterPoints: Bool {
-        isAppOwner || currentTier == .studio
+        isAppOwner || currentTier == .premium
     }
     
     /// Prístup k trénerskej sekcii Štúdio (Roster párov, hromadné figúry, video anotácie)
     public var canAccessStudioRoster: Bool {
-        isAppOwner || currentTier == .studio
+        isAppOwner || currentTier == .premium
     }
     
     /// Možnosť zdieľať zostavy s partnerom v cloude
     public var canShareWithPartner: Bool {
-        isAppOwner || currentTier == .plus || currentTier == .studio
+        isAppOwner || currentTier == .plus || currentTier == .premium
     }
     
-    /// Maximálny počet vytvorených zostáv na jeden tanec (Free = 1 na tanec, Plus/Studio = neobmedzene)
+    /// Maximálny počet vytvorených zostáv na jeden tanec (Free = 1 na tanec, Plus/Premium = neobmedzene)
     public var maxRoutinesPerDanceAllowed: Int {
-        (isAppOwner || currentTier == .plus || currentTier == .studio) ? 9999 : 1
+        (isAppOwner || currentTier == .plus || currentTier == .premium) ? 9999 : 1
     }
     
     /// Kontrola, či používateľ môže vytvoriť novú zostavu pre daný tanec.
     /// Free tier: 1 zostava na každý konkrétny tanec (1x Waltz, 1x Tango, 1x Samba...).
-    /// Plus & Studio: Neobmedzený počet verzií/zostáv pre každý tanec.
+    /// Plus & Premium: Neobmedzený počet verzií/zostáv pre každý tanec.
     public func canCreateRoutine(existingCountForDance: Int) -> Bool {
-        if isAppOwner || currentTier == .plus || currentTier == .studio {
+        if isAppOwner || currentTier == .plus || currentTier == .premium {
             return true
         }
         return existingCountForDance < 1
@@ -111,7 +115,7 @@ final class SubscriptionManager: ObservableObject {
     
     /// Kontrola na základe zoznamu existujúcich zostáv používateľa
     public func canCreateRoutine(forDance danceName: String, existingRoutines: [Routine]) -> Bool {
-        if isAppOwner || currentTier == .plus || currentTier == .studio {
+        if isAppOwner || currentTier == .plus || currentTier == .premium {
             return true
         }
         let normalized = danceName.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
@@ -127,12 +131,13 @@ final class SubscriptionManager: ObservableObject {
         isCheckingEntitlements = true
         defer { isCheckingEntitlements = false }
         
-        // 1. Priorita: Majiteľ aplikácie (God Mode / SuperAdmin)
+        // 1. Priorita: Majiteľ aplikácie (overené na serveri)
+        await refreshOwnerStatus()
         if isAppOwner {
-            currentTier = .studio
+            currentTier = .premium
             entitlementSource = .appOwner
             isAccountBanned = false
-            saveCachedEntitlement(tier: .studio, source: .appOwner)
+            saveCachedEntitlement(tier: .premium, source: .appOwner)
             return
         }
         
@@ -197,7 +202,7 @@ final class SubscriptionManager: ObservableObject {
     private func loadCachedEntitlement() -> (tier: SubscriptionTier, source: EntitlementSource)? {
         let uid = AuthManager.shared.currentUser?.id.uuidString ?? "guest"
         guard let tierRaw = UserDefaults.standard.string(forKey: "encore_cached_tier_\(uid)"),
-              let tier = SubscriptionTier(rawValue: tierRaw),
+              let tier = SubscriptionTier(serverValue: tierRaw),
               let sourceRaw = UserDefaults.standard.string(forKey: "encore_cached_source_\(uid)"),
               let source = EntitlementSource(rawValue: sourceRaw) else {
             return nil
@@ -246,8 +251,8 @@ final class SubscriptionManager: ObservableObject {
             // Check if transaction is still active / not revoked
             if transaction.revocationDate == nil {
                 let pid = transaction.productID
-                if pid == ProductID.studioMonthly || pid == ProductID.studioAnnual {
-                    return .studio // Studio is highest possible
+                if pid == ProductID.premiumMonthly || pid == ProductID.premiumAnnual {
+                    return .premium // Premium is the highest
                 } else if pid == ProductID.plusMonthly || pid == ProductID.plusAnnual {
                     highestTier = .plus
                 }
@@ -299,8 +304,8 @@ final class SubscriptionManager: ObservableObject {
         let client = SupabaseConfig.client
         let pid = transaction.productID
         let tier: SubscriptionTier
-        if pid == ProductID.studioMonthly || pid == ProductID.studioAnnual {
-            tier = .studio
+        if pid == ProductID.premiumMonthly || pid == ProductID.premiumAnnual {
+            tier = .premium
         } else if pid == ProductID.plusMonthly || pid == ProductID.plusAnnual {
             tier = .plus
         } else {
@@ -318,7 +323,7 @@ final class SubscriptionManager: ObservableObject {
         do {
             try await client
                 .rpc("record_app_store_transaction", params: RecordParams(
-                    p_tier: tier.rawValue.lowercased(),
+                    p_tier: tier.serverValue,
                     p_product_id: pid,
                     p_expires_at: expIso
                 ))
@@ -362,7 +367,7 @@ final class SubscriptionManager: ObservableObject {
                 .execute()
                 .value
             
-            let tier = SubscriptionTier(rawValue: res.tier.capitalized) ?? .free
+            let tier = SubscriptionTier(serverValue: res.tier) ?? .free
             let source = EntitlementSource(rawValue: res.source) ?? .none
             var expiresDate: Date? = nil
             if let exp = res.expires_at {
@@ -445,7 +450,7 @@ final class SubscriptionManager: ObservableObject {
         
         let payload = UpsertPayload(
             user_id: targetUserId,
-            tier: tier.rawValue.lowercased(),
+            tier: tier.serverValue,
             source: EntitlementSource.ownerGrant.rawValue,
             expires_at: expiresAtString,
             granted_by: AuthManager.shared.currentUser?.id,
@@ -486,7 +491,7 @@ final class SubscriptionManager: ObservableObject {
         let res: GrantResponse = try await client
             .rpc("admin_grant_entitlement_by_email", params: GrantParams(
                 p_email: cleanEmail,
-                p_tier: tier.rawValue.lowercased(),
+                p_tier: tier.serverValue,
                 p_duration_months: durationMonths,
                 p_note: notes
             ))

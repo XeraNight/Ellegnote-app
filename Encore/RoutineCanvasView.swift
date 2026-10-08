@@ -46,7 +46,7 @@ struct RoutineCanvasView: View {
     @Bindable var routine: Routine
     
     private let canvasSize: CGFloat = 3000
-    private let maxScale: CGFloat = 3.5
+    private let maxScale: CGFloat = 4.5
     
     // Framing & margins around ballroom floor for drawing annotations
     private var annotationMarginX: CGFloat { 48 }
@@ -78,7 +78,13 @@ struct RoutineCanvasView: View {
         return CGSize(width: 393, height: 852)
     }
     
+    /// Pinch limit when zooming out: a bit further than "whole floor fits", so there is room around it.
     private func computedMinScale(for viewport: CGSize) -> CGFloat {
+        max(fitScale(for: viewport) * 0.72, 0.2)
+    }
+
+    /// Scale at which the whole floor just fits the screen (used by the "fit" buttons).
+    private func fitScale(for viewport: CGSize) -> CGFloat {
         let fallback = Self.fallbackViewportSize
         let w = viewport.width > 0 ? viewport.width : fallback.width
         let h = viewport.height > 0 ? viewport.height : fallback.height
@@ -103,6 +109,7 @@ struct RoutineCanvasView: View {
     
     @State private var showFiguresDrawer = false
     @State private var selectedNodeForEdit: CanvasNode?
+    @State private var figureIsWriting = false
     @State private var selectedConnectionForEdit: CanvasConnection?
     
     @Query private var libraryItems: [FigureLibraryItem]
@@ -114,12 +121,9 @@ struct RoutineCanvasView: View {
     @State private var isDrawingMode = false
     @State private var showQRExport = false
     @State private var showPDFExport = false
-    @State private var qrCodeImage: UIImage? = nil
     @State private var showRoutineVideoVault = false
     @State private var isCanvasLocked = false
     
-    // Wireframe Actions & Sheets
-    @State private var showActionsMenu = false
     @State private var showDuelSheet = false
     
     var isPresentedInTab: Bool = false
@@ -128,6 +132,7 @@ struct RoutineCanvasView: View {
     @AppStorage("profileName") private var userName = "Tanečník"
     @State private var toastMessage: String? = nil
     @State private var showToast = false
+    @State private var toastCount = 0
     
     init(routine: Routine, isPresentedInTab: Bool = false, onBack: (() -> Void)? = nil) {
         self.routine = routine
@@ -249,6 +254,7 @@ struct RoutineCanvasView: View {
                                 realtimeManager.broadcastNodeMove(nodeId: node.id, x: finalX, y: finalY, force: true)
                                 realtimeManager.updatePresence(x: finalX, y: finalY, userName: userName, draggingNodeId: nil)
                             }
+                            .transition(.scale(scale: 0.6).combined(with: .opacity))
                         }
                         
                         if routine.canvasNodes.isEmpty {
@@ -288,220 +294,120 @@ struct RoutineCanvasView: View {
                 .frame(width: viewport.width, height: viewport.height)
                 .clipped()
                 
-                // ── 3. Floating Side Controls (Left: AirPlay + Pencil | Right: Refresh + Center) ──
+                // ── 3. Floating controls: drawing + AirPlay left, "+ Figúra" centre, view options right ──
                 VStack {
                     Spacer()
-                    
+
                     HStack(alignment: .bottom) {
-                        // Left Side: Airplay Share & Pencil
                         VStack(spacing: 12) {
                             AirPlayPickerButton(size: 44)
-                            
+
                             LiquidGlassCircleButton(
                                 icon: isDrawingMode ? "pencil.line" : "pencil",
+                                label: isDrawingMode ? "Ukončiť kreslenie" : "Kresliť po parkete",
                                 isActive: isDrawingMode,
-                                activeColor: LuxuryTheme.latinCrimson,
-                                size: 44,
-                                iconSize: 17
+                                activeColor: LuxuryTheme.latinCrimson
                             ) {
-                                isDrawingMode.toggle()
+                                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) { isDrawingMode.toggle() }
                             }
-                            
+                            .accessibilityIdentifier("canvas.draw")
+
                             if isDrawingMode && !sketchPaths.isEmpty {
-                                LiquidGlassCircleButton(
-                                    icon: "trash",
-                                    size: 38,
-                                    iconSize: 14,
-                                    action: {
-                                        withAnimation { sketchPaths.removeAll() }
-                                    }
-                                )
+                                LiquidGlassCircleButton(icon: "trash", label: "Zmazať kresbu", size: 38) {
+                                    withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) { sketchPaths.removeAll() }
+                                }
                                 .transition(.scale.combined(with: .opacity))
                             }
                         }
-                        
+
                         Spacer()
-                        
-                        // Right Side: Hrubý Refresh & Vycentrovanie & Veľkosť Kariet & Priesvitnosť
+
+                        if !isDrawingMode {
+                            addFigureButton
+                                .accessibilityIdentifier("canvas.addFigure")
+                                .transition(.scale(scale: 0.8).combined(with: .opacity))
+                        }
+
+                        Spacer()
+
                         VStack(spacing: 12) {
-                            LiquidGlassCircleButton(
-                                icon: "arrow.counterclockwise",
-                                size: 44,
-                                iconSize: 17,
-                                isSpinning: isRefreshing
-                            ) {
-                                guard !isRefreshing else { return }
-                                Task { await refreshFromDB(userInitiated: true) }
-                            }
-                            
-                            LiquidGlassCircleButton(
-                                icon: "scope",
-                                size: 44,
-                                iconSize: 17
-                            ) {
+                            LiquidGlassCircleButton(icon: "scope", label: "Vycentrovať figúry") {
                                 fitAllNodes()
                             }
-                            
-                            // Prepínanie veľkosti kariet figúr (Kompakt 72% / Štandard 100% / Detail 120%)
-                            LiquidGlassCircleButton(
-                                icon: cardScaleMode.icon,
-                                size: 44,
-                                iconSize: 17
-                            ) {
-                                withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
-                                    cardScaleMode = cardScaleMode.next
-                                }
-                                showToastNotification(message: "Veľkosť figúr: \(cardScaleMode.rawValue)")
-                            }
-                            
-                            // Priesvitnosť / Liquid Glass (viditeľnosť parketu cez karty figúr)
-                            LiquidGlassCircleButton(
-                                icon: isFiguresTranslucent ? "square.2.layers.3d.top.filled" : "square.2.layers.3d",
-                                isActive: isFiguresTranslucent,
-                                activeColor: LuxuryTheme.gold400,
-                                size: 44,
-                                iconSize: 17
-                            ) {
-                                withAnimation(.easeInOut(duration: 0.25)) {
-                                    isFiguresTranslucent.toggle()
-                                }
-                                showToastNotification(message: isFiguresTranslucent ? "Priesvitné karty (viditeľný parket)" : "Plné karty")
-                            }
+                            .accessibilityIdentifier("canvas.fit")
+                            viewOptionsMenu
+                                .accessibilityIdentifier("canvas.viewOptions")
                         }
                     }
-                    .padding(.horizontal, 24)
+                    .padding(.horizontal, 20)
                     .padding(.bottom, max(geo.safeAreaInsets.bottom + 120, 155))
+                    .animation(.spring(response: 0.32, dampingFraction: 0.8), value: isDrawingMode)
                 }
                 .frame(width: viewport.width, height: viewport.height)
-                
-                // ── 4. Floating Realtime Status Pill (Hovering Above Bottom Dock) ──
-                VStack {
-                    Spacer()
-                    
-                    RealtimeStatusPill(
-                        isConnected: realtimeManager.isConnected,
-                        isSyncing: isRefreshing
-                    ) {
-                        if !realtimeManager.isConnected {
-                            realtimeManager.connect(to: routine.id, userName: userName)
-                            Task { await refreshFromDB(userInitiated: true) }
+
+                // ── 4. Top bar: back, title + live status, QR and more ──
+                VStack(spacing: 10) {
+                    // Buttons sit on the edges; the title is laid over the middle, so it is centred on the
+                    // screen (and with the status pill) no matter how many buttons each side has.
+                    HStack(alignment: .center, spacing: 10) {
+                        LiquidGlassCircleButton(icon: "chevron.left", label: "Späť") {
+                            if let onBack { onBack() } else { dismiss() }
                         }
+                        .accessibilityIdentifier("canvas.back")
+
+                        Spacer(minLength: 0)
+
+                        LiquidGlassCircleButton(icon: "qrcode", label: "Zdieľať zostavu cez QR kód") {
+                            showQRExport = true
+                        }
+                        .accessibilityIdentifier("canvas.shareQR")
+
+                        moreMenu
+                            .accessibilityIdentifier("canvas.more")
                     }
-                    .padding(.bottom, max(geo.safeAreaInsets.bottom + 85, 120))
-                }
-                .frame(width: viewport.width, height: viewport.height)
-                
-                // ── 5. Top Floating Navigation Bar (Clean Single-Layer Liquid Glass, Pinned to Top) ──
-                VStack {
-                    HStack(alignment: .center) {
-                        // Back Button (Single-Layer Liquid Glass Capsule)
-                        Button {
-                            if let onBack = onBack {
-                                onBack()
-                            } else {
-                                dismiss()
-                            }
-                        } label: {
-                            HStack(spacing: 5) {
-                                Image(systemName: "chevron.left")
-                                    .font(.system(size: 13, weight: .bold))
-                                Text("Späť")
-                                    .font(.system(size: 14, weight: .bold, design: .rounded))
-                            }
-                            .foregroundColor(.white)
-                            .padding(.horizontal, 14)
-                            .padding(.vertical, 8)
-                            .background(
-                                ZStack {
-                                    Capsule().fill(LuxuryTheme.obsidian800.opacity(0.70))
-                                    Capsule().fill(.ultraThinMaterial)
-                                }
-                            )
-                            .overlay(
-                                Capsule().stroke(
-                                    LinearGradient(
-                                        colors: [Color.white.opacity(0.35), LuxuryTheme.gold400.opacity(0.15), Color.clear],
-                                        startPoint: .topLeading,
-                                        endPoint: .bottomTrailing
-                                    ),
-                                    lineWidth: 1
-                                )
-                            )
-                            .shadow(color: Color.black.opacity(0.35), radius: 6, x: 0, y: 3)
-                        }
-                        .buttonStyle(.plain)
-                        
-                        Spacer()
-                        
-                        // Centered Dance Title & Routine Name
+                    .overlay {
                         VStack(spacing: 2) {
                             Text(routine.name)
-                                .font(.system(size: 16, weight: .bold, design: .serif))
+                                .font(.system(.subheadline, design: .rounded).weight(.bold))
                                 .foregroundColor(.white)
                                 .lineLimit(1)
-                            
                             Text(routine.danceName.uppercased())
-                                .font(.system(size: 9, weight: .black, design: .rounded))
+                                .font(.system(.caption2, design: .rounded).weight(.black))
                                 .foregroundColor(LuxuryTheme.gold400)
                                 .tracking(1.2)
+                                .lineLimit(1)
                         }
-                        
-                        Spacer()
-                        
-                        // Trailing: Single Clean Floating Liquid Glass Buttons (QR & Actions Menu)
-                        HStack(spacing: 10) {
-                            // Button 1: QR Code Zostavy
-                            LiquidGlassCircleButton(
-                                icon: "qrcode",
-                                size: 40,
-                                iconSize: 16
-                            ) {
-                                if let payload = QRGenerator.generatePayload(from: routine),
-                                   let qrImg = QRGenerator.generateQRCode(from: payload) {
-                                    self.qrCodeImage = qrImg
-                                    self.showQRExport = true
-                                }
-                            }
-                            
-                            // Button 2: Actions Menu (...)
-                            LiquidGlassCircleButton(
-                                icon: "ellipsis",
-                                size: 40,
-                                iconSize: 16
-                            ) {
-                                showActionsMenu = true
-                            }
-                        }
+                        // Two 44 pt buttons + spacing on each side stay free.
+                        .frame(maxWidth: max(viewport.width - 2 * (20 + 44 + 10 + 44 + 8), 100))
+                        .allowsHitTesting(false)
+                        .accessibilityElement(children: .combine)
+                        .accessibilityAddTraits(.isHeader)
                     }
-                    .padding(.horizontal, 22)
-                    .padding(.top, max(geo.safeAreaInsets.top, 54))
-                    
+
+                    RealtimeStatusPill(isConnected: realtimeManager.isConnected, isSyncing: isRefreshing) {
+                        if !realtimeManager.isConnected {
+                            realtimeManager.connect(to: routine.id, userName: userName)
+                        }
+                        guard !isRefreshing else { return }
+                        Task { await refreshFromDB(userInitiated: true) }
+                    }
+
                     Spacer()
                 }
+                .padding(.horizontal, 20)
+                .padding(.top, max(geo.safeAreaInsets.top, 54))
                 .frame(width: viewport.width, height: viewport.height)
-                
-                // Toast notification overlay
+
+                // Toast under the top bar (same pill as "Uložené" on Home)
                 if showToast, let msg = toastMessage {
                     VStack {
-                        HStack(spacing: 8) {
-                            Image(systemName: "bell.fill")
-                                .foregroundColor(LuxuryTheme.gold400)
-                            Text(msg)
-                                .font(.system(size: 13, weight: .bold))
-                                .foregroundColor(.white)
-                        }
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 10)
-                        .background(
-                            ZStack {
-                                Capsule().fill(LuxuryTheme.obsidian800.opacity(0.85))
-                                Capsule().fill(.ultraThinMaterial)
-                            }
-                        )
-                        .overlay(Capsule().stroke(LuxuryTheme.gold400.opacity(0.35), lineWidth: 1))
-                        .shadow(color: Color.black.opacity(0.35), radius: 8, y: 4)
-                        .padding(.top, max(geo.safeAreaInsets.top, 54) + 48) // Floating under top bar
-                        
+                        Label(msg, systemImage: "bell.fill")
+                            .font(.footnote.weight(.bold))
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 10)
+                            .glassEffect(.regular, in: .capsule)
+                            .padding(.top, max(geo.safeAreaInsets.top, 54) + 88)
                         Spacer()
                     }
                     .frame(width: viewport.width, height: viewport.height)
@@ -545,20 +451,6 @@ struct RoutineCanvasView: View {
                 showToastNotification(message: "Spojenie obnovené, sťahujú sa zmeny...")
             }
         }
-        .sheet(isPresented: $showActionsMenu) {
-            CanvasActionsMenuSheet(
-                routineName: routine.name,
-                onAddFigure: {
-                    showFiguresDrawer = true
-                },
-                onDuelVideos: {
-                    showDuelSheet = true
-                },
-                onOpenInventory: {
-                    showRoutineVideoVault = true
-                }
-            )
-        }
         .sheet(isPresented: $showDuelSheet) {
             NavigationStack {
                 CompareHubView(
@@ -585,9 +477,21 @@ struct RoutineCanvasView: View {
                 showFiguresDrawer = false
             }
         }
-        .sheet(item: $selectedNodeForEdit) { node in
-            FigureDetailCard(node: node, realtimeManager: realtimeManager)
+        // Shown over the canvas instead of pushed: pushing would fire this screen's onDisappear
+        // (realtime disconnect, orientation change) and made opening a figure hang.
+        .overlay {
+            if let node = selectedNodeForEdit {
+                FigureDetailCard(
+                    node: node,
+                    realtimeManager: realtimeManager,
+                    onClose: { selectedNodeForEdit = nil },
+                    onWritingChange: { figureIsWriting = $0 }
+                )
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
         }
+        .animation(.spring(response: 0.38, dampingFraction: 0.88), value: selectedNodeForEdit?.id)
+        .toolbarVisibility(figureIsWriting ? .hidden : .visible, for: .tabBar)
         .sheet(item: $selectedConnectionForEdit) { conn in
             TransitionEditSheet(fromNode: conn.from, toNode: conn.to, realtimeManager: realtimeManager) {
                 selectedConnectionForEdit = nil
@@ -597,9 +501,17 @@ struct RoutineCanvasView: View {
             RoutinePDFPreviewSheet(routine: routine)
         }
         .sheet(isPresented: $showQRExport) {
-            QRExportSheet(routine: routine, qrImage: qrCodeImage)
+            QRExportSheet(routine: routine)
         }
         .disableSwipeBack()
+        .task(id: toastCount) {
+            // Each new message restarts the 3 s timer instead of being cut short by an older one.
+            guard toastCount > 0 else { return }
+            try? await Task.sleep(for: .seconds(3))
+            guard !Task.isCancelled else { return }
+            withAnimation(.easeOut(duration: 0.3)) { showToast = false }
+        }
+        .sensoryFeedback(.impact(weight: .light), trigger: toastCount)
         .onAppear {
             AppDelegate.orientationLock = .allButUpsideDown
             UIApplication.shared.isIdleTimerDisabled = true
@@ -642,7 +554,7 @@ struct RoutineCanvasView: View {
             realtimeManager.onNodeUpdated = { updatedNode, senderName in
                 if let node = routine.canvasNodes.first(where: { $0.id == updatedNode.id }) {
                     node.notes = updatedNode.notes
-                    node.videoPath = updatedNode.videoPath
+                    node.sharedVideoPath = updatedNode.sharedVideoPath
                     try? modelContext.save()
                     showToastNotification(message: "\(senderName) upravil detaily \(node.figureName)")
                 }
@@ -661,12 +573,7 @@ struct RoutineCanvasView: View {
             realtimeManager.onDBNodeInserted = { row in
                 // Broadcast príde ~50ms, Postgres Change ~200-500ms – guard zabraňuje duplikátu
                 guard !routine.canvasNodes.contains(where: { $0.id == row.id }) else { return }
-                let node = CanvasNode(
-                    id: row.id, x: row.x, y: row.y,
-                    figureName: row.figure_name, rhythm: row.rhythm,
-                    notes: row.notes, videoPath: row.video_path,
-                    orderIndex: row.order_index, transitionNotes: row.transition_notes
-                )
+                let node = CanvasNode(row: row)
                 node.routine = routine
                 modelContext.insert(node)
                 try? modelContext.save()
@@ -676,12 +583,7 @@ struct RoutineCanvasView: View {
             realtimeManager.onDBNodeUpdated = { row in
                 guard !activelyDraggedNodeIDs.contains(row.id) else { return }
                 guard let node = routine.canvasNodes.first(where: { $0.id == row.id }) else { return }
-                node.x = row.x
-                node.y = row.y
-                node.notes = row.notes
-                node.videoPath = row.video_path
-                node.transitionNotes = row.transition_notes
-                node.orderIndex = row.order_index
+                node.apply(row: row, includingPosition: true)
                 try? modelContext.save()
             }
 
@@ -703,32 +605,7 @@ struct RoutineCanvasView: View {
                             routine.danceCategory = dbRoutine.dance_category
                             routine.updatedAt = dbRoutine.updated_at
                             routine.lastModifiedBy = dbRoutine.last_modified_by
-                            
-                            // Replace nodes safely (never wipe local nodes with empty remote response)
-                            if !dbNodes.isEmpty || routine.canvasNodes.isEmpty {
-                                for node in routine.canvasNodes {
-                                    modelContext.delete(node)
-                                }
-                                routine.canvasNodes.removeAll()
-                                
-                                for dbNode in dbNodes {
-                                    let node = CanvasNode(
-                                        id: dbNode.id,
-                                        x: dbNode.x,
-                                        y: dbNode.y,
-                                        figureName: dbNode.figure_name,
-                                        rhythm: dbNode.rhythm,
-                                        notes: dbNode.notes,
-                                        videoPath: dbNode.video_path,
-                                        orderIndex: dbNode.order_index,
-                                        transitionNotes: dbNode.transition_notes
-                                    )
-                                    node.routine = routine
-                                    modelContext.insert(node)
-                                }
-                            }
-                            
-                            try? modelContext.save()
+                            reconcileNodes(with: dbNodes)
                             Logger.canvas.info("Routine fully synchronized with remote DB.")
                         }
                     }
@@ -767,59 +644,100 @@ struct RoutineCanvasView: View {
         guard let (_, dbNodes) = await SupabaseSyncManager.shared.fetchRoutine(routine.id) else { return }
 
         await MainActor.run {
-            // Reconcile nodes in place to avoid flickering or translation shift
-            var existingMap = Dictionary(uniqueKeysWithValues: routine.canvasNodes.map { ($0.id, $0) })
-            var newNodes: [CanvasNode] = []
-            
-            for dbNode in dbNodes {
-                if let existing = existingMap.removeValue(forKey: dbNode.id) {
-                    existing.figureName = dbNode.figure_name
-                    existing.rhythm = dbNode.rhythm
-                    existing.notes = dbNode.notes
-                    existing.videoPath = dbNode.video_path
-                    existing.orderIndex = dbNode.order_index
-                    existing.transitionNotes = dbNode.transition_notes
-                    if !activelyDraggedNodeIDs.contains(existing.id) {
-                        existing.x = dbNode.x
-                        existing.y = dbNode.y
-                    }
-                    newNodes.append(existing)
-                } else {
-                    let node = CanvasNode(
-                        id: dbNode.id, x: dbNode.x, y: dbNode.y,
-                        figureName: dbNode.figure_name, rhythm: dbNode.rhythm,
-                        notes: dbNode.notes, videoPath: dbNode.video_path,
-                        orderIndex: dbNode.order_index, transitionNotes: dbNode.transition_notes
-                    )
-                    node.routine = routine
-                    modelContext.insert(node)
-                    newNodes.append(node)
-                }
-            }
-            
-            for leftover in existingMap.values {
-                modelContext.delete(leftover)
-            }
-            
-            routine.canvasNodes = newNodes
-            try? modelContext.save()
+            reconcileNodes(with: dbNodes)
             if userInitiated {
                 showToastNotification(message: "Zostava obnovená ✓")
             }
         }
     }
 
+    /// Brings the figures in line with the server in place. Figures are never recreated, so local-only
+    /// data (the original video, formatting, rotation, the video vault) survives every sync.
+    /// An empty answer never wipes local figures.
+    private func reconcileNodes(with dbNodes: [DBCanvasNodeRow]) {
+        guard !dbNodes.isEmpty || routine.canvasNodes.isEmpty else { return }
+        var existingMap = Dictionary(routine.canvasNodes.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+        var newNodes: [CanvasNode] = []
+
+        for dbNode in dbNodes {
+            if let existing = existingMap.removeValue(forKey: dbNode.id) {
+                existing.apply(row: dbNode, includingPosition: !activelyDraggedNodeIDs.contains(existing.id))
+                newNodes.append(existing)
+            } else {
+                let node = CanvasNode(row: dbNode)
+                node.routine = routine
+                modelContext.insert(node)
+                newNodes.append(node)
+            }
+        }
+
+        for leftover in existingMap.values {
+            modelContext.delete(leftover)
+        }
+        routine.canvasNodes = newNodes
+        try? modelContext.save()
+    }
+
     private func showToastNotification(message: String) {
-        UIImpactFeedbackGenerator(style: .light).impactOccurred()
-        withAnimation {
+        withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
             toastMessage = message
             showToast = true
         }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) {
-            withAnimation {
-                showToast = false
-            }
+        toastCount += 1
+    }
+
+    // MARK: - Floating controls
+
+    /// The main action on the canvas, always in reach above the tab bar.
+    private var addFigureButton: some View {
+        Button { showFiguresDrawer = true } label: {
+            Label("Figúra", systemImage: "plus")
+                .font(.subheadline.weight(.bold))
+                .foregroundColor(Color.obsidian900)
+                .padding(.horizontal, 20)
+                .frame(minHeight: 46)
+                .background(
+                    LinearGradient(colors: [Color.gold400, Color.gold500], startPoint: .topLeading, endPoint: .bottomTrailing),
+                    in: Capsule()
+                )
+                .shadow(color: Color.black.opacity(0.3), radius: 12, y: 5)
         }
+        .buttonStyle(.pressable)
+        .sensoryFeedback(.impact(weight: .medium), trigger: showFiguresDrawer)
+        .accessibilityLabel("Pridať figúru")
+    }
+
+    /// Card size and see-through cards, in one menu instead of two buttons.
+    private var viewOptionsMenu: some View {
+        Menu {
+            Picker("Veľkosť figúr", selection: $cardScaleMode) {
+                ForEach(CanvasCardScaleMode.allCases) { mode in
+                    Label(mode.rawValue, systemImage: mode.icon).tag(mode)
+                }
+            }
+            Toggle(isOn: $isFiguresTranslucent) {
+                Label("Priesvitné karty", systemImage: "square.2.layers.3d")
+            }
+        } label: {
+            GlassCircleLabel(icon: "slider.horizontal.3")
+        }
+        .sensoryFeedback(.selection, trigger: cardScaleMode)
+        .sensoryFeedback(.selection, trigger: isFiguresTranslucent)
+        .accessibilityLabel("Zobrazenie figúr")
+    }
+
+    private var moreMenu: some View {
+        Menu {
+            Button { showDuelSheet = true } label: {
+                Label("Duel videí", systemImage: "rectangle.split.2x1.fill")
+            }
+            Button { showRoutineVideoVault = true } label: {
+                Label("Videá a fotky zostavy", systemImage: "photo.stack.fill")
+            }
+        } label: {
+            GlassCircleLabel(icon: "ellipsis")
+        }
+        .accessibilityLabel("Ďalšie akcie")
     }
     
     // MARK: - Canvas Math
@@ -878,7 +796,9 @@ struct RoutineCanvasView: View {
             notes: item.techniqueNotes,
             orderIndex: nextIndex
         )
-        routine.canvasNodes.append(node)
+        withAnimation(.spring(response: 0.42, dampingFraction: 0.72)) {
+            routine.canvasNodes.append(node)
+        }
         routine.updatedAt = Date()
         routine.lastModifiedBy = userName
         try? modelContext.save()
@@ -893,7 +813,9 @@ struct RoutineCanvasView: View {
         if let videoPath = node.videoPath {
             MediaStorageManager.removeFile(named: videoPath)
         }
-        modelContext.delete(node)
+        withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+            modelContext.delete(node)
+        }
         let sorted = routine.canvasNodes.sorted(by: { $0.orderIndex < $1.orderIndex })
         for i in 0..<sorted.count { sorted[i].orderIndex = i }
         routine.updatedAt = Date()
@@ -907,7 +829,7 @@ struct RoutineCanvasView: View {
     /// ensuring the full wooden floor, golden outer border, and left/right wall markings are immediately visible.
     private func fitBallroomFloor(in viewport: CGSize, animated: Bool = true) {
         guard viewport.width > 0, viewport.height > 0 else { return }
-        let targetScale = computedMinScale(for: viewport)
+        let targetScale = fitScale(for: viewport)
         
         if animated {
             withAnimation(.spring(response: 0.38, dampingFraction: 0.75)) {
@@ -927,7 +849,7 @@ struct RoutineCanvasView: View {
             return
         }
         
-        let minS = computedMinScale(for: viewportSize)
+        let minS = fitScale(for: viewportSize)
         
         // Include node bounds as well as ballroom center anchor
         let xs = nodes.map { $0.x } + [BallroomFloorConfig.centerPoint.x - BallroomFloorConfig.floorWidth * 0.40, BallroomFloorConfig.centerPoint.x + BallroomFloorConfig.floorWidth * 0.40]

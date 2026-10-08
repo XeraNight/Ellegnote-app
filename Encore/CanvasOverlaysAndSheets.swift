@@ -380,102 +380,140 @@ struct DrawingCanvas: View {
 }
 
 // MARK: - QR Export Sheet
+/// Shares a routine as a QR code or a text code. The code is made here, off the main thread, so the
+/// share button always opens this sheet at once, even when the routine is too big for a QR code.
 struct QRExportSheet: View {
     let routine: Routine
-    let qrImage: UIImage?
     @Environment(\.dismiss) private var dismiss
-    @State private var copiedToClipboard = false
-    
+
+    private enum QRState {
+        case loading
+        case ready(UIImage)
+        case tooLarge
+    }
+
+    @State private var state: QRState = .loading
+    @State private var payload: String?
+    @State private var copyCount = 0
+    @State private var showCopied = false
+
     var body: some View {
         NavigationStack {
             ZStack {
                 EllegancePageBackground()
-                
-                VStack(spacing: 20) {
-                    Text("Zdieľanie zostavy")
-                        .font(.system(size: 20, weight: .bold, design: .serif))
-                        .foregroundColor(.themeDark)
-                        .padding(.top, 24)
-                    
-                    Text("Naskenuj QR kód na druhom zariadení alebo skopíruj textový kód pre prenos na Mac/PC.")
-                        .font(.system(size: 13, weight: .medium))
-                        .foregroundColor(.themeDark.opacity(0.6))
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal, 32)
-                    
-                    if let img = qrImage {
-                        Image(uiImage: img)
-                            .resizable()
-                            .interpolation(.none)
-                            .scaledToFit()
-                            .frame(width: 220, height: 220)
-                            .padding(12)
-                            .background(Color.white)
-                            .cornerRadius(18)
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 18)
-                                    .stroke(Color.gold400, lineWidth: 2)
-                            )
-                            .shadow(color: Color.amberGold.opacity(0.25), radius: 16, x: 0, y: 4)
-                    } else {
-                        VStack(spacing: 12) {
-                            ProgressView()
-                            Text("Generovanie QR kódu...")
-                                .font(.system(size: 13, weight: .medium))
-                                .foregroundColor(.gray)
+
+                ScrollView {
+                    VStack(spacing: 20) {
+                        VStack(spacing: 4) {
+                            Text(routine.name)
+                                .font(.system(.title2, design: .rounded).weight(.bold))
+                                .foregroundColor(.white)
+                                .multilineTextAlignment(.center)
+                            Text(routine.danceName.uppercased())
+                                .font(.system(.caption, design: .rounded).weight(.black))
+                                .foregroundColor(Color.gold400)
+                                .tracking(1.4)
                         }
-                        .frame(width: 220, height: 220)
+                        .padding(.top, 8)
+
+                        qrCard
+
+                        Text(explanation)
+                            .font(.footnote)
+                            .foregroundColor(Color.white.opacity(0.7))
+                            .multilineTextAlignment(.center)
+                            .fixedSize(horizontal: false, vertical: true)
+
+                        PrimarySheetButton(
+                            title: showCopied ? "Skopírované" : "Kopírovať textový kód",
+                            isLoading: false,
+                            isEnabled: payload != nil,
+                            action: copy
+                        )
                     }
-                    
-                    Text(routine.name.uppercased())
-                        .font(.system(size: 14, weight: .black))
-                        .foregroundColor(.themeAccent)
-                        .tracking(1.5)
-                    
-                    Button(action: {
-                        if let payload = QRGenerator.generatePayload(from: routine) {
-                            UIPasteboard.general.string = payload
-                            withAnimation { copiedToClipboard = true }
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
-                                copiedToClipboard = false
-                            }
-                        }
-                    }) {
-                        HStack(spacing: 8) {
-                            Image(systemName: copiedToClipboard ? "checkmark.circle.fill" : "doc.on.doc")
-                            Text(copiedToClipboard ? "Kód skopírovaný!" : "Kopírovať textový kód")
-                        }
-                        .font(.system(size: 14, weight: .bold))
-                        .foregroundColor(.themeDark)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 10)
-                    }
-                    .buttonStyle(.neubrutalistSecondary(cornerRadius: 12))
-                    .padding(.horizontal, 32)
-                    
-                    Spacer()
-                    
-                    Button(action: { dismiss() }) {
-                        Text("Zavrieť")
-                            .font(.system(size: 15, weight: .bold))
-                            .foregroundColor(.white)
-                            .frame(maxWidth: .infinity)
-                    }
-                    .buttonStyle(.neubrutalist(accentColor: Color.themeDark))
-                    .keyboardShortcut(.escape, modifiers: [])
-                    .padding(.horizontal, 32)
-                    .padding(.bottom, 24)
+                    .padding(.horizontal, 20)
+                    .padding(.bottom, 32)
                 }
             }
+            .navigationTitle("Zdieľať zostavu")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Zavrieť") {
-                        dismiss()
-                    }
-                    .foregroundColor(.gold400)
+                    Button("Zavrieť") { dismiss() }
                 }
             }
+            .task { await build() }
+            .task(id: copyCount) {
+                guard copyCount > 0 else { return }
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) { showCopied = true }
+                try? await Task.sleep(for: .seconds(2))
+                withAnimation(.easeOut(duration: 0.3)) { showCopied = false }
+            }
+            .sensoryFeedback(.success, trigger: copyCount)
         }
+        .preferredColorScheme(.dark)
+    }
+
+    @ViewBuilder
+    private var qrCard: some View {
+        ZStack {
+            switch state {
+            case .loading:
+                ProgressView()
+                    .tint(Color.gold400)
+            case .ready(let image):
+                Image(uiImage: image)
+                    .resizable()
+                    .interpolation(.none)
+                    .scaledToFit()
+                    .padding(14)
+                    .background(Color.white, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                    .transition(.scale(scale: 0.85).combined(with: .opacity))
+                    .accessibilityLabel("QR kód zostavy \(routine.name)")
+            case .tooLarge:
+                VStack(spacing: 10) {
+                    Image(systemName: "qrcode")
+                        .font(.largeTitle)
+                        .foregroundColor(Color.gold400)
+                    Text("Zostava je na QR kód príliš veľká")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundColor(.white)
+                        .multilineTextAlignment(.center)
+                }
+                .padding(20)
+                .transition(.opacity)
+            }
+        }
+        .frame(width: 250, height: 250)
+        .homeCard(cornerRadius: 22)
+    }
+
+    private var explanation: String {
+        switch state {
+        case .tooLarge:
+            return "Pošli ju ako textový kód: skopíruj ho a na druhom iPhone ho vlož cez QR tlačidlo na Domove."
+        default:
+            return "Naskenuj QR kód na druhom iPhone, alebo skopíruj textový kód a pošli ho správou."
+        }
+    }
+
+    private func build() async {
+        guard let text = QRGenerator.generatePayload(from: routine) else {
+            state = .tooLarge
+            return
+        }
+        payload = text
+        let image = await Task.detached(priority: .userInitiated) {
+            QRGenerator.generateQRCode(from: text)
+        }.value
+        withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+            state = image.map(QRState.ready) ?? .tooLarge
+        }
+    }
+
+    private func copy() {
+        guard let payload else { return }
+        UIPasteboard.general.string = payload
+        copyCount += 1
     }
 }

@@ -156,7 +156,7 @@ extension AnalyticsManager {
         ])
     }
 
-    // ── Studio Tier & Pro Funkcie ─────────────────────────────────────────────
+    // ── Premium funkcie ─────────────────────────────────────────────
     func radarCoupleFollowed(coupleId: String) {
         capture("radar_couple_followed", properties: [
             "couple_id": coupleId

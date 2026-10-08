@@ -191,6 +191,109 @@ Inšpirované aplikáciami ako *Apple Camera, Halide, Blackmagic Cam, Hudl Techn
 
 ---
 
+### Kategória VII: Registrácia, prihlásenie a účet (Scenáre A1 – A62)
+
+> Audit z 5. 10. 2026, podrobnosti a skóre (3/10) sú v [docs/AUTH_AUDIT.md](./docs/AUTH_AUDIT.md).
+> Stav: ✅ v poriadku · 🛠️ opravené v kóde alebo skripte, čaká na nasadenie · ⚠️ čiastočne · ❌ chyba · ➖ chýba · ❓ neoverené (treba skúsiť alebo skontrolovať v Dashboarde).
+> Aktualizované 6. 10. 2026 po opravách; čo presne treba nasadiť a v akom poradí je v [docs/AUTH_AUDIT.md](./docs/AUTH_AUDIT.md).
+> Pri každom riadku zapíš po oprave dátum a výsledok testu.
+
+#### Registrácia
+
+| # | Situácia | Stav | Dôsledok / Oprava |
+|---|---|---|---|
+| A1 | Nový e-mail + heslo | 🛠️ | Kód z e-mailu je v appke hotový. Čaká na Dashboard (Confirm email ON, SMTP) a potom `20261006_enable_email_confirmation.sql`. |
+| A2 | Rovnaký e-mail zaregistrovaný dvakrát | ✅ | Rozpozná sa podľa prázdneho `identities`. |
+| A3 | Pre-hijacking: útočník zaregistruje cudzí e-mail, obeť sa potom prihlási cez Google/Apple | 🛠️ | Odstráni sa tým istým krokom ako A1 (overenie e-mailu pred plným účtom). |
+| A4 | Heslo 6 znakov | 🛠️ | Klient vyžaduje 8 znakov a odmieta časté heslá. Server: v Dashboarde nastav min. 8 a „letters + digits“. |
+| A5 | Heslo s medzerami, emoji, veľmi dlhé | ✅ | Heslo sa neorezáva, limit 128 znakov doplnený. |
+| A6 | E-mail s medzerami alebo veľkými písmenami | ✅ | Medzery sa orežú, server porovnáva bez ohľadu na veľkosť písmen. |
+| A7 | Neplatný e-mail (`a@b`) | ✅ | Klient kontroluje formát e-mailu pred odoslaním. |
+| A8 | Meno veľmi dlhé alebo s HTML | 🛠️ | Klient limit 60 znakov hotový; DB obmedzenie a orezanie v sign-up triggeri je v migrácii `20261006_auth_account_lifecycle.sql`. |
+| A9 | Dvojité ťuknutie na „Registrovať“ | ✅ | Tlačidlo je počas načítania vypnuté. |
+| A10 | Registrácia prejde na serveri, ale odpoveď sa stratí (slabý signál) | ✅ | Hláška „účet už existuje, prihlás sa alebo si obnov heslo“; nepotvrdený účet pri prihlásení rovno ponúkne kód. |
+| A11 | Hromadné registrácie botov | ➖ | Žiadna CAPTCHA ani limit. Turnstile / App Attest. |
+| A12 | Používateľ mladší ako 16 rokov (tanečníci sú často juniori) | ✅ | Povinné potvrdenie veku (16+ alebo súhlas rodiča), uložené v metadátach. Formálne overenie veku nie je. |
+| A13 | Apple „Skryť môj e-mail“ (relay adresa) | ❓ | Pozvánky a prepojenia podľa e-mailu nebudú fungovať, účty sa nedajú spojiť. |
+| A14 | Apple pošle meno len pri prvom prihlásení, prvá výmena tokenu zlyhá | ❌ | Meno sa stratí natrvalo. Uložiť hneď po autorizácii. |
+| A15 | Súhlas s podmienkami a zásadami | ⚠️ | Len text pod tlačidlom. Overiť požiadavky GDPR a zhodu s `PrivacyInfo.xcprivacy` (❓). |
+
+#### Prihlásenie
+
+| # | Situácia | Stav | Dôsledok / Oprava |
+|---|---|---|---|
+| A16 | Správny e-mail a heslo | ✅ | |
+| A17 | Zlé heslo alebo neexistujúci účet | ✅ | Rovnaká hláška (žiadne zisťovanie existencie účtu). |
+| A18 | Nepotvrdený e-mail (po zapnutí potvrdzovania) | ✅ | Prihlásenie nepotvrdeného účtu pošle nový kód a otvorí zadanie kódu; je tam aj „poslať znova“. |
+| A19 | Bez internetu | ✅ | Sieťové chyby sa rozpoznávajú podľa `URLError` kódu, nie textu. |
+| A20 | Server vráti 5xx alebo je v údržbe | ⚠️ | Všeobecná hláška. |
+| A21 | Príliš veľa pokusov (rate limit) | ✅ | Rate limit sa rozpoznáva podľa kódu chyby a HTTP 429. |
+| A22 | Klávesnica: Return nepresunie ani neodošle | ✅ | Return posúva medzi poľami a na konci odošle. |
+| A23 | Zobraziť / skryť heslo | ✅ | Pole hesla má oko na zobrazenie a skrytie. |
+| A24 | iCloud Keychain / automatické dopĺňanie | ✅ | `textContentType` je nastavené. Prepojenie s doménou (webcredentials) až s doménou. |
+| A25 | Face ID pri existujúcej relácii | ✅ | |
+| A26 | Face ID po odhlásení | ✅ | Zámerne nedostupné. |
+| A27 | Face ID zablokované alebo vypnuté v nastaveniach | ✅ | Hláška a odkaz do Nastavení. |
+| A28 | Stav tlačidla Face ID sa počíta pri každom prekreslení | ✅ | Stav tlačidla Face ID sa načíta raz pri zobrazení. |
+| A29 | Štart appky offline s platnou reláciou | ✅ | Používateľ ostane prihlásený. |
+| A30 | Heslo zmenené na inom zariadení, token revokovaný | ✅ | Listener odhlási. Lokálne dáta ostanú (pozri A51). |
+| A31 | Google z prihlasovacej obrazovky otvorenej ako sheet | ✅ | Google sa prezentuje z najvyššieho zobrazeného okna. |
+| A32 | Google záložný tok cez Safari | ✅ | Záložný tok používa `ASWebAuthenticationSession` a vráti úspech len pri skutočnej relácii. |
+| A33 | Google bez nonce | ⚠️ | Slabšia ochrana proti opätovnému použitiu tokenu. |
+| A34 | Apple prihlásenie bez entitlementu (do kúpy Developer účtu) | ✅ | Tlačidlo Apple je skryté príznakom `AuthFeatureFlags.appleSignInEnabled`, kým nie je Developer účet. |
+| A35 | Apple a Google ponúknuté spolu | ✅ | Požiadavka 4.8 sa splní, keď Apple funguje. |
+| A36 | Zlý čas na zariadení (JWT „not yet valid / expired“) | ⚠️ | Chyby TLS a dátumu majú hlášku; chyba času v JWT samostatnú nemá. |
+| A37 | Prihlásenie cez Wi-Fi s portálom (hotel, hala) | ➖ | Žiadna špecifická hláška. |
+| A38 | Dva pokusy naraz (Google a e-mail) | ⚠️ | Stav `isLoading` je spoločný, ale tok sa neruší. |
+
+#### Obnova hesla a odkazy
+
+| # | Situácia | Stav | Dôsledok / Oprava |
+|---|---|---|---|
+| A39 | Žiadosť o obnovu pre neznámy e-mail | ✅ | Rovnaká odpoveď. |
+| A40 | Odkaz otvorený na inom zariadení (PKCE chýba overovač) | ✅ | Obnova a potvrdenie idú cez 6-miestny kód, ktorý funguje na akomkoľvek zariadení. |
+| A41 | Použitý alebo expirovaný odkaz | ✅ | „Odkaz už vypršal“. |
+| A42 | Potvrdzovací odkaz do hodiny od žiadosti o obnovu | ✅ | Hlavná cesta je kód, nie hádanie z odkazu. Heuristika ostáva len pre záložný odkaz. |
+| A43 | Odkaz pre iný účet, kým je prihlásený niekto iný | ❌ | Relácia sa potichu prepíše. Vyžiadať potvrdenie. |
+| A44 | Zatvorenie okna obnovy bez nastavenia hesla | ⚠️ | Používateľ ostane prihlásený cez recovery reláciu. |
+| A45 | Zmena hesla v appke (staré heslo overené) | ✅ | |
+| A46 | Po zmene alebo obnove hesla ostatné zariadenia | ✅ | Po nastavení nového hesla sa ostatné zariadenia odhlásia (`signOut(scope: .others)`). |
+| A47 | Limit vstavaného odosielania e-mailov | ❓ | Veľmi nízky bez vlastného SMTP. Nastaviť Resend. |
+| A48 | Site URL v Dashboarde ukazuje na localhost | ❓ | Odkazy by viedli nikam. Skontrolovať. |
+| A49 | Škodlivá aplikácia zaregistruje `encore://` | ✅ | PKCE (SDK 2.52.0) a kódy z e-mailu; odkaz nie je nutný. |
+
+#### Odhlásenie, zmena účtu, zmazanie
+
+| # | Situácia | Stav | Dôsledok / Oprava |
+|---|---|---|---|
+| A50 | Odhlásenie bez internetu, potom reštart appky | ✅ | Overené v zdroji SDK 2.52.0: lokálna relácia sa zmaže pred volaním servera. |
+| A51 | Odhlásenie a prihlásenie iného účtu na tom istom zariadení | ✅ | `LocalDataGuard` vymaže dáta predchádzajúceho účtu pri prihlásení iného; rovnaký účet ich zachová. |
+| A52 | Zmazanie účtu | 🛠️ | Edge funkcia `delete-account` je napísaná; appka tvrdí „zmazané“ až po potvrdení servera. Treba ju nasadiť. |
+| A53 | Zmazanie: FK `routines.user_id` (NO ACTION), `user_entitlements.granted_by`, `connections.initiated_by` | 🛠️ | Zmenené FK sú v migrácii `20261006_auth_account_lifecycle.sql`. |
+| A54 | Zmazanie: videá a fotky v úložisku | 🛠️ | Funkcia `delete-account` najprv zmaže súbory v úložisku. |
+| A55 | Zmazanie: odvolanie tokenu Sign in with Apple | ➖ | Požiadavka Apple. |
+| A56 | Zmazanie: bez dodatočného overenia | ⚠️ | Len dialóg. Pridať Face ID alebo heslo. |
+| A57 | Zmazanie: aktívne predplatné v App Store | ✅ | Dialóg upozorní, že predplatné v App Store sa nezruší samo. |
+| A58 | Preinštalovanie appky | ✅ | Čerstvá inštalácia (bez uloženého e-mailu) začína odhlásená. |
+| A59 | Ban účtu | 🛠️ | `admin_set_account_status` nastaví `banned_until`, zmaže relácie a RLS politiky `active_account_only` zablokujú dáta hneď. V migrácii. |
+| A60 | Zmena e-mailu v appke | ➖ | Chýba (aj `double_confirm_changes`). |
+| A61 | Export vlastných dát z cloudu (GDPR čl. 20) | ⚠️ | Export JSON je len lokálny. |
+| A62 | Zmena `dancer_code`, `invite_code` na cudzí kód | 🛠️ | `dancer_code` generuje server, klient nesmie meniť `dancer_code`, `invite_code` ani `email`. V migrácii. |
+
+#### Databáza a funkcie (súvisí s účtami)
+
+| # | Situácia | Stav | Dôsledok / Oprava |
+|---|---|---|---|
+| D1 | Funkcie `SECURITY DEFINER` volateľné anonymne | ⚠️ | Pripravené v `supabase/migrations/20261005_hardening_function_grants.sql`, treba spustiť. |
+| D2 | `record_app_store_transaction` dovolí kohokoľvek nastaviť si plán Studio | ❌ | Uzavreté v tej istej migrácii, treba spustiť. |
+| D3 | Edge funkcia `send-email` (nenasadená) | 🛠️ | `send-email` prepísaná: len pozvánka, escapovanie, kód zo servera, limit 5 za deň. Nenasadená. |
+| D4 | Leaked password protection | ❌ | Vypnuté (advisor). |
+| D5 | Duplicitný unikátny index `invite_code` | 🛠️ | Duplicitný index sa zmaže v migrácii. |
+| D6 | `profiles.email` | ⚠️ | Osobný údaj, uvádzať v zásadách ochrany súkromia a pri zmazaní. |
+| D7 | Zmeny schémy robené v SQL editore, `list_migrations` je prázdny | ✅ | Nové zmeny sú v `supabase/migrations/`. Aplikujú sa stále ručne v SQL editore. |
+
+---
+
 ## 🎯 Záver & Strategický Plán Implementácie
 
 1. **Stav kamery je stabilný:** Natívny systém `UIImagePickerController` s bleskom vypnutým v predvolenom stave a pripravenou infraštruktúrou.

@@ -48,6 +48,9 @@ struct DualVideoComparisonView: View {
     @State private var playerB: AVPlayer?
     @State private var observerTokenA: Any?
     @State private var observerTokenB: Any?
+    @State private var setupGeneration = 0
+    @State private var resolvedURLA: URL?
+    @State private var resolvedURLB: URL?
     @State private var timeObserverTokenA: Any?
     
     // Photo Image instances
@@ -178,9 +181,7 @@ struct DualVideoComparisonView: View {
                 )
             }
             .fullScreenCover(isPresented: $showPostureAnalysis) {
-                let urlA = pathA.flatMap { MediaResolver.resolveVideoURL(path: $0) }
-                let urlB = pathB.flatMap { MediaResolver.resolveVideoURL(path: $0) }
-                if let resolvedURL = urlA ?? urlB {
+                if let resolvedURL = resolvedURLA ?? resolvedURLB {
                     PostureAnalysisOverlayView(videoURL: resolvedURL, freezeTime: currentTime)
                 }
             }
@@ -248,13 +249,13 @@ struct DualVideoComparisonView: View {
             switch layoutMode {
             case .stacked:
                 VStack(spacing: 8) {
-                    videoSlotView(title: titleA, path: pathA, player: playerA, image: imageA, isPhoto: isPhotoA, slotBadge: "🔴 MOJE (A)", isSlotA: true)
-                    videoSlotView(title: titleB, path: pathB, player: playerB, image: imageB, isPhoto: isPhotoB, slotBadge: "🟢 VZOR / IDOL (B)", isSlotA: false)
+                    videoSlotView(title: titleA, path: pathA, player: playerA, image: imageA, isPhoto: isPhotoA, slotBadge: "A · Moje", isSlotA: true)
+                    videoSlotView(title: titleB, path: pathB, player: playerB, image: imageB, isPhoto: isPhotoB, slotBadge: "B · Vzor", isSlotA: false)
                 }
             case .sideBySide:
                 HStack(spacing: 8) {
-                    videoSlotView(title: titleA, path: pathA, player: playerA, image: imageA, isPhoto: isPhotoA, slotBadge: "🔴 MOJE (A)", isSlotA: true)
-                    videoSlotView(title: titleB, path: pathB, player: playerB, image: imageB, isPhoto: isPhotoB, slotBadge: "🟢 VZOR (B)", isSlotA: false)
+                    videoSlotView(title: titleA, path: pathA, player: playerA, image: imageA, isPhoto: isPhotoA, slotBadge: "A · Moje", isSlotA: true)
+                    videoSlotView(title: titleB, path: pathB, player: playerB, image: imageB, isPhoto: isPhotoB, slotBadge: "B · Vzor", isSlotA: false)
                 }
             case .singleSwitch:
                 VStack(spacing: 8) {
@@ -287,9 +288,9 @@ struct DualVideoComparisonView: View {
                     }
                     
                     if activeSingleSlot == 1 {
-                        videoSlotView(title: titleA, path: pathA, player: playerA, image: imageA, isPhoto: isPhotoA, slotBadge: "🔴 MOJE (A)", isSlotA: true)
+                        videoSlotView(title: titleA, path: pathA, player: playerA, image: imageA, isPhoto: isPhotoA, slotBadge: "A · Moje", isSlotA: true)
                     } else {
-                        videoSlotView(title: titleB, path: pathB, player: playerB, image: imageB, isPhoto: isPhotoB, slotBadge: "🟢 VZOR (B)", isSlotA: false)
+                        videoSlotView(title: titleB, path: pathB, player: playerB, image: imageB, isPhoto: isPhotoB, slotBadge: "B · Vzor", isSlotA: false)
                     }
                 }
             }
@@ -341,71 +342,46 @@ struct DualVideoComparisonView: View {
                 .buttonStyle(.plain)
             }
             
-            // Top Badge Overlay & Controls
-            HStack {
-                HStack(spacing: 6) {
-                    Text(slotBadge)
-                        .font(.system(size: 10, weight: .black))
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .background(isSlotA ? Color.red.opacity(0.85) : Color.green.opacity(0.85))
-                        .foregroundColor(.white)
-                        .cornerRadius(6)
-                    
-                    if path != nil {
-                        Text(isPhoto ? "📷 FOTKA" : "🎬 VIDEO")
-                            .font(.system(size: 9, weight: .black))
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 3)
-                            .background(Color.black.opacity(0.65))
-                            .foregroundColor(Color.gold400)
-                            .cornerRadius(5)
-                    }
-                }
-                
-                Spacer()
-                
-                if path != nil {
-                    // Change media button
-                    Button {
-                        activePickerSlot = isSlotA ? .slotA : .slotB
-                    } label: {
-                        HStack(spacing: 3) {
-                            Image(systemName: "arrow.triangle.2.circlepath")
-                            Text("Zmeniť")
-                        }
-                        .font(.system(size: 10, weight: .bold))
-                        .padding(.horizontal, 7)
-                        .padding(.vertical, 4)
-                        .background(Color.black.opacity(0.7))
-                        .foregroundColor(Color.gold400)
-                        .cornerRadius(6)
-                    }
-                    
-                    // Clear media button
-                    Button {
-                        if isSlotA {
-                            pathA = nil
-                        } else {
-                            pathB = nil
-                        }
-                        setupPlayers()
-                    } label: {
-                        Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 15))
-                            .foregroundColor(.white.opacity(0.75))
-                            .background(Color.black.clipShape(Circle()))
-                    }
-                }
-                
+            // Top badge and one compact menu, so the words never wrap in a narrow column.
+            HStack(spacing: 6) {
+                Text(slotBadge)
+                    .font(.system(size: 11, weight: .heavy))
+                    .lineLimit(1)
+                    .fixedSize()
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(isSlotA ? Color.red.opacity(0.85) : Color.green.opacity(0.85), in: Capsule())
+                    .foregroundColor(.white)
+
                 if !isSlotA && !isPhoto && abs(offsetB) > 0.01 {
-                    Text(String(format: "Offset: %+.2fs", offsetB))
+                    Text(String(format: "%+.2fs", offsetB))
                         .font(.system(size: 10, weight: .bold, design: .monospaced))
+                        .lineLimit(1)
+                        .fixedSize()
                         .padding(.horizontal, 6)
-                        .padding(.vertical, 3)
-                        .background(Color.black.opacity(0.65))
+                        .padding(.vertical, 4)
+                        .background(Color.black.opacity(0.65), in: Capsule())
                         .foregroundColor(.yellow)
-                        .cornerRadius(6)
+                }
+
+                Spacer(minLength: 0)
+
+                if path != nil {
+                    Menu {
+                        Button {
+                            activePickerSlot = isSlotA ? .slotA : .slotB
+                        } label: { Label("Zmeniť médium", systemImage: "arrow.triangle.2.circlepath") }
+                        Button(role: .destructive) {
+                            if isSlotA { pathA = nil } else { pathB = nil }
+                            setupPlayers()
+                        } label: { Label("Odstrániť", systemImage: "xmark") }
+                    } label: {
+                        Image(systemName: "ellipsis")
+                            .font(.system(size: 13, weight: .bold))
+                            .foregroundColor(.white)
+                            .frame(width: 30, height: 30)
+                            .background(Color.black.opacity(0.55), in: Circle())
+                    }
                 }
             }
             .padding(8)
@@ -463,9 +439,44 @@ struct DualVideoComparisonView: View {
                     }
                 }
                 
-                // Primary Playback Buttons & Speed Selector
-                HStack(spacing: 16) {
-                    // Rate Selector
+                // Row 1: transport. Row 2: speed, loop and offset. Two rows keep every label on one line.
+                HStack(spacing: 22) {
+                    Button { stepFrame(by: -1) } label: {
+                        Image(systemName: "backward.frame").font(.system(size: 20, weight: .bold)).foregroundColor(.white)
+                    }
+                    Button {
+                        let target = max(0, currentTime - 1.0)
+                        currentTime = target
+                        seekPlayers(to: target)
+                    } label: {
+                        Image(systemName: "gobackward.10").font(.system(size: 20, weight: .semibold)).foregroundColor(.white)
+                    }
+                    Button(action: togglePlayPause) {
+                        ZStack {
+                            Circle()
+                                .fill(LinearGradient(colors: [Color.gold500, Color.gold400], startPoint: .topLeading, endPoint: .bottomTrailing))
+                                .frame(width: 56, height: 56)
+                                .shadow(color: Color.gold500.opacity(0.35), radius: 8, y: 3)
+                            Image(systemName: isPlaying ? "pause.fill" : "play.fill")
+                                .font(.system(size: 22, weight: .bold))
+                                .foregroundColor(Color.obsidian900)
+                                .offset(x: isPlaying ? 0 : 1.5)
+                        }
+                    }
+                    Button {
+                        let target = min(duration, currentTime + 1.0)
+                        currentTime = target
+                        seekPlayers(to: target)
+                    } label: {
+                        Image(systemName: "goforward.10").font(.system(size: 20, weight: .semibold)).foregroundColor(.white)
+                    }
+                    Button { stepFrame(by: 1) } label: {
+                        Image(systemName: "forward.frame").font(.system(size: 20, weight: .bold)).foregroundColor(.white)
+                    }
+                }
+                .frame(maxWidth: .infinity)
+
+                HStack(spacing: 10) {
                     Menu {
                         ForEach([0.25, 0.5, 0.75, 1.0], id: \.self) { rate in
                             Button("\(String(format: "%.2f", rate))x") {
@@ -477,110 +488,24 @@ struct DualVideoComparisonView: View {
                             }
                         }
                     } label: {
-                        Text(String(format: "%.2fx", playbackRate))
-                            .font(.system(size: 13, weight: .bold, design: .monospaced))
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 8)
-                            .background(Color.obsidian800)
-                            .foregroundColor(.white)
-                            .cornerRadius(8)
-                            .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.white.opacity(0.15), lineWidth: 1))
+                        deckChip(String(format: "%.2fx", playbackRate), systemImage: "speedometer", highlighted: false)
                     }
-                    
-                    Spacer()
-                    
-                    // Step Back 1 Frame (Funkcia 6)
+
                     Button {
-                        stepFrame(by: -1)
+                        withAnimation(.spring(response: 0.25)) { isLooping.toggle() }
                     } label: {
-                        Image(systemName: "backward.frame")
-                            .font(.system(size: 18, weight: .bold))
-                            .foregroundColor(.white)
+                        deckChip("Opakovať", systemImage: "repeat", highlighted: isLooping)
                     }
-                    
-                    // Step Back 1s
+
                     Button {
-                        let target = max(0, currentTime - 1.0)
-                        currentTime = target
-                        seekPlayers(to: target)
+                        withAnimation(.spring(response: 0.35)) { showOffsetFineControl.toggle() }
                     } label: {
-                        Image(systemName: "gobackward.10")
-                            .font(.system(size: 18, weight: .semibold))
-                            .foregroundColor(.white)
-                    }
-                    
-                    // Main Play / Pause Button
-                    Button(action: togglePlayPause) {
-                        ZStack {
-                            Circle()
-                                .fill(LinearGradient(colors: [Color.gold500, Color.gold400], startPoint: .topLeading, endPoint: .bottomTrailing))
-                                .frame(width: 54, height: 54)
-                                .shadow(color: Color.gold500.opacity(0.35), radius: 8, y: 3)
-                            
-                            Image(systemName: isPlaying ? "pause.fill" : "play.fill")
-                                .font(.system(size: 22, weight: .bold))
-                                .foregroundColor(Color.obsidian900)
-                                .offset(x: isPlaying ? 0 : 1.5)
-                        }
-                    }
-                    
-                    // Step Forward 1s
-                    Button {
-                        let target = min(duration, currentTime + 1.0)
-                        currentTime = target
-                        seekPlayers(to: target)
-                    } label: {
-                        Image(systemName: "goforward.10")
-                            .font(.system(size: 18, weight: .semibold))
-                            .foregroundColor(.white)
-                    }
-                    
-                    // Step Forward 1 Frame (Funkcia 6)
-                    Button {
-                        stepFrame(by: 1)
-                    } label: {
-                        Image(systemName: "forward.frame")
-                            .font(.system(size: 18, weight: .bold))
-                            .foregroundColor(.white)
-                    }
-                    
-                    // Loop / Repeat Toggle
-                    Button {
-                        withAnimation(.spring(response: 0.25)) {
-                            isLooping.toggle()
-                        }
-                    } label: {
-                        Image(systemName: "repeat")
-                            .font(.system(size: 16, weight: .bold))
-                            .foregroundColor(isLooping ? Color.gold400 : Color.white.opacity(0.45))
-                            .padding(6)
-                            .background(isLooping ? Color.gold400.opacity(0.15) : Color.clear)
-                            .clipShape(Circle())
-                    }
-                    
-                    Spacer()
-                    
-                    // Toggle Fine Offset Control Button
-                    Button {
-                        withAnimation(.spring(response: 0.35)) {
-                            showOffsetFineControl.toggle()
-                        }
-                    } label: {
-                        HStack(spacing: 4) {
-                            Image(systemName: "slider.horizontal.below.rectangle")
-                            Text("Offset")
-                        }
-                        .font(.system(size: 12, weight: .bold))
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 8)
-                        .background(showOffsetFineControl ? Color.yellow.opacity(0.25) : Color.obsidian800)
-                        .foregroundColor(showOffsetFineControl ? Color.yellow : .white)
-                        .cornerRadius(8)
-                        .overlay(RoundedRectangle(cornerRadius: 8).stroke(showOffsetFineControl ? Color.yellow : Color.white.opacity(0.15), lineWidth: 1))
+                        deckChip("Offset", systemImage: "slider.horizontal.below.rectangle", highlighted: showOffsetFineControl)
                     }
                 }
+                .frame(maxWidth: .infinity)
             }
-            
+
             // Fine Offset Controller Sheet/Slider (Align Dancers Beats)
             if showOffsetFineControl && !isBothPhotos {
                 VStack(spacing: 8) {
@@ -644,16 +569,54 @@ struct DualVideoComparisonView: View {
         }
     }
     
+    private func deckChip(_ title: String, systemImage: String, highlighted: Bool) -> some View {
+        HStack(spacing: 5) {
+            Image(systemName: systemImage)
+            Text(title)
+        }
+        .font(.system(size: 13, weight: .bold))
+        .lineLimit(1)
+        .fixedSize()
+        .padding(.horizontal, 12)
+        .frame(height: 36)
+        .background(highlighted ? Color.gold400.opacity(0.22) : Color.obsidian800, in: Capsule())
+        .overlay(Capsule().stroke(highlighted ? Color.gold400 : Color.white.opacity(0.15), lineWidth: 1))
+        .foregroundColor(highlighted ? Color.gold400 : .white)
+    }
+
     // MARK: - Player Setup & Lifecycle
     private func setupPlayers() {
         tearDownPlayers()
-        
+
+        // Videos in Fotky are looked up asynchronously. Only the newest request builds players:
+        // closing the duel or changing a slot meanwhile bumps the generation.
+        let generation = setupGeneration
+        let requestedA = pathA
+        let requestedB = pathB
+        Task { @MainActor in
+            let urlA = await videoURL(for: requestedA)
+            let urlB = await videoURL(for: requestedB)
+            guard generation == setupGeneration else { return }
+            buildPlayers(urlA: urlA, urlB: urlB)
+        }
+    }
+
+    /// nil for an empty slot or a photo.
+    private func videoURL(for path: String?) async -> URL? {
+        guard let path, !MediaResolver.isImagePath(path: path) else { return nil }
+        return await MediaResolver.videoURL(path: path)
+    }
+
+    private func buildPlayers(urlA: URL?, urlB: URL?) {
+        resolvedURLA = urlA
+        resolvedURLB = urlB
+
         // Setup Slot A (Video or Photo)
         if let pathA = pathA {
             if MediaResolver.isImagePath(path: pathA) {
                 self.imageA = MediaResolver.resolveImage(path: pathA)
                 self.playerA = nil
-            } else if let urlA = MediaResolver.resolveVideoURL(path: pathA) {
+            } else if let urlA {
                 self.imageA = nil
                 let itemA = AVPlayerItem(url: urlA)
                 let pA = AVPlayer(playerItem: itemA)
@@ -684,7 +647,7 @@ struct DualVideoComparisonView: View {
             if MediaResolver.isImagePath(path: pathB) {
                 self.imageB = MediaResolver.resolveImage(path: pathB)
                 self.playerB = nil
-            } else if let urlB = MediaResolver.resolveVideoURL(path: pathB) {
+            } else if let urlB {
                 self.imageB = nil
                 let itemB = AVPlayerItem(url: urlB)
                 let pB = AVPlayer(playerItem: itemB)
@@ -732,6 +695,7 @@ struct DualVideoComparisonView: View {
     }
     
     private func tearDownPlayers() {
+        setupGeneration += 1
         if let token = observerTokenA {
             NotificationCenter.default.removeObserver(token)
             observerTokenA = nil
