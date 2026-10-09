@@ -247,7 +247,7 @@ public final class ConnectionManager: ObservableObject {
     public func sendRequestByDancerCode(code: String, type: ConnectionRelationshipType) async throws {
         let clean = code.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
         guard !clean.isEmpty else {
-            throw NSError(domain: "Encore", code: 400, userInfo: [NSLocalizedDescriptionKey: "Zadaj platný Dancer ID kód."])
+            throw NSError(domain: "Encore", code: 400, userInfo: [NSLocalizedDescriptionKey: "Zadaj platné ID tanečníka (napr. DNC-8492)."])
         }
         
         let results = await searchDancers(query: clean)

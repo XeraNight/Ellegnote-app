@@ -13,9 +13,9 @@ enum VideoMediaRole: String, Codable, CaseIterable, Identifiable {
     var displayName: String {
         switch self {
         case .myTake: return "Moje video"
-        case .targetIdol: return "Idol / Vzor"
-        case .coach: return "Tréner"
-        case .draft: return "Pokus / Návrh"
+        case .targetIdol: return "Vzor"
+        case .coach: return "Od trénera"
+        case .draft: return "Návrh"
         }
     }
     
@@ -28,12 +28,13 @@ enum VideoMediaRole: String, Codable, CaseIterable, Identifiable {
         }
     }
     
+    /// Icon tint on the dark glass badge (brand colours, no traffic-light red and green).
     var tagColor: Color {
         switch self {
-        case .myTake: return .red
-        case .targetIdol: return .green
-        case .coach: return .blue
-        case .draft: return .orange
+        case .myTake: return .white
+        case .targetIdol: return Color.gold400
+        case .coach: return Color.gold300
+        case .draft: return Color.white.opacity(0.7)
         }
     }
 }

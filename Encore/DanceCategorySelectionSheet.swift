@@ -1,102 +1,86 @@
 import SwiftUI
+import SwiftData
 
-// MARK: - Dance Category Selection Sheet
+// MARK: - Nová zostava: choose the dance
+/// Both disciplines on one screen in competition order; a dance opens its page with routines and figures.
 struct DanceCategorySelectionSheet: View {
     @Binding var isPresented: Bool
-    
+    @Query private var dances: [Dance]
+    @Query private var routines: [Routine]
+
+    private func dances(standard: Bool) -> [Dance] {
+        dances
+            .filter { ($0.category.lowercased() == "standard") == standard }
+            .sorted { DanceNames.rank($0.name) < DanceNames.rank($1.name) }
+    }
+
     var body: some View {
         ZStack {
             EllegancePageBackground()
-            
-            GeometryReader { geo in
-                let autoSidePadding = max(geo.size.width * 0.08, 20)
-                
-                ScrollView {
-                    VStack(spacing: 20) {
-                        Text("Výber tanečnej kategórie")
-                            .font(.system(size: 20, weight: .bold, design: .serif))
-                            .foregroundColor(.white)
-                            .padding(.top, 20)
-                        
-                        Text("Vyberte štýl tanca pre založenie novej choreografie:")
-                            .font(.system(size: 13))
-                            .foregroundColor(Color.white.opacity(0.6))
-                            .multilineTextAlignment(.center)
-                        
-                        VStack(spacing: 14) {
-                            NavigationLink(destination: DanceCategoryView(category: "Standard")) {
-                                HStack(spacing: 16) {
-                                    ZStack {
-                                        Circle()
-                                            .fill(Color.standardBlue.opacity(0.2))
-                                            .frame(width: 48, height: 48)
-                                        Image(systemName: "drop.fill")
-                                            .font(.system(size: 20))
-                                            .foregroundColor(.standardBlue)
-                                    }
-                                    
-                                    VStack(alignment: .leading, spacing: 4) {
-                                        Text("ŠTANDARDNÉ TANCE")
-                                            .font(.system(size: 15, weight: .black))
-                                            .foregroundColor(.white)
-                                        Text("Waltz, Tango, Valčík, Slowfox, Quickstep")
-                                            .font(.system(size: 12))
-                                            .foregroundColor(Color.white.opacity(0.6))
-                                    }
-                                    
-                                    Spacer()
-                                    Image(systemName: "chevron.right")
-                                        .foregroundColor(Color.white.opacity(0.3))
-                                }
-                                .padding(18)
-                                .background(Color.themeCard)
-                                .cornerRadius(18)
-                                .overlay(RoundedRectangle(cornerRadius: 18).stroke(Color.standardBlue.opacity(0.3), lineWidth: 1))
-                            }
-                            .buttonStyle(.plain)
-                            
-                            NavigationLink(destination: DanceCategoryView(category: "Latin")) {
-                                HStack(spacing: 16) {
-                                    ZStack {
-                                        Circle()
-                                            .fill(Color.latinPink.opacity(0.2))
-                                            .frame(width: 48, height: 48)
-                                        Image(systemName: "flame.fill")
-                                            .font(.system(size: 20))
-                                            .foregroundColor(.latinPink)
-                                    }
-                                    
-                                    VStack(alignment: .leading, spacing: 4) {
-                                        Text("LATINSKOAMERICKÉ TANCE")
-                                            .font(.system(size: 15, weight: .black))
-                                            .foregroundColor(.white)
-                                        Text("Samba, Cha-Cha, Rumba, Paso Doble, Jive")
-                                            .font(.system(size: 12))
-                                            .foregroundColor(Color.white.opacity(0.6))
-                                    }
-                                    
-                                    Spacer()
-                                    Image(systemName: "chevron.right")
-                                        .foregroundColor(Color.white.opacity(0.3))
-                                }
-                                .padding(18)
-                                .background(Color.themeCard)
-                                .cornerRadius(18)
-                                .overlay(RoundedRectangle(cornerRadius: 18).stroke(Color.latinPink.opacity(0.3), lineWidth: 1))
-                            }
-                            .buttonStyle(.plain)
-                        }
-                    }
-                    .padding(.horizontal, autoSidePadding)
-                    .padding(.bottom, 30)
+
+            ScrollView {
+                VStack(alignment: .leading, spacing: 18) {
+                    Text("Vyber tanec a založ v ňom zostavu.")
+                        .font(.subheadline)
+                        .foregroundColor(.white.opacity(0.7))
+
+                    section("ŠTANDARD", dances(standard: true), dot: Color.standardBlue)
+                    section("LATINA", dances(standard: false), dot: Color.latinCrimson)
                 }
-            }
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Zavrieť") { isPresented = false }
-                        .foregroundColor(Color.gold400)
-                }
+                .padding(.horizontal, 20)
+                .padding(.top, 8)
+                .padding(.bottom, 32)
             }
         }
+        .navigationTitle("Nová zostava")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .cancellationAction) {
+                Button("Zavrieť") { isPresented = false }
+                    .foregroundColor(Color.gold400)
+            }
+        }
+    }
+
+    private func section(_ title: String, _ list: [Dance], dot: Color) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HomeSectionHeader(title: title)
+                .padding(.horizontal, 4)
+            ForEach(list) { dance in
+                NavigationLink {
+                    DanceDetailView(dance: dance)
+                } label: {
+                    row(dance, dot: dot)
+                }
+                .buttonStyle(.pressable(scale: 0.97))
+            }
+        }
+    }
+
+    private func row(_ dance: Dance, dot: Color) -> some View {
+        let count = routines.filter { $0.danceName == dance.name }.count
+        return HStack(spacing: 12) {
+            Circle().fill(dot).frame(width: 8, height: 8)
+            VStack(alignment: .leading, spacing: 3) {
+                Text(DanceNames.display(dance.name))
+                    .font(.headline)
+                    .foregroundColor(.white)
+                Text(dance.tempo)
+                    .font(.caption)
+                    .foregroundColor(.white.opacity(0.6))
+            }
+            Spacer(minLength: 8)
+            if count > 0 {
+                Text(slovakCount(count, one: "zostava", few: "zostavy", many: "zostáv"))
+                    .font(.caption.weight(.semibold))
+                    .foregroundColor(Color.gold300)
+            }
+            Image(systemName: "chevron.right")
+                .font(.caption.weight(.bold))
+                .foregroundColor(.white.opacity(0.4))
+        }
+        .padding(16)
+        .homeCard(cornerRadius: 16)
+        .accessibilityElement(children: .combine)
     }
 }

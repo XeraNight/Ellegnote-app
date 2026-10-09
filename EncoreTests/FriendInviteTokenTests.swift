@@ -29,7 +29,7 @@ struct FriendInviteTokenTests {
             ksisId: nil,
             dancerCode: "DNC-1024"
         )
-        #expect(payloadWithoutKsis.displayId == "DANCER ID: DNC-1024")
+        #expect(payloadWithoutKsis.displayId == "ID TANEČNÍKA: DNC-1024")
     }
 
     @Test func testTokenExpirationDetection() {

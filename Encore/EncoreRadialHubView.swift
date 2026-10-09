@@ -1,14 +1,14 @@
 import SwiftUI
 
-// MARK: - Radial Hub Action Definition
+// MARK: - Radial Hub Actions
 public enum RadialHubAction: String, CaseIterable, Identifiable {
     case newRoutine
     case mirror
     case metronome
     case speedTrainer
-    
+
     public var id: String { rawValue }
-    
+
     public var title: String {
         switch self {
         case .newRoutine:    return "Nová zostava"
@@ -17,7 +17,7 @@ public enum RadialHubAction: String, CaseIterable, Identifiable {
         case .speedTrainer:  return "Hudba pomalšie"
         }
     }
-    
+
     public var shortTitle: String {
         switch self {
         case .newRoutine:    return "Nová zostava"
@@ -26,27 +26,20 @@ public enum RadialHubAction: String, CaseIterable, Identifiable {
         case .speedTrainer:  return "Hudba"
         }
     }
-    
+
     public var iconName: String {
         switch self {
-        case .newRoutine:    return "plus.circle.fill"
-        case .mirror:        return "sparkles.rectangle.stack.fill"
+        case .newRoutine:    return "plus"
+        case .mirror:        return "figure.stand.line.dotted.figure.stand"
         case .metronome:     return "metronome.fill"
-        case .speedTrainer:  return "music.note"
+        case .speedTrainer:  return "music.quarternote.3"
         }
     }
-    
-    public var accentColor: Color {
-        switch self {
-        case .newRoutine:    return Color.gold400
-        case .mirror:        return Color.silkIvory
-        case .metronome:     return Color.amberGold
-        case .speedTrainer:  return Color.standardBlue
-        }
-    }
-    
-    // Relative offset from logo center (radius ~114pt)
-    // Angles: Top-Left (-135°), Top-Right (-45°), Bottom-Left (135°), Bottom-Right (45°)
+
+    /// The main action is solid gold; the tools are glass.
+    var isPrimary: Bool { self == .newRoutine }
+
+    /// Position around the logo.
     public var offset: CGSize {
         switch self {
         case .newRoutine:    return CGSize(width: -86, height: -82)
@@ -55,87 +48,52 @@ public enum RadialHubAction: String, CaseIterable, Identifiable {
         case .speedTrainer:  return CGSize(width: 86,  height: 82)
         }
     }
+
+    /// Order in which the buttons step out: counter-clockwise, like couples move along the line of dance.
+    var entranceOrder: Int {
+        switch self {
+        case .newRoutine:    return 0
+        case .metronome:     return 1
+        case .speedTrainer:  return 2
+        case .mirror:        return 3
+        }
+    }
 }
 
-// MARK: - Encore Pure Gold 3D Emblem View (Seamless, Specular Sheen, Shockwave & 3D Gyro Tilt)
-/// High-end native 60/120 FPS pure gold emblem:
-/// - 100% unified, intact silhouette (NO awkward scissors cut or slicing!)
-/// - Resonant golden shockwaves & radiant aura that erupt when opened
-/// - Specular metallic gold light glint (sheen beam) that slides across the emblem
-/// - Smooth 3D pirouette twist around Y-axis
-/// - Gyroscopic 3D pitch & yaw that dynamically leans towards the user's finger during drag
+// MARK: - Gold emblem
+/// The logo with a stage light behind it and a light sweep across the gold.
+/// It bows (tilts forward) like a dancer before the music starts, and leans toward the finger while dragging.
 public struct EncoreGoldenEmblemView: View {
     let size: CGFloat
-    let spinDegrees: Double       // 3D pirouette rotation (Y axis)
-    let pitchDegrees: Double      // 3D gyroscopic tilt (X axis - following finger)
-    let yawDegrees: Double        // 3D gyroscopic tilt (Y axis - following finger)
-    let sheenProgress: CGFloat    // Position of metallic light glint across logo (-0.5 to 1.5)
-    let shockwaveProgress: CGFloat // Expanding golden energy ring (0.0 to 1.0)
-    let glowIntensity: Double     // Burst flash intensity
+    let bowDegrees: Double
+    let pitchDegrees: Double
+    let yawDegrees: Double
+    let sheenProgress: CGFloat
+    let spotlight: Double
+    let glowIntensity: Double
     let scale: CGFloat
     let offset: CGSize
-    
-    public init(
-        size: CGFloat,
-        spinDegrees: Double = 0.0,
-        pitchDegrees: Double = 0.0,
-        yawDegrees: Double = 0.0,
-        sheenProgress: CGFloat = -0.5,
-        shockwaveProgress: CGFloat = 0.0,
-        glowIntensity: Double = 0.0,
-        scale: CGFloat = 1.0,
-        offset: CGSize = .zero
-    ) {
-        self.size = size
-        self.spinDegrees = spinDegrees
-        self.pitchDegrees = pitchDegrees
-        self.yawDegrees = yawDegrees
-        self.sheenProgress = sheenProgress
-        self.shockwaveProgress = shockwaveProgress
-        self.glowIntensity = glowIntensity
-        self.scale = scale
-        self.offset = offset
-    }
-    
+
     public var body: some View {
         ZStack {
-            // ── 1. Resonant Golden Shockwave Rings (Burst Outwards Behind Logo) ──
-            if shockwaveProgress > 0.02 && shockwaveProgress < 0.99 {
-                // Outer expanding ring
-                Circle()
-                    .stroke(
-                        LinearGradient(
-                            colors: [Color.gold300.opacity(0.85), Color.gold500.opacity(0.15)],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        ),
-                        lineWidth: max(1.0, 3.5 * (1.0 - shockwaveProgress))
-                    )
-                    .frame(
-                        width: size * (0.8 + shockwaveProgress * 1.35),
-                        height: size * (0.8 + shockwaveProgress * 1.35)
-                    )
-                    .opacity(Double(1.0 - shockwaveProgress) * 0.75)
-                    .blur(radius: 1.5)
-                
-                // Inner golden energy ripple
-                Circle()
-                    .stroke(Color.gold400.opacity(Double(1.0 - shockwaveProgress) * 0.5), lineWidth: 1.5)
-                    .frame(
-                        width: size * (0.5 + shockwaveProgress * 0.9),
-                        height: size * (0.5 + shockwaveProgress * 0.9)
-                    )
-                    .opacity(Double(1.0 - shockwaveProgress) * 0.6)
-            }
-            
-            // ── 2. Emblem ──
+            // Stage light behind the logo.
+            RadialGradient(
+                colors: [Color.gold400.opacity(0.55 * spotlight), Color.gold500.opacity(0.18 * spotlight), .clear],
+                center: .center,
+                startRadius: size * 0.05,
+                endRadius: size * 1.05
+            )
+            .frame(width: size * 2.2, height: size * 2.2)
+            .blur(radius: 6)
+            .allowsHitTesting(false)
+
             Image("EncoreLogo")
                 .resizable()
                 .renderingMode(.original)
                 .scaledToFit()
                 .frame(width: size, height: size)
-            
-            // ── 4. Specular Liquid Gold Sheen Beam (Light glint traversing the logo) ──
+
+            // Light sweep across the gold.
             if sheenProgress > -0.4 && sheenProgress < 1.4 {
                 LinearGradient(
                     stops: [
@@ -160,8 +118,7 @@ public struct EncoreGoldenEmblemView: View {
                 )
                 .blendMode(.screen)
             }
-            
-            // ── 5. Golden Flash Burst on Rejoin / Button Snap ──
+
             if glowIntensity > 0.01 {
                 Image("EncoreLogo")
                     .resizable()
@@ -177,120 +134,61 @@ public struct EncoreGoldenEmblemView: View {
         .frame(width: size, height: size)
         .scaleEffect(scale)
         .offset(offset)
-        // 3D Pirouette & Gyroscopic Lean (Tilts towards dragging finger!)
-        .rotation3DEffect(
-            .degrees(spinDegrees + yawDegrees),
-            axis: (x: 0.0, y: 1.0, z: 0.04),
-            perspective: 0.35
-        )
-        .rotation3DEffect(
-            .degrees(pitchDegrees),
-            axis: (x: 1.0, y: 0.0, z: 0.0),
-            perspective: 0.35
-        )
-        // High-end metallic obsidian drop shadow
+        // The bow: forward around the bottom edge, as a dancer bends from the hips.
+        .rotation3DEffect(.degrees(bowDegrees), axis: (x: 1, y: 0, z: 0), anchor: .bottom, perspective: 0.5)
+        .rotation3DEffect(.degrees(yawDegrees), axis: (x: 0, y: 1, z: 0), perspective: 0.35)
+        .rotation3DEffect(.degrees(pitchDegrees), axis: (x: 1, y: 0, z: 0), perspective: 0.35)
         .shadow(color: Color.black.opacity(0.65), radius: 8, x: 0, y: 4)
     }
 }
 
-// MARK: - Compatibility Bridge
-public struct DancePairSplitLogoView: View {
-    let size: CGFloat
-    let splitProgress: CGFloat
-    let spinDegrees: Double
-    let glowIntensity: Double
-    let scale: CGFloat
-    let offset: CGSize
-    
-    public init(
-        size: CGFloat,
-        splitProgress: CGFloat = 0.0,
-        spinDegrees: Double = 0.0,
-        glowIntensity: Double = 0.0,
-        scale: CGFloat = 1.0,
-        offset: CGSize = .zero
-    ) {
-        self.size = size
-        self.splitProgress = splitProgress
-        self.spinDegrees = spinDegrees
-        self.glowIntensity = glowIntensity
-        self.scale = scale
-        self.offset = offset
+// MARK: - Orbit entrance
+/// Moves a satellite along an arc around the logo into its place (and back when it leaves).
+/// The satellite already sits at `target`; this only adds the way there, so at the end it adds nothing.
+private struct OrbitEffect: GeometryEffect {
+    var progress: CGFloat
+    let target: CGSize
+
+    var animatableData: CGFloat {
+        get { progress }
+        set { progress = newValue }
     }
-    
-    public var body: some View {
-        EncoreGoldenEmblemView(
-            size: size,
-            spinDegrees: spinDegrees,
-            glowIntensity: glowIntensity,
-            scale: scale,
-            offset: offset
-        )
+
+    func effectValue(size: CGSize) -> ProjectionTransform {
+        // Start 70° short of the place and travel counter-clockwise into it, growing out of the logo.
+        let angle = Double(1 - progress) * 70 * .pi / 180
+        let radiusScale = 0.25 + 0.75 * progress
+        let x = (target.width * cos(angle) - target.height * sin(angle)) * radiusScale
+        let y = (target.width * sin(angle) + target.height * cos(angle)) * radiusScale
+        return ProjectionTransform(CGAffineTransform(translationX: x - target.width, y: y - target.height))
     }
 }
 
-// MARK: - Frame Sequence Player (For Flipbook / Spritesheet Animations)
-/// If you have a sequence of exported PNG frames (e.g. from Rive, Blender or After Effects),
-/// this player cycles through them smoothly at 60 FPS.
-public struct EncoreFrameSequencePlayer: View {
-    let frameNames: [String]
-    let fps: Double
-    let isPlaying: Bool
-    
-    @State private var currentFrameIndex: Int = 0
-    
-    public init(frameNames: [String], fps: Double = 30.0, isPlaying: Bool = true) {
-        self.frameNames = frameNames
-        self.fps = fps
-        self.isPlaying = isPlaying
-    }
-    
-    public var body: some View {
-        Group {
-            if currentFrameIndex < frameNames.count {
-                Image(frameNames[currentFrameIndex])
-                    .resizable()
-                    .scaledToFit()
-            } else if let first = frameNames.first {
-                Image(first)
-                    .resizable()
-                    .scaledToFit()
-            }
-        }
-        .task(id: isPlaying) {
-            guard isPlaying, !frameNames.isEmpty else { return }
-            let interval = UInt64((1.0 / max(fps, 1.0)) * 1_000_000_000)
-            while !Task.isCancelled && isPlaying {
-                try? await Task.sleep(nanoseconds: interval)
-                currentFrameIndex = (currentFrameIndex + 1) % frameNames.count
-            }
-        }
-    }
-}
-
-// MARK: - Interactive Encore Radial Hub View (Pure Gold + Dance Pirouette & Split Animation)
+// MARK: - Radial hub
 public struct EncoreRadialHubView: View {
     @Binding var isOpen: Bool
     var logoSize: CGFloat
     var onSelectAction: (RadialHubAction) -> Void
     var onTogglePaletteFallback: () -> Void
-    
-    // ── 3D Emblem Animation & Gyroscopic States ──
-    @State private var spinDegrees: Double = 0.0       // 3D pirouette rotation (Y axis)
-    @State private var pitchDegrees: Double = 0.0      // 3D gyroscopic tilt (X axis)
-    @State private var yawDegrees: Double = 0.0        // 3D gyroscopic tilt (Y axis)
-    @State private var sheenProgress: CGFloat = -0.5   // Specular gold light glint sweep
-    @State private var shockwaveProgress: CGFloat = 0.0 // Concentric golden halo shockwaves
-    @State private var glowBurst: Double = 0.0         // Flash on snap
-    @State private var goldScale: CGFloat = 1.0
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    // Emblem
+    @State private var bowDegrees: Double = 0
+    @State private var pitchDegrees: Double = 0
+    @State private var yawDegrees: Double = 0
+    @State private var sheenProgress: CGFloat = -0.5
+    @State private var spotlight: Double = 0
+    @State private var glowBurst: Double = 0
+    @State private var goldScale: CGFloat = 1
     @State private var goldOffset: CGSize = .zero
-    @State private var isSpinning: Bool = false
-    
-    // ── Gesture & Drag-to-Select States ──
-    @State private var hoveredAction: RadialHubAction? = nil
-    @State private var triggeringAction: RadialHubAction? = nil
-    @State private var isDragging: Bool = false
-    
+    @State private var isAnimatingOpen = false
+
+    // Drag to select
+    @State private var hoveredAction: RadialHubAction?
+    @State private var triggeringAction: RadialHubAction?
+    @State private var isDragging = false
+
     public init(
         isOpen: Binding<Bool>,
         logoSize: CGFloat = 110,
@@ -302,396 +200,306 @@ public struct EncoreRadialHubView: View {
         self.onSelectAction = onSelectAction
         self.onTogglePaletteFallback = onTogglePaletteFallback
     }
-    
+
     public var body: some View {
         ZStack {
-            // ── 4 Radial Satellite Action Buttons (Erupt out on Open) ──
             if isOpen {
                 ForEach(RadialHubAction.allCases) { action in
                     satelliteButton(for: action)
-                        .offset(actionOffset(for: action))
-                        .transition(
-                            .asymmetric(
-                                insertion: .scale(scale: 0.15)
-                                    .combined(with: .opacity)
-                                    .combined(with: .offset(x: -action.offset.width * 0.75, y: -action.offset.height * 0.75)),
-                                removal: .scale(scale: 0.20)
-                                    .combined(with: .opacity)
-                            )
-                        )
+                        .offset(position(for: action))
+                        .transition(entrance(for: action))
+                        .zIndex(Double(4 - action.entranceOrder))
                 }
             }
-            
-            // ── Central Pure Gold Logo (Seamless 3D Emblem, Sheen Glint, Halo Shockwaves & Gyro Tilt) ──
-            centerPureGoldButton
+
+            centerEmblem
         }
+        // Open height must equal the header frame in ContentView, so nothing overflows onto the field below.
         .frame(
             width: isOpen ? max(logoSize + 195, 310) : (logoSize + 30),
             height: isOpen ? max(logoSize + 185, 300) : (logoSize + 20)
         )
         .contentShape(isOpen ? AnyShape(Rectangle()) : AnyShape(Circle()))
-        .animation(.spring(response: 0.32, dampingFraction: 0.70), value: isOpen)
+        .animation(.spring(response: 0.36, dampingFraction: 0.78), value: isOpen)
         .animation(.spring(response: 0.20, dampingFraction: 0.68), value: hoveredAction)
         .animation(.spring(response: 0.18, dampingFraction: 0.65), value: goldScale)
         .animation(.spring(response: 0.22, dampingFraction: 0.65), value: goldOffset)
-        .onChange(of: isOpen) { _, newValue in
-            if !newValue {
-                hoveredAction = nil
-                triggeringAction = nil
-                withAnimation(.spring(response: 0.26, dampingFraction: 0.75)) {
-                    goldScale = 1.0
-                    goldOffset = .zero
-                    pitchDegrees = 0.0
-                    yawDegrees = 0.0
-                    spinDegrees = 0.0
-                    glowBurst = 0.0
-                    sheenProgress = -0.5
-                    shockwaveProgress = 0.0
-                }
+        .onChange(of: isOpen) { _, open in
+            guard !open else { return }
+            hoveredAction = nil
+            triggeringAction = nil
+            withAnimation(.easeOut(duration: 0.3)) {
+                goldScale = 1
+                goldOffset = .zero
+                pitchDegrees = 0
+                yawDegrees = 0
+                bowDegrees = 0
+                glowBurst = 0
+                spotlight = 0
             }
+            sheenProgress = -0.5
         }
     }
-    
-    // MARK: - Center Pure Gold Logo Button (NO CIRCLES - ONLY THE GOLD PART)
-    private var centerPureGoldButton: some View {
+
+    private func entrance(for action: RadialHubAction) -> AnyTransition {
+        if reduceMotion { return .opacity }
+        let orbit = AnyTransition.modifier(
+            active: OrbitEffect(progress: 0, target: action.offset),
+            identity: OrbitEffect(progress: 1, target: action.offset)
+        )
+        let delay = Double(action.entranceOrder) * 0.05
+        return .asymmetric(
+            insertion: orbit.combined(with: .scale(scale: 0.4)).combined(with: .opacity)
+                .animation(.spring(response: 0.46, dampingFraction: 0.74).delay(delay)),
+            removal: orbit.combined(with: .scale(scale: 0.4)).combined(with: .opacity)
+                .animation(.spring(response: 0.3, dampingFraction: 0.9))
+        )
+    }
+
+    // MARK: Emblem
+    private var centerEmblem: some View {
         VStack(spacing: 8) {
-            // 🌟 PURE GOLD EMBLEM WITH 3D PIROUETTE, SPECULAR SHEEN & GYRO TILT
             EncoreGoldenEmblemView(
                 size: logoSize * 0.88,
-                spinDegrees: spinDegrees,
+                bowDegrees: bowDegrees,
                 pitchDegrees: pitchDegrees,
                 yawDegrees: yawDegrees,
                 sheenProgress: sheenProgress,
-                shockwaveProgress: shockwaveProgress,
+                spotlight: spotlight,
                 glowIntensity: glowBurst,
                 scale: goldScale,
                 offset: goldOffset
             )
-            
-            // Steady Brand Title
+
             HStack(spacing: 4) {
                 EncoreWordmark()
-                
                 Image(systemName: isOpen ? "xmark" : "chevron.down")
                     .font(.system(size: 9, weight: .bold))
                     .foregroundColor(Color.gold400.opacity(0.85))
-                    .rotationEffect(.degrees(isOpen ? 90 : 0))
+                    .contentTransition(.symbolEffect(.replace))
             }
             .opacity(isOpen ? 0.95 : 0.75)
         }
         .contentShape(Rectangle())
         .gesture(
             DragGesture(minimumDistance: 0, coordinateSpace: .local)
-                .onChanged { value in
-                    handleDragChanged(value)
-                }
-                .onEnded { value in
-                    handleDragEnded(value)
-                }
+                .onChanged(handleDragChanged)
+                .onEnded(handleDragEnded)
         )
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Encore, rýchle akcie")
+        .accessibilityAddTraits(.isButton)
+        .accessibilityAction { isOpen ? close() : open() }
     }
-    
-    // MARK: - Dynamic Magnetic Offset for Buttons
-    private func actionOffset(for action: RadialHubAction) -> CGSize {
+
+    /// Its place around the logo; a hovered one is pulled a little toward the logo.
+    private func position(for action: RadialHubAction) -> CGSize {
         var base = action.offset
-        // Magnetic pull when hovered
         if hoveredAction == action {
-            base.width += (base.width > 0 ? -4 : 4)
-            base.height += (base.height > 0 ? -4 : 4)
+            base.width += base.width > 0 ? -4 : 4
+            base.height += base.height > 0 ? -4 : 4
         }
         return base
     }
-    
-    // MARK: - Satellite Button Component
+
+    // MARK: Satellite
     private func satelliteButton(for action: RadialHubAction) -> some View {
         let isHovered = hoveredAction == action
         let isAnyHovered = hoveredAction != nil
         let isTriggering = triggeringAction == action
-        
-        let scale: CGFloat = isTriggering ? 0.88 : (isHovered ? 1.28 : (isAnyHovered ? 0.92 : 1.0))
-        let opacity: Double = isHovered ? 1.0 : (isAnyHovered ? 0.50 : 1.0)
-        
+        let scale: CGFloat = isTriggering ? 0.9 : (isHovered ? 1.18 : (isAnyHovered ? 0.94 : 1))
+        let gold = LinearGradient(colors: [Color.gold300, Color.gold500], startPoint: .top, endPoint: .bottom)
+
         return Button {
             executeAction(action)
         } label: {
-            VStack(spacing: 4) {
+            VStack(spacing: 6) {
                 ZStack {
-                    // Outer aura glow on hover
                     if isHovered {
                         Circle()
-                            .fill(action.accentColor.opacity(0.55))
-                            .frame(width: 72, height: 72)
-                            .blur(radius: 10)
+                            .fill(Color.gold400.opacity(0.45))
+                            .frame(width: 74, height: 74)
+                            .blur(radius: 12)
                     }
-                    
-                    // Liquid Glass Circle
+
+                    if action.isPrimary {
+                        Circle()
+                            .fill(LinearGradient(colors: [Color.gold400, Color.gold500], startPoint: .topLeading, endPoint: .bottomTrailing))
+                            .frame(width: 58, height: 58)
+                    } else {
+                        // Glass is only the picture here; the Button takes the touch.
+                        Circle()
+                            .fill(Color.encoreBurgundy.opacity(0.35))
+                            .frame(width: 58, height: 58)
+                            .glassEffect(.regular.tint(Color.encoreBurgundy.opacity(0.45)), in: .circle)
+                    }
+
                     Circle()
-                        .fill(
-                            LinearGradient(
-                                colors: isHovered
-                                    ? [action.accentColor.opacity(0.40), Color.obsidian700.opacity(0.95)]
-                                    : [Color.obsidian700.opacity(0.88), Color.obsidian900.opacity(0.95)],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
-                        .frame(width: 56, height: 56)
-                        .overlay(
-                            Circle()
-                                .stroke(
-                                    LinearGradient(
-                                        colors: isHovered
-                                            ? [Color.white, action.accentColor, Color.gold400]
-                                            : [Color.gold400.opacity(0.50), Color.gold500.opacity(0.20)],
-                                        startPoint: .topLeading,
-                                        endPoint: .bottomTrailing
-                                    ),
-                                    lineWidth: isHovered ? 2.2 : 1.3
-                                )
-                        )
-                        .shadow(
-                            color: isHovered ? action.accentColor.opacity(0.80) : Color.black.opacity(0.50),
-                            radius: isHovered ? 16 : 6,
-                            x: 0,
-                            y: 3
-                        )
-                    
-                    // Icon
+                        .stroke(gold.opacity(isHovered ? 0.95 : 0.5), lineWidth: isHovered ? 1.8 : 1)
+                        .frame(width: 58, height: 58)
+
                     Image(systemName: action.iconName)
-                        .font(.system(size: 22, weight: .bold))
-                        .foregroundStyle(
-                            isHovered
-                                ? LinearGradient(colors: [.white, action.accentColor], startPoint: .top, endPoint: .bottom)
-                                : LinearGradient(colors: [action.accentColor, action.accentColor.opacity(0.90)], startPoint: .top, endPoint: .bottom)
-                        )
+                        .font(.system(size: action.isPrimary ? 24 : 21, weight: action.isPrimary ? .bold : .semibold))
+                        .foregroundStyle(action.isPrimary ? AnyShapeStyle(Color.obsidian900) : AnyShapeStyle(gold))
+                        .symbolEffect(.bounce, value: isHovered)
                 }
-                
-                // Mini Badge Label
+                .shadow(color: isHovered ? Color.gold400.opacity(0.6) : Color.black.opacity(0.45), radius: isHovered ? 14 : 6, y: 3)
+
                 Text(action.shortTitle)
-                    .font(.system(size: 11, weight: isHovered ? .black : .semibold, design: .rounded))
-                    .foregroundColor(isHovered ? .white : Color.white.opacity(0.85))
-                    .padding(.horizontal, 7)
-                    .padding(.vertical, 2.5)
-                    .background(
-                        Capsule()
-                            .fill(isHovered ? Color.obsidian800.opacity(0.95) : Color.obsidian900.opacity(0.80))
-                            .overlay(
-                                Capsule()
-                                    .stroke(isHovered ? action.accentColor.opacity(0.60) : Color.white.opacity(0.12), lineWidth: 0.9)
-                            )
-                    )
-                    .shadow(color: Color.black.opacity(0.4), radius: 3)
+                    .font(.system(.caption, design: .rounded).weight(isHovered ? .bold : .semibold))
+                    .foregroundColor(.white.opacity(isHovered ? 1 : 0.9))
+                    .shadow(color: .black.opacity(0.6), radius: 3)
             }
             .scaleEffect(scale)
-            .opacity(opacity)
-            .animation(.spring(response: 0.20, dampingFraction: 0.68), value: scale)
-            .animation(.easeInOut(duration: 0.18), value: opacity)
+            .opacity(isAnyHovered && !isHovered ? 0.55 : 1)
+            .animation(.spring(response: 0.2, dampingFraction: 0.68), value: scale)
         }
         .buttonStyle(.plain)
+        .accessibilityLabel(action.title)
     }
-    
-    // MARK: - 60/120 FPS Dance Pirouette, Sheen Glint & Shockwave Trigger
-    private func triggerDancePirouetteAndSplit(openOnFinish: Bool, onComplete: (() -> Void)? = nil) {
-        guard !isSpinning else { return }
-        isSpinning = true
-        
-        // Haptic feedback start
+
+    // MARK: Open and close
+    /// The bow: dip forward, rise with the light on, then the buttons step out.
+    private func open() {
+        guard !isAnimatingOpen else { return }
+        if reduceMotion {
+            isOpen = true
+            spotlight = 0.6
+            return
+        }
+        isAnimatingOpen = true
         HapticFeedback.light()
-        
-        // Reset sheen & shockwaves for launch
-        sheenProgress = -0.4
-        shockwaveProgress = 0.0
-        
-        // Phase 1 (0ms -> 130ms): Anticipation squash + start 3D spin + light glint begins
-        withAnimation(.spring(response: 0.15, dampingFraction: 0.58)) {
-            goldScale = 0.86
-            spinDegrees = 180.0  // Polovica otočky
-            sheenProgress = 0.50 // Odlesk prechádza stredom loga
-            shockwaveProgress = 0.40
+
+        withAnimation(.spring(response: 0.2, dampingFraction: 0.75)) {
+            goldScale = 0.92
+            bowDegrees = 24
         }
-        
-        // Phase 2 (130ms -> 320ms): Elastic spring overshoot + complete 360° spin + shockwaves burst
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.13) {
-            withAnimation(.spring(response: 0.28, dampingFraction: 0.60)) {
-                spinDegrees = 360.0  // Dokončenie celej 360° piruety
-                goldScale = 1.15     // Pružinový odraz pri otvorení satelitov
-                sheenProgress = 1.35 // Odlesk opúšťa logo
-                shockwaveProgress = 1.0 // Zlatá vlna vystrelí do satelitov
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.18) {
+            UIImpactFeedbackGenerator(style: .soft).impactOccurred()
+            withAnimation(.spring(response: 0.48, dampingFraction: 0.6)) {
+                goldScale = 1
+                bowDegrees = 0
+                spotlight = 1
             }
-            
-            // Phase 3 (300ms): Snap fusion burst + haptic punch + satellite eruption
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.16) {
-                let generator = UIImpactFeedbackGenerator(style: .rigid)
-                generator.impactOccurred()
-                
-                withAnimation(.easeOut(duration: 0.22)) {
-                    glowBurst = 0.90
-                }
-                
-                withAnimation(.spring(response: 0.28, dampingFraction: 0.68)) {
-                    goldScale = 1.0
-                    if openOnFinish {
-                        isOpen = true
-                    } else {
-                        isOpen = false
-                    }
-                }
-                
-                // Fade glow burst smoothly & reset rotation cleanly for next trigger
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.20) {
-                    withAnimation(.easeOut(duration: 0.25)) {
-                        glowBurst = 0.0
-                    }
-                    spinDegrees = 0.0
-                    sheenProgress = -0.5
-                    shockwaveProgress = 0.0
-                    isSpinning = false
-                    onComplete?()
-                }
+            withAnimation(.easeInOut(duration: 0.65)) {
+                sheenProgress = 1.35
+            }
+            isOpen = true
+
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.7) {
+                sheenProgress = -0.5
+                withAnimation(.easeOut(duration: 0.5)) { spotlight = 0.6 }
+                isAnimatingOpen = false
             }
         }
     }
-    
-    // MARK: - Drag Gesture Tracking & 3D Gyro Hit Testing
+
+    private func close() {
+        withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) {
+            isOpen = false
+        }
+        HapticFeedback.light()
+    }
+
+    // MARK: Drag
     private func handleDragChanged(_ value: DragGesture.Value) {
         let translation = value.translation
         let distance = hypot(translation.width, translation.height)
-        
-        // 1. Initial touch down: trigger dance pirouette & sheen glint!
+
         if !isDragging {
             isDragging = true
             if !isOpen {
-                triggerDancePirouetteAndSplit(openOnFinish: true)
+                open()
             } else {
-                withAnimation(.spring(response: 0.12, dampingFraction: 0.60)) {
-                    goldScale = 0.90
-                }
+                withAnimation(.spring(response: 0.12, dampingFraction: 0.6)) { goldScale = 0.92 }
             }
         }
-        
-        // 2. 3D Gyroscopic Lean & Magnetic Tether: The logo physically tilts towards finger
-        if isDragging {
-            let maxPull: CGFloat = 12.0
-            let pullX = max(-maxPull, min(maxPull, translation.width * 0.10))
-            let pullY = max(-maxPull, min(maxPull, translation.height * 0.10))
-            goldOffset = CGSize(width: pullX, height: pullY)
-            
-            // 3D pitch (tilt up/down) & yaw (tilt left/right)
-            let targetPitch = max(-16.0, min(16.0, Double(-translation.height * 0.13)))
-            let targetYaw = max(-18.0, min(18.0, Double(translation.width * 0.13)))
-            withAnimation(.spring(response: 0.16, dampingFraction: 0.70)) {
-                pitchDegrees = targetPitch
-                yawDegrees = targetYaw
-            }
+
+        // The logo leans a little toward the finger.
+        let maxPull: CGFloat = 10
+        goldOffset = CGSize(
+            width: max(-maxPull, min(maxPull, translation.width * 0.08)),
+            height: max(-maxPull, min(maxPull, translation.height * 0.08))
+        )
+        withAnimation(.spring(response: 0.16, dampingFraction: 0.7)) {
+            pitchDegrees = max(-10, min(10, Double(-translation.height * 0.1)))
+            yawDegrees = max(-12, min(12, Double(translation.width * 0.1)))
         }
-        
-        // 3. Swipe-to-select: Detect direction and quadrant as user swipes towards buttons
+
         if isOpen && distance > 32 {
             let target = resolveTargetAction(translation: translation, distance: distance)
             if hoveredAction != target {
                 hoveredAction = target
-                if target != nil {
-                    HapticFeedback.light()
-                }
+                if target != nil { HapticFeedback.light() }
             }
         } else if distance <= 32 {
             hoveredAction = nil
         }
     }
-    
-    // MARK: - Directional Quadrant & Proximity Resolver
+
     private func resolveTargetAction(translation: CGSize, distance: CGFloat) -> RadialHubAction? {
+        guard distance >= 34 && distance <= 220 else { return nil }
         let dx = translation.width
         let dy = translation.height
-        
-        // Quadrant mapping:
-        // Top-Left: -180° to -90° -> newRoutine
-        // Top-Right: -90° to 0°   -> mirror
-        // Bottom-Left: 90° to 180° -> metronome
-        // Bottom-Right: 0° to 90°  -> speedTrainer
-        if distance >= 34 && distance <= 220 {
-            if dx < 0 && dy < 0 {
-                return .newRoutine
-            } else if dx >= 0 && dy < 0 {
-                return .mirror
-            } else if dx < 0 && dy >= 0 {
-                return .metronome
-            } else {
-                return .speedTrainer
-            }
-        }
-        return nil
+        if dx < 0 && dy < 0 { return .newRoutine }
+        if dx >= 0 && dy < 0 { return .mirror }
+        if dx < 0 { return .metronome }
+        return .speedTrainer
     }
-    
+
     private func handleDragEnded(_ value: DragGesture.Value) {
-        let translation = value.translation
-        let distance = hypot(translation.width, translation.height)
+        let distance = hypot(value.translation.width, value.translation.height)
         isDragging = false
-        
-        withAnimation(.spring(response: 0.22, dampingFraction: 0.70)) {
-            pitchDegrees = 0.0
-            yawDegrees = 0.0
+
+        withAnimation(.spring(response: 0.22, dampingFraction: 0.7)) {
+            pitchDegrees = 0
+            yawDegrees = 0
+            goldOffset = .zero
         }
-        
-        // A. User swiped and released directly onto a button ("ked pustim tak sa akokeby stlacia")
+
+        // Swiped onto a button and let go: that button is pressed.
         if let selected = hoveredAction {
             executeAction(selected)
             return
         }
-        
-        // B. Quick tap on the center logo without swiping (< 18pt)
+
+        // A tap on the logo: closes an open hub (opening already happened on touch down).
         if distance < 18 {
-            if isOpen {
-                // Trigger quick closure twist
-                withAnimation(.spring(response: 0.24, dampingFraction: 0.75)) {
-                    isOpen = false
-                    goldScale = 1.0
-                    goldOffset = .zero
-                }
-                HapticFeedback.light()
-            } else {
-                withAnimation(.spring(response: 0.28, dampingFraction: 0.70)) {
-                    goldScale = 1.0
-                    goldOffset = .zero
-                }
-            }
+            if isOpen && !isAnimatingOpen { close() }
+            withAnimation(.spring(response: 0.28, dampingFraction: 0.7)) { goldScale = 1 }
             return
         }
-        
-        // C. Swiped into empty void or cancelled -> smoothly retract
-        withAnimation(.spring(response: 0.28, dampingFraction: 0.75)) {
-            isOpen = false
-            goldScale = 1.0
-            goldOffset = .zero
-            hoveredAction = nil
-        }
-        HapticFeedback.light()
+
+        // Swiped into empty space: put everything back.
+        close()
     }
-    
-    // MARK: - Execute Click Action ("a tým na nich kliknúť")
+
     private func executeAction(_ action: RadialHubAction) {
         triggeringAction = action
         HapticFeedback.notify(.success)
-        
-        // 60FPS Click pop animation on button & gold snap
+
         withAnimation(.spring(response: 0.12, dampingFraction: 0.55)) {
             goldScale = 0.94
-            goldOffset = .zero
-            glowBurst = 1.0
+            glowBurst = 1
         }
-        
+
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.14) {
-            withAnimation(.spring(response: 0.25, dampingFraction: 0.80)) {
+            withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
                 isOpen = false
-                goldScale = 1.0
-                goldOffset = .zero
-                pitchDegrees = 0.0
-                yawDegrees = 0.0
-                glowBurst = 0.0
-                hoveredAction = nil
-                triggeringAction = nil
+                goldScale = 1
+                glowBurst = 0
             }
             onSelectAction(action)
         }
+    }
+}
+
+// MARK: - Preview
+#Preview("Rýchle akcie") {
+    @Previewable @State var isOpen = false
+    ZStack {
+        EllegancePageBackground()
+        EncoreRadialHubView(isOpen: $isOpen, logoSize: 92, onSelectAction: { _ in })
     }
 }

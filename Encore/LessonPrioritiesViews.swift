@@ -99,7 +99,7 @@ struct LessonPrioritiesSection: View {
     private func setCard(_ set: LessonPrioritySet) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             HStack {
-                Text(set.danceName.uppercased())
+                Text(DanceNames.display(set.danceName).uppercased())
                     .font(.system(.caption, design: .rounded).weight(.black))
                     .tracking(1.2)
                     .foregroundColor(Color.gold400)
@@ -116,7 +116,7 @@ struct LessonPrioritiesSection: View {
                         .frame(width: 44, height: 32)
                 }
                 .buttonStyle(.pressable)
-                .accessibilityLabel("Upraviť Top 3 pre \(set.danceName)")
+                .accessibilityLabel("Upraviť Top 3 pre \(DanceNames.display(set.danceName))")
             }
 
             ForEach(set.items) { item in

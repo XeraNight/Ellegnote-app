@@ -39,7 +39,7 @@ struct DeferredInvitePasteSheet: View {
                     }
                     
                     Text("Prišiel si cez pozvánku?")
-                        .font(.system(size: 22, weight: .black, design: .serif))
+                        .font(.system(size: 22, weight: .black, design: .rounded))
                         .foregroundColor(.white)
                     
                     Text("V schránke bola nájdená linka. Ťukni na Vložiť a Encore ťa okamžite prepojí s tvojím tanečným partnerom.")

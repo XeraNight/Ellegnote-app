@@ -34,7 +34,7 @@ final class UserProfileStore: ObservableObject {
         if !cleanKsis.isEmpty {
             return "KSIS ID: \(cleanKsis)"
         }
-        return "DANCER ID: \(dancerCode)"
+        return "ID TANEČNÍKA: \(dancerCode)"
     }
     
     private var cancellables = Set<AnyCancellable>()

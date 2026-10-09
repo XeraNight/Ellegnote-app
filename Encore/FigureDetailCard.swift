@@ -1102,127 +1102,124 @@ struct VideoRecorderView: UIViewControllerRepresentable {
         }
     }
 }
+/// Notes captured on Home that are not in any figure yet; one tap copies the text or uses the video.
+/// Deleting notes belongs to the Notes screen, not here.
 struct InstantNotesInboxSection: View {
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Query(filter: #Predicate<InstantNote> { $0.importedAt == nil },
            sort: \InstantNote.createdAt, order: .reverse) private var instantNotes: [InstantNote]
-    
+
     let onImportText: (String) -> Void
     let onImportVideo: (String) -> Void
-    
+
     @State private var isExpanded = false
-    
+    @State private var importCount = 0
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Button(action: { withAnimation { isExpanded.toggle() } }) {
-                HStack {
-                    Label {
-                        Text("Schránka instantných poznámok (\(instantNotes.count))")
-                            .font(.system(size: 14, weight: .bold, design: .serif))
-                    } icon: {
-                        Image(systemName: "tray.and.arrow.down.fill")
-                            .foregroundColor(.themeAccent)
-                    }
-                    .foregroundColor(.themeDark)
-                    
+        VStack(alignment: .leading, spacing: 10) {
+            Button {
+                withAnimation(reduceMotion ? nil : .spring(response: 0.35, dampingFraction: 0.85)) { isExpanded.toggle() }
+            } label: {
+                HStack(spacing: 10) {
+                    Image(systemName: "tray.and.arrow.down.fill")
+                        .foregroundColor(Color.gold400)
+                    Text("Vložiť z Poznámok")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundColor(.white)
+                    Text("\(instantNotes.count)")
+                        .font(.system(.caption2, design: .rounded).weight(.bold))
+                        .foregroundColor(Color.obsidian900)
+                        .padding(.horizontal, 7)
+                        .padding(.vertical, 2)
+                        .background(Color.gold400, in: Capsule())
+                        .contentTransition(.numericText())
                     Spacer()
-                    
-                    Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
-                        .font(.system(size: 12, weight: .bold))
-                        .foregroundColor(.themeDark)
+                    Image(systemName: "chevron.down")
+                        .font(.caption.weight(.bold))
+                        .foregroundColor(.white.opacity(0.6))
+                        .rotationEffect(.degrees(isExpanded ? 180 : 0))
                 }
-                .padding()
-                .neubrutalistCard(cornerRadius: 12, shadowOffset: 3)
+                .padding(14)
+                .homeCard(cornerRadius: 16)
             }
-            .buttonStyle(.plain)
-            
+            .buttonStyle(.pressable)
+            .accessibilityHint(isExpanded ? "Skryť poznámky" : "Ukázať poznámky z Domova")
+
             if isExpanded {
                 if instantNotes.isEmpty {
-                    VStack(spacing: 8) {
-                        Text("Schránka je prázdna")
-                            .font(.system(size: 13, weight: .bold, design: .serif))
-                            .foregroundColor(.themeDark)
-                    }
-                    .padding(.vertical, 20)
-                    .frame(maxWidth: .infinity)
-                    .neubrutalistCard(cornerRadius: 12, shadowOffset: 0)
+                    Text("Všetky poznámky z Domova sú už pri figúrach.")
+                        .font(.footnote)
+                        .foregroundColor(.white.opacity(0.65))
+                        .padding(.horizontal, 4)
+                        .transition(.opacity)
                 } else {
-                    VStack(spacing: 12) {
-                        ForEach(instantNotes) { note in
-                            VStack(alignment: .leading, spacing: 10) {
-                                HStack {
-                                    Text(note.createdAt.formatted(date: .abbreviated, time: .shortened))
-                                        .font(.system(size: 11, weight: .semibold))
-                                        .foregroundColor(.themeDark.opacity(0.5))
-                                    
-                                    Spacer()
-                                    
-                                    Button(action: {
-                                        modelContext.delete(note)
-                                        try? modelContext.save()
-                                    }) {
-                                        Image(systemName: "trash")
-                                            .font(.system(size: 12))
-                                            .foregroundColor(.red)
-                                    }
-                                }
-                                
-                                if !note.text.isEmpty {
-                                    Text(note.text)
-                                        .font(.system(size: 13))
-                                        .foregroundColor(.themeDark)
-                                        .padding(8)
-                                        .background(Color.themeBg)
-                                        .cornerRadius(8)
-                                }
-                                
-                                if note.videoPath != nil {
-                                    HStack {
-                                        Image(systemName: "video.fill")
-                                            .foregroundColor(.themeAccent)
-                                            .font(.system(size: 12))
-                                        Text("Obsahuje tréningové video")
-                                            .font(.system(size: 11, weight: .medium))
-                                            .foregroundColor(.themeDark.opacity(0.7))
-                                    }
-                                    .padding(.vertical, 2)
-                                }
-                                
-                                HStack(spacing: 8) {
-                                    if !note.text.isEmpty {
-                                        Button(action: {
-                                            onImportText(note.text)
-                                            // Keep the note (undo-able); it just leaves the inbox.
-                                            note.importedAt = Date()
-                                            try? modelContext.save()
-                                        }) {
-                                            Label("Vložiť text", systemImage: "text.quote")
-                                                .font(.system(size: 11, weight: .bold))
-                                                .foregroundColor(.themeAccent)
-                                        }
-                                        .buttonStyle(.neubrutalistSecondary(cornerRadius: 8))
-                                    }
-                                    
-                                    if let videoPath = note.videoPath {
-                                        Button(action: {
-                                            onImportVideo(videoPath)
-                                            note.importedAt = Date()
-                                            try? modelContext.save()
-                                        }) {
-                                            Label("Použiť video", systemImage: "video.badge.plus")
-                                                .font(.system(size: 11, weight: .bold))
-                                                .foregroundColor(.themeAccent)
-                                        }
-                                        .buttonStyle(.neubrutalistSecondary(cornerRadius: 8))
-                                    }
-                                }
-                            }
-                            .padding()
-                            .neubrutalistCard(cornerRadius: 12, shadowOffset: 3)
-                        }
+                    ForEach(instantNotes) { note in
+                        noteCard(note)
+                            .transition(.opacity.combined(with: .scale(scale: 0.97)))
                     }
                 }
             }
         }
+        .sensoryFeedback(.success, trigger: importCount)
+    }
+
+    private func noteCard(_ note: InstantNote) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(note.createdAt, format: .dateTime.day().month(.abbreviated).hour().minute())
+                .font(.caption)
+                .foregroundColor(.white.opacity(0.6))
+
+            if !note.text.isEmpty {
+                Text(note.text)
+                    .font(.callout)
+                    .foregroundColor(.white)
+                    .lineLimit(4)
+            }
+            if note.videoPath != nil {
+                Label("Video", systemImage: "video.fill")
+                    .font(.caption.weight(.semibold))
+                    .foregroundColor(Color.gold400)
+            }
+
+            HStack(spacing: 8) {
+                if !note.text.isEmpty {
+                    chip("Vložiť text", icon: "text.quote") {
+                        onImportText(note.text)
+                        markImported(note)
+                    }
+                }
+                if let videoPath = note.videoPath {
+                    chip("Použiť video", icon: "video.badge.plus") {
+                        onImportVideo(videoPath)
+                        markImported(note)
+                    }
+                }
+            }
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .homeCard(cornerRadius: 16)
+    }
+
+    private func chip(_ title: String, icon: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Label(title, systemImage: icon)
+                .font(.footnote.weight(.bold))
+                .foregroundColor(Color.obsidian900)
+                .padding(.horizontal, 12)
+                .frame(minHeight: 34)
+                .background(Color.gold400, in: Capsule())
+        }
+        .buttonStyle(.pressable)
+    }
+
+    /// The note stays (it can be found under Poznámky); it only leaves this list.
+    private func markImported(_ note: InstantNote) {
+        withAnimation(reduceMotion ? nil : .spring(response: 0.35, dampingFraction: 0.85)) {
+            note.importedAt = Date()
+        }
+        try? modelContext.save()
+        importCount += 1
     }
 }

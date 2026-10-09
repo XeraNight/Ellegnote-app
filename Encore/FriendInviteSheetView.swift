@@ -36,7 +36,7 @@ struct FriendInviteSheetView: View {
                             .foregroundColor(Color.gold400)
                         
                         Text("Pozvánka do priateľov")
-                            .font(.system(size: 24, weight: .black, design: .serif))
+                            .font(.system(size: 24, weight: .black, design: .rounded))
                             .foregroundColor(.white)
                     }
                     
@@ -52,7 +52,7 @@ struct FriendInviteSheetView: View {
                     
                     VStack(spacing: 6) {
                         Text(invite.name)
-                            .font(.system(size: 20, weight: .bold, design: .serif))
+                            .font(.system(size: 20, weight: .bold, design: .rounded))
                             .foregroundColor(.white)
                         
                         if !invite.club.isEmpty {
@@ -138,7 +138,7 @@ struct FriendInviteSheetView: View {
                         
                         VStack(spacing: 8) {
                             Text("Priateľstvo pridané!")
-                                .font(.system(size: 24, weight: .black, design: .serif))
+                                .font(.system(size: 24, weight: .black, design: .rounded))
                                 .foregroundColor(.white)
                             
                             Text("Teraz môžete s tanečníkom \(invite.name) navzájom zdieľať zostavy a tréningové postrehy.")

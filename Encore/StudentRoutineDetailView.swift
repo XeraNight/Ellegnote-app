@@ -370,7 +370,7 @@ struct StudentRoutineDetailView: View {
                 }
                 .padding(20)
             }
-            .navigationTitle("Upraviť Poznámku")
+            .navigationTitle("Upraviť poznámku")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {

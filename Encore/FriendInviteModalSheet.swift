@@ -48,14 +48,14 @@ struct FriendInviteModalSheet: View {
                                 .shadow(color: Color.black.opacity(0.5), radius: 10, y: 5)
                             
                             Text(String(invite.name.prefix(1)).uppercased())
-                                .font(.system(size: 32, weight: .black, design: .serif))
+                                .font(.system(size: 32, weight: .black, design: .rounded))
                                 .foregroundColor(Color(red: 0.96, green: 0.85, blue: 0.50))
                         }
                         
                         // Inviter Details
                         VStack(spacing: 4) {
                             Text(invite.name)
-                                .font(.system(size: 22, weight: .bold, design: .serif))
+                                .font(.system(size: 22, weight: .bold, design: .rounded))
                                 .foregroundColor(.white)
                             
                             Text(invite.club.isEmpty ? "Individuálny tanečník" : invite.club)

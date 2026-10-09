@@ -687,7 +687,7 @@ public struct DownloadingLoopIconView: View {
                         .foregroundColor(LuxuryTheme.gold400)
                     
                     Text("Encore Studio Design")
-                        .font(.system(size: 26, weight: .bold, design: .serif))
+                        .font(.system(size: 26, weight: .bold, design: .rounded))
                         .foregroundColor(.white)
                 }
                 .padding(.top, 24)

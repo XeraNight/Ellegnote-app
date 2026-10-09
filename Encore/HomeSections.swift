@@ -170,10 +170,10 @@ struct DanceMenuCapsule: View {
     var body: some View {
         Menu {
             Section("Štandard") {
-                ForEach(dances.filter { $0.category == "Standard" }) { danceButton($0) }
+                ForEach(ordered.filter { $0.category == "Standard" }) { danceButton($0) }
             }
             Section("Latina") {
-                ForEach(dances.filter { $0.category != "Standard" }) { danceButton($0) }
+                ForEach(ordered.filter { $0.category != "Standard" }) { danceButton($0) }
             }
             if selection != nil {
                 Divider()
@@ -190,7 +190,7 @@ struct DanceMenuCapsule: View {
                 } else {
                     Image(systemName: "music.note")
                 }
-                Text(selection ?? emptyTitle)
+                Text(selection.map(DanceNames.display) ?? emptyTitle)
                 Image(systemName: "chevron.down")
                     .font(.caption2.weight(.bold))
             }
@@ -204,17 +204,20 @@ struct DanceMenuCapsule: View {
         }
         .sensoryFeedback(.selection, trigger: selection)
         .accessibilityLabel("Tanec")
-        .accessibilityValue(selection ?? "nevybraný")
+        .accessibilityValue(selection.map(DanceNames.display) ?? "nevybraný")
     }
+
+    /// In competition order (Waltz, Tango, …), not alphabetical.
+    private var ordered: [Dance] { dances.sorted { DanceNames.rank($0.name) < DanceNames.rank($1.name) } }
 
     private func danceButton(_ dance: Dance) -> some View {
         Button {
             selection = selection == dance.name ? nil : dance.name
         } label: {
             if selection == dance.name {
-                Label(dance.name, systemImage: "checkmark")
+                Label(DanceNames.display(dance.name), systemImage: "checkmark")
             } else {
-                Text(dance.name)
+                Text(DanceNames.display(dance.name))
             }
         }
     }
@@ -296,7 +299,7 @@ struct RoutineCard: View {
                     .font(.system(.subheadline, design: .rounded).weight(.bold))
                     .foregroundColor(.white)
                     .lineLimit(1)
-                Text("\(routine.danceName) · \(slovakCount(routine.canvasNodes.count, one: "figúra", few: "figúry", many: "figúr"))")
+                Text("\(DanceNames.display(routine.danceName)) · \(slovakCount(routine.canvasNodes.count, one: "figúra", few: "figúry", many: "figúr"))")
                     .font(.caption.weight(.medium))
                     .foregroundColor(Color.white.opacity(0.7))
             }

@@ -176,7 +176,7 @@ struct RoutinePDFPreviewSheet: View {
                         .tint(.themeAccent)
                 }
             }
-            .navigationTitle("PDF Choreografia")
+            .navigationTitle("Zostava v PDF")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {

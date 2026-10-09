@@ -1,871 +1,327 @@
 import SwiftUI
 import SwiftData
-import PhotosUI
 import UIKit
 
+// MARK: - Library from Home
+/// The command palette on Home opens the same figure library as Profile, as a sheet.
 struct GlobalLibraryView: View {
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            ProfileFiguresListView()
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button("Zavrieť") { dismiss() }
+                            .foregroundColor(Color.gold400)
+                    }
+                }
+        }
+    }
+}
+
+// MARK: - Figure sync
+/// One place that sends a library figure to the cloud and pulls the library back.
+/// Videos and photos stay on the phone (Fotky); the cloud only keeps the text and the file names
+/// (docs/VIDEO_STORAGE_AND_SHARING.md).
+enum FigureLibrarySync {
+    static func push(_ figure: FigureLibraryItem) {
+        let id = figure.id
+        let name = figure.name
+        let dance = figure.danceName
+        let rhythm = figure.rhythm
+        let notes = figure.techniqueNotes
+        let imagePath = figure.imagePath
+        let videoPath = figure.videoPath
+        let isCustom = figure.isCustom
+        Task.detached(priority: .background) {
+            await SupabaseSyncManager.shared.syncFigure(
+                id, name: name, danceName: dance, rhythm: rhythm, notes: notes,
+                imagePath: imagePath, videoPath: videoPath, isCustom: isCustom
+            )
+        }
+    }
+
+    static func delete(_ id: UUID) {
+        Task.detached(priority: .background) {
+            await SupabaseSyncManager.shared.deleteFigure(id)
+        }
+    }
+
+    /// Cloud wins for figures it knows; figures only on this phone stay.
+    static func pull(into context: ModelContext) async {
+        guard let cloudFigures = await SupabaseSyncManager.shared.fetchFigures() else { return }
+        let localFigures = (try? context.fetch(FetchDescriptor<FigureLibraryItem>())) ?? []
+        let localMap = Dictionary(localFigures.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+        for cloud in cloudFigures {
+            if let existing = localMap[cloud.id] {
+                existing.name = cloud.name
+                existing.danceName = cloud.dance_name
+                existing.rhythm = cloud.rhythm
+                existing.techniqueNotes = cloud.technique_notes
+                existing.imagePath = cloud.image_path
+                existing.videoPath = cloud.video_path
+                existing.isCustom = cloud.is_custom
+            } else {
+                context.insert(FigureLibraryItem(
+                    id: cloud.id,
+                    name: cloud.name,
+                    danceName: cloud.dance_name,
+                    rhythm: cloud.rhythm,
+                    techniqueNotes: cloud.technique_notes,
+                    imagePath: cloud.image_path,
+                    videoPath: cloud.video_path,
+                    isCustom: cloud.is_custom
+                ))
+            }
+        }
+        try? context.save()
+    }
+}
+
+// MARK: - New figure
+/// The one form for an own figure. From a dance's page the dance is already chosen.
+struct NewFigureSheet: View {
+    var fixedDance: String? = nil
+    var onSaved: ((FigureLibraryItem) -> Void)? = nil
+
+    @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
-    @Query(sort: \FigureLibraryItem.name) private var allFigures: [FigureLibraryItem]
-    
-    @State private var searchText = ""
-    @State private var selectedDanceFilter = "Všetky"
-    
-    @State private var showAddFigure = false
-    @State private var newFigureName = ""
-    @State private var newFigureDance = "Waltz"
-    @State private var newFigureRhythm = ""
-    @State private var newFigureNotes = ""
-    
-    // Selection state for editing a figure
-    @State private var selectedFigureForEdit: FigureLibraryItem?
-    
-    let danceNames = ["Waltz", "Tango", "Viennese Waltz", "Slowfoxtrot", "Quickstep", "Samba", "Cha-Cha-Cha", "Rumba", "Paso Doble", "Jive"]
-    
-    var filteredFigures: [FigureLibraryItem] {
-        let isAllDances = selectedDanceFilter == "Všetky"
-        let trimmedSearch = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
-        
-        // Fast path: no filter & no search
-        if isAllDances && trimmedSearch.isEmpty {
-            return allFigures
-        }
-        
-        // Fast path: dance filter only (no search query)
-        if trimmedSearch.isEmpty {
-            return allFigures.filter { $0.danceName == selectedDanceFilter }
-        }
-        
-        let normalizedSearch = trimmedSearch.lowercased()
-        return allFigures.filter { fig in
-            let matchesSearch = fig.name.localizedCaseInsensitiveContains(normalizedSearch)
-            let matchesDance = isAllDances || fig.danceName == selectedDanceFilter
-            return matchesSearch && matchesDance
-        }
-    }
-    
-    private func categoryColor(for danceName: String) -> Color {
-        let name = danceName.lowercased()
-        let standardDances = ["waltz", "tango", "viennese waltz", "slowfoxtrot", "quickstep"]
-        return standardDances.contains(name) ? Color.standardBlue.opacity(0.85) : Color.latinPink.opacity(0.85)
-    }
+    @State private var name = ""
+    @State private var dance: String?
+    @State private var rhythm = ""
+    @State private var notes = ""
+    @FocusState private var focus: Field?
+
+    private enum Field { case name, rhythm, notes }
+
+    private var trimmedName: String { name.trimmingCharacters(in: .whitespacesAndNewlines) }
+    private var chosenDance: String? { fixedDance ?? dance }
+    private var canSave: Bool { !trimmedName.isEmpty && chosenDance != nil }
 
     var body: some View {
         NavigationStack {
             ZStack {
                 EllegancePageBackground()
-                
-                GeometryReader { geo in
-                    let screenWidth = geo.size.width
-                    let autoSidePadding = max(screenWidth * 0.08, 22)
-                    
-                    VStack(spacing: 0) {
-                        
-                        // Search bar
-                        HStack {
-                            Image(systemName: "magnifyingglass")
-                                .foregroundColor(Color.gold400)
-                            TextField("Hľadať figúru...", text: $searchText)
-                                .foregroundColor(.white)
-                        }
-                        .padding()
-                        .neubrutalistCard(cornerRadius: 14, shadowOffset: 2)
-                        .padding(.horizontal, autoSidePadding)
-                        .padding(.top, 10)
-                        
-                        // Horizontal scroll filter
-                        ScrollView(.horizontal, showsIndicators: false) {
-                            HStack(spacing: 8) {
-                                FilterChip(title: "Všetky", isSelected: selectedDanceFilter == "Všetky") {
-                                    selectedDanceFilter = "Všetky"
-                                }
-                                
-                                ForEach(danceNames, id: \.self) { dance in
-                                    FilterChip(title: dance, isSelected: selectedDanceFilter == dance) {
-                                        selectedDanceFilter = dance
-                                    }
-                                }
-                            }
-                            .padding(.horizontal, autoSidePadding)
-                            .padding(.vertical, 14)
-                        }
-                        
-                        // Figures list
-                        Group {
-                            if filteredFigures.isEmpty {
-                                Spacer()
-                                VStack(spacing: 12) {
-                                    Image(systemName: "book.closed")
-                                        .font(.system(size: 32))
-                                        .foregroundColor(Color.white.opacity(0.3))
-                                    Text("Nenašli sa žiadne figúry")
-                                        .font(.system(size: 14, weight: .bold))
-                                        .foregroundColor(Color.white.opacity(0.5))
-                                }
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 40)
-                                .neubrutalistCard(cornerRadius: 16, shadowOffset: 0)
-                                .padding(.horizontal, autoSidePadding)
-                                Spacer()
-                            } else {
-                                ScrollView {
-                                    LazyVStack(spacing: 12) {
-                                        ForEach(filteredFigures) { fig in
-                                            Button(action: { selectedFigureForEdit = fig }) {
-                                                VStack(alignment: .leading, spacing: 8) {
-                                                    HStack {
-                                                        Text(fig.name)
-                                                            .font(.system(size: 16, weight: .bold))
-                                                            .foregroundColor(.white)
-                                                        Spacer()
-                                                        Text(fig.danceName)
-                                                            .font(.system(size: 11, weight: .bold))
-                                                            .foregroundColor(.white)
-                                                            .padding(.horizontal, 8)
-                                                            .padding(.vertical, 3)
-                                                            .background(categoryColor(for: fig.danceName))
-                                                            .cornerRadius(6)
-                                                    }
-                                                    
-                                                    HStack {
-                                                        if !fig.rhythm.isEmpty {
-                                                            Text("Rytmus: \(fig.rhythm)")
-                                                                .font(.system(size: 12, weight: .semibold, design: .monospaced))
-                                                                .foregroundColor(Color.gold400)
-                                                        }
-                                                        
-                                                        Spacer()
-                                                        
-                                                        HStack(spacing: 8) {
-                                                            if fig.imagePath != nil {
-                                                                Image(systemName: "photo")
-                                                                    .font(.system(size: 11))
-                                                                    .foregroundColor(Color.gold400)
-                                                            }
-                                                            if fig.videoPath != nil {
-                                                                Image(systemName: "video.fill")
-                                                                    .font(.system(size: 11))
-                                                                    .foregroundColor(Color.themeAccent)
-                                                            }
-                                                        }
-                                                    }
-                                                    
-                                                    if !fig.techniqueNotes.isEmpty {
-                                                        Text(fig.techniqueNotes)
-                                                            .font(.system(size: 13))
-                                                            .foregroundColor(Color.white.opacity(0.6))
-                                                            .lineLimit(2)
-                                                    }
-                                                }
-                                                .padding(16)
-                                                .luxurySmokedCard(cornerRadius: 16, accentColor: Color.gold400)
-                                            }
-                                            .buttonStyle(.plain)
-                                        }
-                                    }
-                                    .padding(.horizontal, autoSidePadding)
-                                    .padding(.bottom, 120)
-                                }
-                            }
-                        }
-                        .refreshable {
-                            let generator = UIImpactFeedbackGenerator(style: .medium)
-                            generator.prepare()
-                            generator.impactOccurred()
-                            if let cloudFigures = await SupabaseSyncManager.shared.fetchFigures() {
-                                await MainActor.run {
-                                    let descriptor = FetchDescriptor<FigureLibraryItem>()
-                                    let localFigures = (try? modelContext.fetch(descriptor)) ?? []
-                                    let localMap = Dictionary(uniqueKeysWithValues: localFigures.map { ($0.id, $0) })
-                                    for cf in cloudFigures {
-                                        if let existing = localMap[cf.id] {
-                                            existing.name = cf.name
-                                            existing.danceName = cf.dance_name
-                                            existing.rhythm = cf.rhythm
-                                            existing.techniqueNotes = cf.technique_notes
-                                            existing.imagePath = cf.image_path
-                                            existing.videoPath = cf.video_path
-                                            existing.isCustom = cf.is_custom
-                                        } else {
-                                            let newFigure = FigureLibraryItem(
-                                                id: cf.id,
-                                                name: cf.name,
-                                                danceName: cf.dance_name,
-                                                rhythm: cf.rhythm,
-                                                techniqueNotes: cf.technique_notes,
-                                                imagePath: cf.image_path,
-                                                videoPath: cf.video_path,
-                                                isCustom: cf.is_custom
-                                            )
-                                            modelContext.insert(newFigure)
-                                        }
-                                    }
-                                    try? modelContext.save()
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            .navigationTitle("Knižnica Figúr")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .primaryAction) {
-                    Button(action: { showAddFigure = true }) {
-                        Image(systemName: "plus")
-                            .foregroundColor(Color.gold400)
-                            .font(.system(size: 14, weight: .bold))
-                    }
-                    .buttonStyle(.plain)
-                    .frame(width: 36, height: 36)
-                    .background(Color.obsidian800)
-                    .cornerRadius(10)
-                    .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.white.opacity(0.1), lineWidth: 1))
-                }
-            }
-            .sheet(isPresented: $showAddFigure) {
-                NavigationStack {
-                    ZStack {
-                        EllegancePageBackground()
-                        
-                        ScrollView {
-                            VStack(spacing: 20) {
-                                VStack(alignment: .leading, spacing: 14) {
-                                    VStack(alignment: .leading, spacing: 6) {
-                                        Text("Názov figúry")
-                                            .font(.system(size: 13, weight: .bold))
-                                            .foregroundColor(Color.textSecondary)
-                                        TextField("napr. Spin Turn", text: $newFigureName)
-                                            .padding()
-                                            .background(Color.obsidian800)
-                                            .cornerRadius(10)
-                                            .foregroundColor(.white)
-                                            .overlay(
-                                                RoundedRectangle(cornerRadius: 10)
-                                                    .stroke(Color.gold400.opacity(0.25), lineWidth: 1)
-                                            )
-                                    }
-                                    
-                                    VStack(alignment: .leading, spacing: 6) {
-                                        Text("Tanec")
-                                            .font(.system(size: 13, weight: .bold))
-                                            .foregroundColor(Color.textSecondary)
-                                        
-                                        Picker("Priradiť k tancu", selection: $newFigureDance) {
-                                            ForEach(danceNames, id: \.self) { dance in
-                                                Text(dance).tag(dance)
-                                            }
-                                        }
-                                        .pickerStyle(.menu)
-                                        .padding()
-                                        .frame(maxWidth: .infinity, alignment: .leading)
-                                        .background(Color.obsidian800)
-                                        .cornerRadius(10)
-                                        .overlay(
-                                            RoundedRectangle(cornerRadius: 10)
-                                                .stroke(Color.gold400.opacity(0.25), lineWidth: 1)
-                                        )
-                                    }
-                                    
-                                    VStack(alignment: .leading, spacing: 6) {
-                                        Text("Rytmizácia")
-                                            .font(.system(size: 13, weight: .bold))
-                                            .foregroundColor(Color.textSecondary)
-                                        TextField("napr. 1, 2, 3", text: $newFigureRhythm)
-                                            .padding()
-                                            .background(Color.obsidian800)
-                                            .cornerRadius(10)
-                                            .foregroundColor(.white)
-                                            .overlay(
-                                                RoundedRectangle(cornerRadius: 10)
-                                                    .stroke(Color.gold400.opacity(0.25), lineWidth: 1)
-                                            )
-                                    }
-                                    
-                                    VStack(alignment: .leading, spacing: 6) {
-                                        Text("Technika / Popis")
-                                            .font(.system(size: 13, weight: .bold))
-                                            .foregroundColor(Color.textSecondary)
-                                        TextEditor(text: $newFigureNotes)
-                                            .scrollContentBackground(.hidden)
-                                            .frame(height: 100)
-                                            .padding(6)
-                                            .background(Color.obsidian800)
-                                            .foregroundColor(.white)
-                                            .cornerRadius(10)
-                                            .overlay(
-                                                RoundedRectangle(cornerRadius: 10)
-                                                    .stroke(Color.gold400.opacity(0.25), lineWidth: 1)
-                                            )
-                                    }
-                                }
-                                .padding(.horizontal, 20)
-                                
-                                Spacer()
-                                
-                                Button(action: saveFigure) {
-                                    Text("Uložiť do knižnice")
-                                        .font(.system(size: 15, weight: .bold))
-                                        .foregroundColor(newFigureName.isEmpty ? Color.white.opacity(0.3) : Color.obsidian950)
-                                        .frame(maxWidth: .infinity)
-                                        .padding(.vertical, 14)
-                                        .background(
-                                            newFigureName.isEmpty
-                                            ? LinearGradient(colors: [Color.white.opacity(0.08), Color.white.opacity(0.08)], startPoint: .leading, endPoint: .trailing)
-                                            : Color.goldLinearGradient
-                                        )
-                                        .cornerRadius(12)
-                                        .shadow(color: newFigureName.isEmpty ? Color.clear : Color.gold500.opacity(0.35), radius: 8, y: 3)
-                                }
-                                .buttonStyle(.plain)
-                                .disabled(newFigureName.isEmpty)
-                                .padding(.horizontal, 20)
-                                .padding(.bottom, 20)
-                            }
-                            .padding(.top, 20)
-                        }
-                    }
-                    .navigationTitle("Pridať novú figúru")
-                    .navigationBarTitleDisplayMode(.inline)
-                    .toolbar {
-                        ToolbarItem(placement: .cancellationAction) {
-                            Button("Zrušiť") { showAddFigure = false }
-                                .foregroundColor(Color.gold400)
-                        }
-                        
-                        ToolbarItemGroup(placement: .keyboard) {
-                            Spacer()
-                            Button("Hotovo") {
-                                UIApplication.shared.endEditing()
-                            }
-                            .foregroundColor(Color.gold400)
-                        }
-                    }
-                }
-            }
-            .sheet(item: $selectedFigureForEdit) { fig in
-                LibraryFigureDetailSheet(figure: fig)
-            }
-        }
-    }
-    
-    private func saveFigure() {
-        guard !newFigureName.trimmingCharacters(in: .whitespaces).isEmpty else { return }
-        
-        let fig = FigureLibraryItem(
-            name: newFigureName,
-            danceName: newFigureDance,
-            rhythm: newFigureRhythm,
-            techniqueNotes: newFigureNotes,
-            isCustom: true
-        )
-        modelContext.insert(fig)
-        try? modelContext.save()
-        
-        // Background sync to Supabase Database
-        let figId = fig.id
-        let name = fig.name
-        let dance = fig.danceName
-        let rhythm = fig.rhythm
-        let technique = fig.techniqueNotes
-        let isCust = fig.isCustom
-        Task.detached(priority: .background) {
-            await SupabaseSyncManager.shared.syncFigure(
-                figId,
-                name: name,
-                danceName: dance,
-                rhythm: rhythm,
-                notes: technique,
-                imagePath: nil,
-                videoPath: nil,
-                isCustom: isCust
-            )
-        }
-        
-        // Reset states
-        newFigureName = ""
-        newFigureRhythm = ""
-        newFigureNotes = ""
-        showAddFigure = false
-    }
-}
-
-// MARK: - Library Figure Detail / Edit Sheet
-struct LibraryFigureDetailSheet: View {
-    @Environment(\.dismiss) private var dismiss
-    @Environment(\.modelContext) private var modelContext
-    @Bindable var figure: FigureLibraryItem
-    @AppStorage("defaultPlaybackRate") private var defaultPlaybackRate = 1.0
-    
-    @State private var nameText = ""
-    @State private var rhythmText = ""
-    @State private var notesText = ""
-    @State private var playbackRate: Float = 1.0
-    
-    @State private var showCamera = false
-    @State private var selectedPhotoItem: PhotosPickerItem? = nil
-    @State private var showDeleteConfirmation = false
-    
-    var body: some View {
-        NavigationStack {
-            ZStack {
-                Color.obsidian800.ignoresSafeArea()
-                
                 ScrollView {
-                    VStack(spacing: 24) {
-                        
-                        // Edit inputs
-                        VStack(alignment: .leading, spacing: 14) {
-                            VStack(alignment: .leading, spacing: 6) {
-                                Text("Názov figúry")
-                                    .font(.system(size: 13, weight: .bold))
-                                    .foregroundColor(Color.textSecondary)
-                                TextField("Názov", text: $nameText)
-                                    .padding()
-                                    .background(Color.obsidian800)
-                                    .cornerRadius(10)
-                                    .foregroundColor(.white)
-                                    .overlay(
-                                        RoundedRectangle(cornerRadius: 10)
-                                            .stroke(Color.white.opacity(0.1), lineWidth: 1)
-                                    )
-                            }
-                            
-                            VStack(alignment: .leading, spacing: 6) {
-                                Text("Rytmizácia")
-                                    .font(.system(size: 13, weight: .bold))
-                                    .foregroundColor(Color.textSecondary)
-                                TextField("Rytmus", text: $rhythmText)
-                                    .padding()
-                                    .background(Color.obsidian800)
-                                    .cornerRadius(10)
-                                    .foregroundColor(.white)
-                                    .overlay(
-                                        RoundedRectangle(cornerRadius: 10)
-                                            .stroke(Color.white.opacity(0.1), lineWidth: 1)
-                                    )
+                    VStack(alignment: .leading, spacing: 18) {
+                        labeled("NÁZOV") {
+                            TextField("", text: $name, prompt: Text("napr. Double Reverse Spin").foregroundColor(.white.opacity(0.5)))
+                                .focused($focus, equals: .name)
+                                .submitLabel(.next)
+                                .onSubmit { focus = .rhythm }
+                                .authFieldChrome()
+                        }
+                        if fixedDance == nil {
+                            labeled("TANEC") {
+                                DanceMenuCapsule(selection: $dance, emptyTitle: "Vyber tanec", clearTitle: "Bez tanca")
                             }
                         }
-                        .padding(.horizontal, 20)
-                        
-                        // Image section
-                        VStack(alignment: .leading, spacing: 10) {
-                            Text("Fotografia")
-                                .font(.system(size: 14, weight: .bold, design: .serif))
-                                .foregroundColor(.white)
-                            
-                            if let imagePath = figure.imagePath,
-                               let uiImage = MediaResolver.resolveImage(path: imagePath) {
-                                
-                                VStack(spacing: 12) {
-                                    Image(uiImage: uiImage)
-                                        .resizable()
-                                        .scaledToFit()
-                                        .frame(maxHeight: 200)
-                                        .cornerRadius(16)
-                                        .overlay(
-                                            RoundedRectangle(cornerRadius: 16)
-                                                .stroke(Color.white.opacity(0.12), lineWidth: 1)
-                                        )
-                                    
-                                    Button(action: deletePhoto) {
-                                        HStack {
-                                            Image(systemName: "trash")
-                                            Text("Odstrániť fotku")
-                                        }
-                                        .font(.system(size: 12, weight: .bold))
-                                        .foregroundColor(Color.latinRed)
-                                    }
-                                }
-                            } else {
-                                PhotosPicker(selection: $selectedPhotoItem, matching: .images) {
-                                    HStack {
-                                        Image(systemName: "photo.badge.plus")
-                                        Text("Vybrať fotku z galérie")
-                                    }
-                                    .font(.system(size: 14, weight: .bold))
-                                    .foregroundColor(Color.gold400)
-                                    .frame(maxWidth: .infinity)
-                                    .frame(height: 80)
-                                    .background(Color.obsidian800)
-                                    .cornerRadius(12)
-                                    .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.white.opacity(0.1), lineWidth: 1))
-                                }
-                                .buttonStyle(.plain)
-                            }
+                        labeled("RYTMUS") {
+                            TextField("", text: $rhythm, prompt: Text("napr. S Q Q S alebo 1, 2, 3").foregroundColor(.white.opacity(0.5)))
+                                .focused($focus, equals: .rhythm)
+                                .submitLabel(.next)
+                                .onSubmit { focus = .notes }
+                                .authFieldChrome()
                         }
-                        .padding(.horizontal, 20)
-                        
-                        // Video section
-                        VStack(alignment: .leading, spacing: 10) {
-                            Text("Video ukážka")
-                                .font(.system(size: 14, weight: .bold, design: .serif))
-                                .foregroundColor(.white)
-                            
-                            if let videoPath = figure.videoPath {
-                                VStack(spacing: 12) {
-                                    LoopingVideoPlayer(videoPath: videoPath, rate: playbackRate)
-                                        .frame(height: 200)
-                                        .cornerRadius(16)
-                                        .overlay(
-                                            RoundedRectangle(cornerRadius: 16)
-                                                .stroke(Color.white.opacity(0.12), lineWidth: 1)
-                                        )
-                                    
-                                    HStack(spacing: 12) {
-                                        Text("Rýchlosť:")
-                                            .font(.system(size: 12, weight: .bold))
-                                            .foregroundColor(Color.textSecondary)
-                                        
-                                        ForEach([0.5, 0.75, 1.0, 1.5], id: \.self) { speed in
-                                            Button(action: { playbackRate = Float(speed) }) {
-                                                Text(String(format: "%.2fx", speed))
-                                                    .font(.system(size: 11, weight: .black))
-                                                    .foregroundColor(playbackRate == Float(speed) ? Color.obsidian950 : .white)
-                                                    .padding(.horizontal, 8)
-                                                    .padding(.vertical, 4)
-                                                    .background(playbackRate == Float(speed) ? Color.goldLinearGradient : LinearGradient(colors: [Color.obsidian800, Color.obsidian800], startPoint: .leading, endPoint: .trailing))
-                                                    .cornerRadius(8)
-                                                    .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.white.opacity(0.1), lineWidth: 1))
-                                            }
-                                            .buttonStyle(.plain)
-                                        }
-                                        
-                                        Spacer()
-                                        
-                                        Button(action: deleteVideo) {
-                                            Image(systemName: "trash.circle.fill")
-                                                .font(.system(size: 22))
-                                                .foregroundColor(Color.latinRed)
-                                        }
-                                    }
-                                }
-                            } else {
-                                Button(action: { showCamera = true }) {
-                                    HStack {
-                                        Image(systemName: "video.badge.plus.fill")
-                                        Text("Nahrať tréningové video")
-                                    }
-                                    .font(.system(size: 14, weight: .bold))
-                                    .foregroundColor(Color.gold400)
-                                    .frame(maxWidth: .infinity)
-                                    .frame(height: 80)
-                                    .background(Color.obsidian800)
-                                    .cornerRadius(12)
-                                    .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.white.opacity(0.1), lineWidth: 1))
-                                }
-                                .buttonStyle(.plain)
-                            }
-                        }
-                        .padding(.horizontal, 20)
-                        
-                        // Text notes section
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("Technika / Popis")
-                                .font(.system(size: 14, weight: .bold, design: .serif))
-                                .foregroundColor(.white)
-                            
-                            TextEditor(text: $notesText)
+                        labeled("TECHNIKA") {
+                            TextEditor(text: $notes)
+                                .focused($focus, equals: .notes)
                                 .scrollContentBackground(.hidden)
-                                .frame(height: 120)
-                                .padding(8)
-                                .background(Color.obsidian800)
-                                .foregroundColor(.white)
-                                .cornerRadius(12)
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 12)
-                                        .stroke(Color.white.opacity(0.1), lineWidth: 1)
-                                )
+                                .frame(minHeight: 110)
+                                .authFieldChrome()
                         }
-                        .padding(.horizontal, 20)
-                        
-                        // Instant Notes Inbox Section
-                        InstantNotesInboxSection(
-                            onImportText: { text in
-                                if !notesText.isEmpty {
-                                    notesText += "\n" + text
-                                } else {
-                                    notesText = text
-                                }
-                            },
-                            onImportVideo: { videoPath in
-                                figure.videoPath = videoPath
-                                try? modelContext.save()
+
+                        VStack(spacing: 8) {
+                            PrimarySheetButton(title: "Uložiť do knižnice", isLoading: false, isEnabled: canSave, action: save)
+                            if !canSave {
+                                Text(trimmedName.isEmpty ? "Napíš názov figúry." : "Vyber tanec.")
+                                    .font(.footnote)
+                                    .foregroundColor(.white.opacity(0.6))
                             }
-                        )
-                        .padding(.horizontal, 20)
-                        .padding(.top, 10)
-                        
-                        // Delete Button
-                        Button(action: { showDeleteConfirmation = true }) {
-                            HStack {
-                                Image(systemName: "trash")
-                                Text("Odstrániť figúru z knižnice")
-                            }
-                            .font(.system(size: 15, weight: .bold))
-                            .foregroundColor(.white)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 14)
-                            .background(Color.latinRed.opacity(0.85))
-                            .cornerRadius(12)
                         }
-                        .buttonStyle(.plain)
-                        .padding(.horizontal, 20)
-                        .padding(.top, 16)
-                        .padding(.bottom, 24)
+                        .padding(.top, 4)
                     }
-                    .padding(.top, 16)
+                    .padding(20)
                 }
+                .scrollDismissesKeyboard(.interactively)
             }
-            .navigationTitle(figure.name)
+            .navigationTitle("Nová figúra")
             .navigationBarTitleDisplayMode(.inline)
-            .toolbarBackground(Color.themeBg, for: .navigationBar)
-            .toolbarBackground(.visible, for: .navigationBar)
-            .toolbarColorScheme(.dark, for: .navigationBar)
-            .confirmationDialog("Naozaj chcete vymazať túto figúru z knižnice?", isPresented: $showDeleteConfirmation, titleVisibility: .visible) {
-                Button("Vymazať figúru", role: .destructive) {
-                    deleteFigureItem()
-                }
-                Button("Zrušiť", role: .cancel) {}
-            }
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Zrušiť") { dismiss() }
                         .foregroundColor(Color.gold400)
                 }
-                ToolbarItem(placement: .primaryAction) {
+            }
+            .onAppear { focus = .name }
+        }
+    }
+
+    private func labeled<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HomeSectionHeader(title: title)
+            content()
+        }
+    }
+
+    private func save() {
+        guard canSave, let chosenDance else { return }
+        let figure = FigureLibraryItem(
+            name: trimmedName,
+            danceName: chosenDance,
+            rhythm: rhythm.trimmingCharacters(in: .whitespacesAndNewlines),
+            techniqueNotes: notes,
+            isCustom: true
+        )
+        modelContext.insert(figure)
+        try? modelContext.save()
+        FigureLibrarySync.push(figure)
+        onSaved?(figure)
+        dismiss()
+    }
+}
+
+// MARK: - Edit figure
+struct LibraryFigureDetailSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.modelContext) private var modelContext
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Bindable var figure: FigureLibraryItem
+
+    @State private var nameText = ""
+    @State private var rhythmText = ""
+    @State private var notesText = ""
+
+    @State private var confirmDeleteFigure = false
+    @State private var savedCount = 0
+
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                EllegancePageBackground()
+
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 22) {
+                        fields
+                        AttachedVideoSection(videoPath: $figure.videoPath, onChange: changed)
+                        AttachedPhotoSection(imagePath: $figure.imagePath, filePrefix: "fig_img", onChange: changed)
+                        notesSection
+                        InstantNotesInboxSection(
+                            onImportText: { text in
+                                notesText = notesText.isEmpty ? text : notesText + "\n" + text
+                            },
+                            onImportVideo: { videoPath in
+                                figure.videoPath = videoPath
+                                changed()
+                            }
+                        )
+                        deleteButton
+                    }
+                    .padding(20)
+                    .animation(reduceMotion ? nil : .spring(response: 0.35, dampingFraction: 0.85), value: figure.videoPath)
+                    .animation(reduceMotion ? nil : .spring(response: 0.35, dampingFraction: 0.85), value: figure.imagePath)
+                }
+                .scrollDismissesKeyboard(.interactively)
+            }
+            .navigationTitle(figure.name)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Zrušiť") { dismiss() }
+                        .foregroundColor(Color.gold400)
+                }
+                ToolbarItem(placement: .confirmationAction) {
                     Button("Uložiť") {
                         saveChanges()
                         dismiss()
                     }
-                    .font(.system(size: 15, weight: .bold))
+                    .fontWeight(.bold)
                     .foregroundColor(Color.gold400)
+                    .disabled(nameText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 }
-                
-                ToolbarItemGroup(placement: .keyboard) {
-                    Spacer()
-                    Button("Hotovo") {
-                        UIApplication.shared.endEditing()
-                    }
-                    .foregroundColor(Color.gold400)
-                }
+            }
+            .confirmationDialog("Odstrániť figúru z knižnice?", isPresented: $confirmDeleteFigure, titleVisibility: .visible) {
+                Button("Odstrániť figúru", role: .destructive) { deleteFigure() }
+            } message: {
+                Text("Zmizne z knižnice na všetkých tvojich zariadeniach. Zostavy, v ktorých je, ostanú bez zmeny.")
             }
             .onAppear {
                 nameText = figure.name
                 rhythmText = figure.rhythm
                 notesText = figure.techniqueNotes
-                playbackRate = Float(defaultPlaybackRate)
             }
-            .fullScreenCover(isPresented: $showCamera) {
-                DanceCameraView { localPath in
-                    figure.videoPath = localPath
-                    try? modelContext.save()
-                    showCamera = false
-                    
-                    // Background Sync to Supabase Storage & Database
-                    let figId = figure.id
-                    let name = figure.name
-                    let dance = figure.danceName
-                    let rhythm = figure.rhythm
-                    let technique = figure.techniqueNotes
-                    let imagePath = figure.imagePath
-                    let videoPath = figure.videoPath
-                    let isCust = figure.isCustom
-                    Task.detached(priority: .background) {
-                        if let videoPath {
-                            await SupabaseSyncManager.shared.uploadFileAsync(localFileName: videoPath)
-                        }
-                        await SupabaseSyncManager.shared.syncFigure(
-                            figId,
-                            name: name,
-                            danceName: dance,
-                            rhythm: rhythm,
-                            notes: technique,
-                            imagePath: imagePath,
-                            videoPath: videoPath,
-                            isCustom: isCust
-                        )
-                    }
-                }
-                .ignoresSafeArea()
+            .sensoryFeedback(.success, trigger: savedCount)
+        }
+    }
+
+    // MARK: Sections
+    private var fields: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: 8) {
+                HomeSectionHeader(title: "NÁZOV")
+                TextField("", text: $nameText, prompt: Text("Názov figúry").foregroundColor(.white.opacity(0.5)))
+                    .authFieldChrome()
             }
-            .onChange(of: selectedPhotoItem) { _, newItem in
-                Task {
-                    if let data = try? await newItem?.loadTransferable(type: Data.self) {
-                        if let filename = try? MediaStorageManager.store(data: data, prefix: "fig_img", fileExtension: "jpg") {
-                            await MainActor.run {
-                                MediaStorageManager.removeFile(named: figure.imagePath)
-                                figure.imagePath = filename
-                                try? modelContext.save()
-                                
-                                // Background Sync to Supabase Storage & Database
-                                let figId = figure.id
-                                let name = figure.name
-                                let dance = figure.danceName
-                                let rhythm = figure.rhythm
-                                let technique = figure.techniqueNotes
-                                let imagePath = figure.imagePath
-                                let videoPath = figure.videoPath
-                                let isCust = figure.isCustom
-                                Task.detached(priority: .background) {
-                                    if let imagePath {
-                                        await SupabaseSyncManager.shared.uploadFileAsync(localFileName: imagePath)
-                                    }
-                                    await SupabaseSyncManager.shared.syncFigure(
-                                        figId,
-                                        name: name,
-                                        danceName: dance,
-                                        rhythm: rhythm,
-                                        notes: technique,
-                                        imagePath: imagePath,
-                                        videoPath: videoPath,
-                                        isCustom: isCust
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
+            VStack(alignment: .leading, spacing: 8) {
+                HomeSectionHeader(title: "RYTMUS")
+                TextField("", text: $rhythmText, prompt: Text("napr. S Q Q S").foregroundColor(.white.opacity(0.5)))
+                    .authFieldChrome()
             }
         }
     }
-    
+
+    private var notesSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HomeSectionHeader(title: "TECHNIKA", systemImage: "text.alignleft")
+            TextEditor(text: $notesText)
+                .scrollContentBackground(.hidden)
+                .font(.callout)
+                .foregroundColor(.white)
+                .frame(minHeight: 120)
+                .padding(10)
+                .homeCard(cornerRadius: 16)
+        }
+    }
+
+    private var deleteButton: some View {
+        Button { confirmDeleteFigure = true } label: {
+            Label("Odstrániť figúru z knižnice", systemImage: "trash")
+                .font(.subheadline.weight(.semibold))
+                .foregroundColor(Color.latinRed)
+                .frame(maxWidth: .infinity, minHeight: 44)
+        }
+        .buttonStyle(.pressable)
+        .padding(.top, 8)
+    }
+
+    // MARK: Actions
+    private func changed() {
+        try? modelContext.save()
+        FigureLibrarySync.push(figure)
+        savedCount += 1
+    }
+
     private func saveChanges() {
-        figure.name = nameText
-        figure.rhythm = rhythmText
+        figure.name = nameText.trimmingCharacters(in: .whitespacesAndNewlines)
+        figure.rhythm = rhythmText.trimmingCharacters(in: .whitespacesAndNewlines)
         figure.techniqueNotes = notesText
-        try? modelContext.save()
-        
-        // Background Sync to Supabase Database
-        let figId = figure.id
-        let name = figure.name
-        let dance = figure.danceName
-        let rhythm = figure.rhythm
-        let technique = figure.techniqueNotes
-        let imagePath = figure.imagePath
-        let videoPath = figure.videoPath
-        let isCust = figure.isCustom
-        Task.detached(priority: .background) {
-            await SupabaseSyncManager.shared.syncFigure(
-                figId,
-                name: name,
-                danceName: dance,
-                rhythm: rhythm,
-                notes: technique,
-                imagePath: imagePath,
-                videoPath: videoPath,
-                isCustom: isCust
-            )
-        }
+        changed()
     }
-    
-    private func deletePhoto() {
-        if let path = figure.imagePath {
-            MediaStorageManager.removeFile(named: path)
-        }
-        figure.imagePath = nil
-        try? modelContext.save()
-        
-        // Background Sync to Supabase Database
-        let figId = figure.id
-        let name = figure.name
-        let dance = figure.danceName
-        let rhythm = figure.rhythm
-        let technique = figure.techniqueNotes
-        let videoPath = figure.videoPath
-        let isCust = figure.isCustom
-        Task.detached(priority: .background) {
-            await SupabaseSyncManager.shared.syncFigure(
-                figId,
-                name: name,
-                danceName: dance,
-                rhythm: rhythm,
-                notes: technique,
-                imagePath: nil,
-                videoPath: videoPath,
-                isCustom: isCust
-            )
-        }
-    }
-    
-    private func deleteVideo() {
-        if let path = figure.videoPath {
-            MediaStorageManager.removeFile(named: path)
-        }
-        figure.videoPath = nil
-        try? modelContext.save()
-        
-        // Background Sync to Supabase Database
-        let figId = figure.id
-        let name = figure.name
-        let dance = figure.danceName
-        let rhythm = figure.rhythm
-        let technique = figure.techniqueNotes
-        let imagePath = figure.imagePath
-        let isCust = figure.isCustom
-        Task.detached(priority: .background) {
-            await SupabaseSyncManager.shared.syncFigure(
-                figId,
-                name: name,
-                danceName: dance,
-                rhythm: rhythm,
-                notes: technique,
-                imagePath: imagePath,
-                videoPath: nil,
-                isCustom: isCust
-            )
-        }
-    }
-    
-    private func deleteFigureItem() {
-        let figId = figure.id
-        
-        // First delete any image/video files on disk
-        if let imagePath = figure.imagePath {
-            MediaStorageManager.removeFile(named: imagePath)
-        }
-        if let videoPath = figure.videoPath {
-            MediaStorageManager.removeFile(named: videoPath)
-        }
-        
+
+    private func deleteFigure() {
+        let id = figure.id
+        MediaStorageManager.removeFile(named: figure.imagePath)
+        MediaStorageManager.removeFile(named: figure.videoPath)
         modelContext.delete(figure)
         try? modelContext.save()
-        
-        // Background Delete from Supabase Database
-        Task.detached(priority: .background) {
-            await SupabaseSyncManager.shared.deleteFigure(figId)
-        }
-        
+        FigureLibrarySync.delete(id)
         dismiss()
-    }
-    
-    private func getDocumentsDirectory() -> URL {
-        FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-    }
-}
-
-// MARK: - Filter Chip View
-struct FilterChip: View {
-    let title: String
-    let isSelected: Bool
-    let action: () -> Void
-    
-    var body: some View {
-        Button(action: action) {
-            Text(title)
-                .font(.system(size: 13, weight: .bold))
-                .foregroundColor(isSelected ? Color.obsidian950 : Color.textSecondary)
-                .padding(.horizontal, 14)
-                .padding(.vertical, 8)
-                .background(isSelected ? Color.goldLinearGradient : LinearGradient(colors: [Color.obsidian800, Color.obsidian800], startPoint: .leading, endPoint: .trailing))
-                .cornerRadius(20)
-                .overlay(RoundedRectangle(cornerRadius: 20).stroke(isSelected ? Color.clear : Color.white.opacity(0.1), lineWidth: 1))
-        }
-        .buttonStyle(.plain)
     }
 }
 
 // MARK: - Xcode Canvas Preview
-#Preview("GlobalLibraryView") {
+#Preview("Knižnica") {
     GlobalLibraryView()
         .previewWithSampleData()
 }

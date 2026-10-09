@@ -29,30 +29,102 @@ struct ProfileRoutinesListView: View {
     }
 }
 
-/// The figure library with own and default figures.
+/// The figure library: search, one dance or all, grouped by dance in competition order.
 struct ProfileFiguresListView: View {
-    let figures: [FigureLibraryItem]
+    @Query private var figures: [FigureLibraryItem]
+    @Environment(\.modelContext) private var modelContext
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var selectedFigure: FigureLibraryItem?
+    @State private var showNewFigure = false
+    @State private var refreshCount = 0
+    @State private var query = ""
+    @State private var danceFilter: String?
+
+    private var groups: [(dance: String, figures: [FigureLibraryItem])] {
+        let needle = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        let matching = figures.filter { figure in
+            (danceFilter == nil || figure.danceName == danceFilter)
+                && (needle.isEmpty || figure.name.localizedStandardContains(needle))
+        }
+        return Dictionary(grouping: matching, by: \.danceName)
+            .map { (dance: $0.key, figures: $0.value.sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }) }
+            .sorted { DanceNames.rank($0.dance) < DanceNames.rank($1.dance) }
+    }
 
     var body: some View {
         ZStack {
             EllegancePageBackground()
             ScrollView {
-                LazyVStack(spacing: 10) {
+                LazyVStack(alignment: .leading, spacing: 10, pinnedViews: []) {
+                    HStack(spacing: 10) {
+                        searchField
+                        DanceMenuCapsule(selection: $danceFilter, emptyTitle: "Všetky", clearTitle: "Všetky tance")
+                    }
+                    .padding(.bottom, 6)
+
                     if figures.isEmpty {
                         ProfileEmptyState(icon: "book.closed", text: "Knižnica je zatiaľ prázdna.")
+                    } else if groups.isEmpty {
+                        ProfileEmptyState(icon: "magnifyingglass", text: "Žiadna figúra s týmto názvom.")
                     }
-                    ForEach(figures) { figure in
-                        Button { selectedFigure = figure } label: { figureRow(figure) }
-                            .buttonStyle(.pressable(scale: 0.97))
+
+                    ForEach(groups, id: \.dance) { group in
+                        HomeSectionHeader(title: DanceNames.display(group.dance).uppercased(), count: group.figures.count)
+                            .padding(.top, 12)
+                            .padding(.horizontal, 4)
+                        ForEach(group.figures) { figure in
+                            Button { selectedFigure = figure } label: { figureRow(figure) }
+                                .buttonStyle(.pressable(scale: 0.97))
+                                .transition(.opacity.combined(with: .scale(scale: 0.97)))
+                        }
                     }
                 }
-                .padding(20)
+                .padding(.horizontal, 20)
+                .padding(.top, 8)
+                .padding(.bottom, 120)   // clear of the tab bar
+                .animation(reduceMotion ? nil : .spring(response: 0.35, dampingFraction: 0.85), value: danceFilter)
+            }
+            .scrollDismissesKeyboard(.interactively)
+            .refreshable {
+                refreshCount += 1
+                await FigureLibrarySync.pull(into: modelContext)
             }
         }
         .navigationTitle("Knižnica figúr")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                Button { showNewFigure = true } label: {
+                    Image(systemName: "plus")
+                }
+                .accessibilityLabel("Nová figúra")
+            }
+        }
+        .sensoryFeedback(.impact(weight: .medium), trigger: refreshCount)
         .sheet(item: $selectedFigure) { LibraryFigureDetailSheet(figure: $0) }
+        .sheet(isPresented: $showNewFigure) { NewFigureSheet() }
+    }
+
+    private var searchField: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "magnifyingglass")
+                .foregroundColor(.white.opacity(0.6))
+            TextField("", text: $query, prompt: Text("Hľadať figúru").foregroundColor(.white.opacity(0.5)))
+                .foregroundColor(.white)
+                .submitLabel(.search)
+                .autocorrectionDisabled()
+            if !query.isEmpty {
+                Button { query = "" } label: {
+                    Image(systemName: "xmark.circle.fill").foregroundColor(.white.opacity(0.5))
+                }
+                .accessibilityLabel("Vymazať hľadanie")
+            }
+        }
+        .font(.subheadline)
+        .padding(.horizontal, 12)
+        .frame(minHeight: 40)
+        .background(Color.white.opacity(0.08), in: Capsule())
+        .overlay(Capsule().stroke(Color.white.opacity(0.1), lineWidth: 1))
     }
 
     private func figureRow(_ figure: FigureLibraryItem) -> some View {
@@ -61,24 +133,36 @@ struct ProfileFiguresListView: View {
                 Text(figure.name)
                     .font(.subheadline.weight(.bold))
                     .foregroundColor(.white)
-                    .lineLimit(1)
-                Text([figure.danceName, figure.rhythm].filter { !$0.isEmpty }.joined(separator: " · "))
-                    .font(.caption)
-                    .foregroundColor(Color.white.opacity(0.65))
+                    .lineLimit(2)
+                    .multilineTextAlignment(.leading)
+                if !figure.rhythm.isEmpty {
+                    Text(figure.rhythm)
+                        .font(.caption)
+                        .foregroundColor(Color.white.opacity(0.65))
+                        .lineLimit(1)
+                }
             }
             Spacer(minLength: 8)
             if figure.videoPath != nil {
-                Image(systemName: "video.fill").foregroundColor(Color.gold400).accessibilityLabel("Má video")
+                Image(systemName: "video.fill")
+                    .font(.caption)
+                    .foregroundColor(Color.gold400)
+                    .accessibilityLabel("Má video")
             }
-            Text(figure.isCustom ? "Vlastná" : "Predvolená")
-                .font(.caption2.weight(.bold))
-                .foregroundColor(figure.isCustom ? Color.obsidian900 : .white)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 3)
-                .background(figure.isCustom ? Color.gold400 : Color.white.opacity(0.12), in: Capsule())
+            if figure.isCustom {
+                Text("Moja")
+                    .font(.caption2.weight(.bold))
+                    .foregroundColor(Color.obsidian900)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 3)
+                    .background(Color.gold400, in: Capsule())
+            }
+            Image(systemName: "chevron.right")
+                .font(.caption.weight(.bold))
+                .foregroundColor(.white.opacity(0.35))
         }
-        .font(.footnote)
         .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .homeCard(cornerRadius: 16)
         .accessibilityElement(children: .combine)
     }

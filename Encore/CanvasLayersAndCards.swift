@@ -460,7 +460,7 @@ struct CanvasNodeCardView: View {
             }
 
             Text(node.figureName)
-                .font(.system(size: isFarOut ? 19 : 15, weight: .bold, design: .serif))
+                .font(.system(size: isFarOut ? 19 : 15, weight: .bold, design: .rounded))
                 .foregroundColor(inkColor)
                 .lineLimit(isFarOut ? 3 : 2)
                 .minimumScaleFactor(0.8)

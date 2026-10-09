@@ -73,7 +73,7 @@ struct AddConnectionSheetView: View {
                     .padding(.bottom, 40)
                 }
             }
-            .navigationTitle("Nové Prepojenie")
+            .navigationTitle("Nové prepojenie")
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)
             .toolbarColorScheme(.dark, for: .navigationBar)
@@ -167,7 +167,7 @@ struct AddConnectionSheetView: View {
                 Image(systemName: "magnifyingglass")
                     .foregroundColor(LuxuryTheme.gold400.opacity(0.7))
                 
-                TextField("", text: $searchQuery, prompt: Text("Zadaj Dancer ID (napr. DNC-8492) alebo meno...").foregroundColor(Color.white.opacity(0.35)))
+                TextField("", text: $searchQuery, prompt: Text("ID tanečníka (napr. DNC-8492) alebo meno").foregroundColor(Color.white.opacity(0.35)))
                     .foregroundColor(.white)
                     .font(.system(size: 14))
                     .autocapitalization(.none)
@@ -200,7 +200,7 @@ struct AddConnectionSheetView: View {
     private var resultsSection: some View {
         VStack(spacing: 8) {
             if searchResults.isEmpty && searchQuery.trimmingCharacters(in: .whitespacesAndNewlines).count >= 2 && !isSearching {
-                Text("Žiadny tanečník s týmto Dancer ID alebo menom sa nenašiel.")
+                Text("Nikoho s týmto ID tanečníka ani menom sme nenašli.")
                     .font(.system(size: 13))
                     .foregroundColor(.white.opacity(0.5))
                     .padding(.vertical, 16)

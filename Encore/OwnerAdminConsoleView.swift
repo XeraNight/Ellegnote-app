@@ -65,7 +65,7 @@ struct OwnerAdminConsoleView: View {
                     .padding(.vertical, 16)
                 }
             }
-            .navigationTitle("Majiteľská Konzola")
+            .navigationTitle("Majiteľská konzola")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -242,7 +242,7 @@ struct OwnerAdminConsoleView: View {
                 Image(systemName: "magnifyingglass")
                     .foregroundColor(.white.opacity(0.5))
                 
-                TextField("Zadaj meno, Dancer ID alebo e-mail...", text: $searchQuery)
+                TextField("Meno, ID tanečníka alebo e-mail", text: $searchQuery)
                     .foregroundColor(.white)
                     .autocorrectionDisabled()
                     .textInputAutocapitalization(.never)

@@ -12,10 +12,10 @@ public struct LegalComplianceView: View {
     @State private var selectedTab: LegalTab
 
     public enum LegalTab: String, CaseIterable, Identifiable {
-        case privacy = "Súkromie (GDPR)"
-        case terms = "Podmienky & EULA"
+        case privacy = "Súkromie"
+        case terms = "Podmienky"
         case disclaimer = "Zodpovednosť"
-        case audioKsis = "Hudba & SZTŠ"
+        case audioKsis = "Hudba a KSIS"
 
         public var id: String { rawValue }
 
@@ -38,48 +38,18 @@ public struct LegalComplianceView: View {
     public var body: some View {
         NavigationStack {
             ZStack {
-                ElleganceToolBackground()
-                
+                EllegancePageBackground()
+
                 VStack(spacing: 0) {
-                    // Segmented Selector
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 8) {
-                            ForEach(LegalTab.allCases) { tab in
-                                Button {
-                                    withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
-                                        selectedTab = tab
-                                    }
-                                } label: {
-                                    HStack(spacing: 6) {
-                                        Image(systemName: tab.icon)
-                                            .font(.system(size: 11, weight: .bold))
-                                        Text(tab.rawValue)
-                                            .font(.system(size: 12, weight: .semibold, design: .rounded))
-                                    }
-                                    .padding(.horizontal, 14)
-                                    .padding(.vertical, 8)
-                                    .background(
-                                        selectedTab == tab
-                                            ? Color.gold500.opacity(0.2)
-                                            : Color.white.opacity(0.04)
-                                    )
-                                    .foregroundColor(selectedTab == tab ? .gold400 : .white.opacity(0.6))
-                                    .cornerRadius(20)
-                                    .overlay(
-                                        RoundedRectangle(cornerRadius: 20)
-                                            .stroke(
-                                                selectedTab == tab ? Color.gold400.opacity(0.5) : Color.white.opacity(0.08),
-                                                lineWidth: 1
-                                            )
-                                    )
-                                }
-                            }
+                    // All four sections visible at once, two per row.
+                    LazyVGrid(columns: [GridItem(.flexible(), spacing: 8), GridItem(.flexible(), spacing: 8)], spacing: 8) {
+                        ForEach(LegalTab.allCases) { tab in
+                            tabButton(tab)
                         }
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 12)
                     }
-                    
-                    Divider().background(Color.gold500.opacity(0.2))
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 12)
+                    .sensoryFeedback(.selection, trigger: selectedTab)
 
                     // Content ScrollView
                     ScrollView {
@@ -107,7 +77,6 @@ public struct LegalComplianceView: View {
                         dismiss()
                     }
                     .foregroundColor(.gold400)
-                    .font(.system(size: 14, weight: .semibold))
                 }
             }
         }
@@ -126,27 +95,27 @@ public struct LegalComplianceView: View {
             legalSection(
                 title: "2. Aké údaje spracúvame a prečo",
                 body: """
-                • Registračné údaje: Meno/Prezývka, e-mailová adresa (získané priamo alebo cez Google Sign-In / Sign in with Apple). Právny základ: Plnenie zmluvy o poskytovaní služby.
-                • Tanečné materiály: Zoznam zostáv, choreografií, vlastné poznámky a nahrávky figúr. Tieto dáta sú privátne pre váš účet.
-                • Tréningové videá a porovnanie so vzorom: Videá sú v tvojich Fotkách. Čiary a sklon v porovnaní kreslíš sám; appka nerozpoznáva postavu ani tvár a videá nepoužíva na biometrickú identifikáciu.
-                • Súťažné dáta: Trieda, body, finále a výsledky tvojho páru z verejného systému KSIS (szts.ksis.eu), ktoré si sám uložíš zo stránky KSIS otvorenej v appke.
+                • Registračné údaje: meno alebo prezývka a e-mailová adresa (zadané priamo alebo cez prihlásenie Google či Apple). Právny základ: plnenie zmluvy o poskytovaní služby.
+                • Tanečné materiály: zostavy, choreografie, vlastné poznámky a nahrávky figúr. Vidíš ich len ty a ľudia, s ktorými ich sám zdieľaš.
+                • Tréningové videá a porovnanie so vzorom: videá sú v tvojich Fotkách. Čiary a sklon v porovnaní kreslíš sám; appka nerozpoznáva postavu ani tvár a videá nepoužíva na biometrickú identifikáciu.
+                • Súťažné dáta: trieda, body, finále a výsledky tvojho páru z verejného systému KSIS (szts.ksis.eu), ktoré si sám uložíš zo stránky KSIS otvorenej v appke.
                 """
             )
             
             legalSection(
                 title: "3. Doba uchovávania a zmazanie",
-                body: "Vaše údaje uchovávame len po dobu aktívneho využívania aplikácie. Kedykoľvek môžete v sekcii Profil využiť tlačidlo „Zmazať účet a osobné dáta“. Týmto dôjde k trvalému a neodvratnému vymazaniu všetkých údajov zo serverov a zrušeniu autorizácie."
+                body: "Tvoje údaje uchovávame, kým aplikáciu používaš. Kedykoľvek môžeš v Profile → Nastavenia ťuknúť na „Zmazať účet a osobné dáta“. Tým sa natrvalo zmažú všetky tvoje údaje zo serverov a zruší sa prihlásenie."
             )
             
             legalSection(
-                title: "4. Vaše práva podľa GDPR",
+                title: "4. Tvoje práva podľa GDPR",
                 body: """
-                Ako dotknutá osoba máte právo na:
-                • Prístup k osobným údajom a informácie o ich spracúvaní,
-                • Opravu nesprávnych alebo neúplných údajov,
-                • Vymazanie (právo „na zabudnutie“) priamo v aplikácii,
-                • Prenosnosť údajov a kópiu svojich údajov kedykoľvek (Profil → Nastavenia → Stiahnuť moje dáta),
-                • Podanie sťažnosti na Úrad na ochranu osobných údajov SR.
+                Ako dotknutá osoba máš právo na:
+                • prístup k osobným údajom a informácie o ich spracúvaní,
+                • opravu nesprávnych alebo neúplných údajov,
+                • vymazanie (právo „na zabudnutie“) priamo v aplikácii,
+                • prenosnosť a kópiu svojich údajov kedykoľvek (Profil → Nastavenia → Stiahnuť moje dáta),
+                • podanie sťažnosti na Úrad na ochranu osobných údajov SR.
                 """
             )
             
@@ -170,11 +139,11 @@ public struct LegalComplianceView: View {
     // MARK: - 2. Terms of Service & EULA
     private var termsAndEulaContent: some View {
         VStack(alignment: .leading, spacing: 16) {
-            headerBadge(title: "Podmienky používania & EULA", icon: "doc.plaintext.fill")
+            headerBadge(title: "Podmienky používania (EULA)", icon: "doc.plaintext.fill")
 
             legalSection(
                 title: "1. Prijatie podmienok",
-                body: "Používaním aplikácie Encore súhlasíte s týmito zmluvnými podmienkami (EULA). Ak s nimi nesúhlasíte, aplikáciu nepoužívajte."
+                body: "Používaním aplikácie Encore súhlasíš s týmito podmienkami používania (EULA). Ak s nimi nesúhlasíš, aplikáciu nepoužívaj."
             )
 
             legalSection(
@@ -189,7 +158,7 @@ public struct LegalComplianceView: View {
 
             legalSection(
                 title: "3. Duševné vlastníctvo a vlastníctvo choreografií",
-                body: "Všetky vaše choreografie, tanečné zostavy, videozáznamy a poznámky zostávajú vo vašom výlučnom vlastníctve. Poskytovateľovi aplikácie udeľujete iba technickú licenciu nevyhnutnú na ich uloženie a zobrazenie na vašich zariadeniach."
+                body: "Všetky tvoje choreografie, zostavy, videá a poznámky zostávajú v tvojom výlučnom vlastníctve. Prevádzkovateľovi aplikácie udeľuješ iba technickú licenciu nevyhnutnú na ich uloženie a zobrazenie na tvojich zariadeniach."
             )
 
             legalSection(
@@ -209,7 +178,7 @@ public struct LegalComplianceView: View {
 
             legalSection(
                 title: "7. Vekové obmedzenie a ochrana mladistvých (GDPR)",
-                body: "Aplikácia Encore je určená pre tanečníkov všetkých vekových kategórií vrátane juniorov a mládeže. Používatelia mladší ako 16 rokov môžu aplikáciu používať a zakladať si účet výhradne so súhlasom svojho zákonného zástupcu (rodiča) v súlade s článkom 8 nariadenia GDPR a Zákonom č. 18/2018 Z. z. o ochranne osobných údajov."
+                body: "Aplikácia Encore je určená pre tanečníkov všetkých vekových kategórií vrátane juniorov a mládeže. Používatelia mladší ako 16 rokov môžu aplikáciu používať a zakladať si účet výhradne so súhlasom svojho zákonného zástupcu (rodiča) v súlade s článkom 8 nariadenia GDPR a zákonom č. 18/2018 Z. z. o ochrane osobných údajov."
             )
         }
     }
@@ -225,7 +194,7 @@ public struct LegalComplianceView: View {
                 Aplikácia Encore je asistenčný nástroj pre tanečníkov a trénerov. 
                 • Porovnanie so vzorom, čiary, sklon a tréningové záznamy majú výhradne orientačný charakter a nenahrádzajú trénera.
                 • Aplikácia nenahrádza odborné vedenie certifikovaného trénera, fyzioterapeuta ani lekára.
-                • Tréning a fyzické cvičenie vykonávate na vlastné riziko. Prevádzkovateľ nenesie zodpovednosť za akékoľvek zranenia, úrazy alebo poškodenia zdravia vzniknuté v súvislosti s tréningom podľa aplikácie.
+                • Tréning a fyzické cvičenie vykonávaš na vlastné riziko. Prevádzkovateľ nenesie zodpovednosť za akékoľvek zranenia, úrazy alebo poškodenia zdravia vzniknuté v súvislosti s tréningom podľa aplikácie.
                 """
             )
 
@@ -239,37 +208,55 @@ public struct LegalComplianceView: View {
     // MARK: - 4. Audio & KSIS Fair Use
     private var audioAndKsisContent: some View {
         VStack(alignment: .leading, spacing: 16) {
-            headerBadge(title: "Hudba, Médiá & KSIS Dáta", icon: "music.note.list")
+            headerBadge(title: "Hudba, médiá a KSIS", icon: "music.note.list")
 
             legalSection(
                 title: "1. Zvukové nahrávky a metronóm",
                 body: """
-                • Modul Metronóm nevyužíva žiadne chránené zvukové vzorky tretích strán — všetky rytmické signály sú generované algoritmicky v reálnom čase matematickou syntézou zvukovej vlny.
-                • Modul Music Speed Trainer slúži ako prehrávač pre vlastné zvukové súbory používateľa. Aplikácia neobsahuje žiadne chránené hudobné diela. Používateľ zodpovedá za to, že k nahrávkam, ktoré si do aplikácie importuje, disponuje príslušnými právami.
+                • Metronóm nevyužíva žiadne chránené zvukové vzorky tretích strán — všetky rytmické signály sú generované algoritmicky v reálnom čase matematickou syntézou zvukovej vlny.
+                • Nástroj Hudba prehráva len vlastné zvukové súbory používateľa. Aplikácia neobsahuje žiadne chránené hudobné diela. Používateľ zodpovedá za to, že k nahrávkam, ktoré si do aplikácie importuje, disponuje príslušnými právami.
                 """
             )
 
             legalSection(
-                title: "2. Záznamy zo seminárov a videá idolov",
+                title: "2. Záznamy zo seminárov a videá vzorov",
                 body: "Pri nahrávaní tréningových seminárov alebo importovaní vzorových videí používateľ zodpovedá za získanie súhlasu dotknutých osôb v zmysle autorského zákona a ochrany osobnosti. Tieto záznamy slúžia len na súkromné študijné účely používateľa."
             )
 
             legalSection(
                 title: "3. Informácia o systéme KSIS",
-                body: "Názov KSIS a výsledkové listiny sú majetkom ich príslušných prevádzkovateľov. Aplikácia Encore využíva výhradne verejne publikované zoznamy a rešpektuje technické limity serverov prostredníctvom riadeného obmedzenia počtu požiadaviek (rate limiting)."
+                body: "Názov KSIS a výsledkové listiny sú majetkom ich prevádzkovateľov. Encore číta len verejné stránky KSIS, ktoré si sám otvoríš v appke. Sama na KSIS nechodí ani nič neobnovuje na pozadí."
             )
         }
     }
 
     // MARK: - Helpers
+    private func tabButton(_ tab: LegalTab) -> some View {
+        let isSelected = selectedTab == tab
+        return Button {
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) { selectedTab = tab }
+        } label: {
+            Label(tab.rawValue, systemImage: tab.icon)
+                .font(.footnote.weight(.semibold))
+                .foregroundColor(isSelected ? Color.obsidian900 : .white.opacity(0.85))
+                .lineLimit(1)
+                .frame(maxWidth: .infinity, minHeight: 38)
+                .background(isSelected ? Color.gold400 : Color.white.opacity(0.08), in: Capsule())
+                .overlay(Capsule().stroke(Color.white.opacity(isSelected ? 0 : 0.1), lineWidth: 1))
+        }
+        .buttonStyle(.pressable)
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
+    }
+
     private func headerBadge(title: String, icon: String) -> some View {
         HStack(spacing: 8) {
             Image(systemName: icon)
                 .font(.system(size: 13, weight: .bold))
                 .foregroundColor(.gold400)
             Text(title)
-                .font(.system(size: 14, weight: .black, design: .serif))
+                .font(.system(.subheadline, design: .rounded).weight(.black))
                 .foregroundColor(.gold400)
+                .accessibilityAddTraits(.isHeader)
         }
         .padding(.vertical, 4)
     }
@@ -277,22 +264,17 @@ public struct LegalComplianceView: View {
     private func legalSection(title: String, body: String) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(title)
-                .font(.system(size: 13, weight: .bold))
+                .font(.subheadline.weight(.bold))
                 .foregroundColor(.white)
-            
+
             Text(body)
-                .font(.system(size: 12, weight: .regular))
-                .foregroundColor(.white.opacity(0.8))
+                .font(.footnote)
+                .foregroundColor(.white.opacity(0.85))
                 .lineSpacing(3)
         }
-        .padding(14)
+        .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.white.opacity(0.04))
-        .cornerRadius(12)
-        .overlay(
-            RoundedRectangle(cornerRadius: 12)
-                .stroke(Color.white.opacity(0.08), lineWidth: 1)
-        )
+        .homeCard(cornerRadius: 16)
     }
 }
 

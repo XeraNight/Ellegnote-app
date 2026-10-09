@@ -32,52 +32,66 @@ struct MinimapView: View {
 }
 
 // MARK: - Figures Drawer Sheet
+/// Adds a library figure of this dance to the canvas; a missing one can be created right here.
 struct FiguresDrawerSheet: View {
     @Binding var isPresented: Bool
     let danceName: String
     let libraryItems: [FigureLibraryItem]
     var onSelectFigure: (FigureLibraryItem) -> Void
-    
+
+    @State private var query = ""
+    @State private var showNewFigure = false
+    @State private var addCount = 0
+
+    private var filtered: [FigureLibraryItem] {
+        let needle = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        let items = needle.isEmpty ? libraryItems : libraryItems.filter { $0.name.localizedStandardContains(needle) }
+        return items.sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
+    }
+
     var body: some View {
         NavigationStack {
             ZStack {
-                Color.obsidian800.ignoresSafeArea()
+                EllegancePageBackground()
                 ScrollView {
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("Dostupné figúry pre \(danceName)")
-                            .font(.system(size: 13, weight: .bold, design: .serif))
-                            .foregroundColor(.themeDark)
-                            .padding(.horizontal, 20)
-                            .padding(.top, 14)
-                        LazyVStack(spacing: 8) {
-                            ForEach(libraryItems) { item in
-                                Button(action: { onSelectFigure(item) }) {
-                                    HStack {
-                                    VStack(alignment: .leading, spacing: 4) {
-                                        Text(item.name)
-                                            .font(.system(size: 15, weight: .bold, design: .serif))
-                                            .foregroundColor(.themeDark)
-                                        Text(item.rhythm)
-                                            .font(.system(size: 12))
-                                            .foregroundColor(.themeAccent)
-                                    }
-                                    Spacer()
-                                    Image(systemName: "plus.circle")
-                                        .font(.system(size: 18))
-                                        .foregroundColor(.themeAccent)
-                                }
-                                .padding()
-                                .background(Color.themeCard)
-                                .cornerRadius(12)
-                                .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.gold400.opacity(0.18), lineWidth: 1))
-                                .shadow(color: Color.black.opacity(0.3), radius: 6, x: 0, y: 2)
-                                }
-                                .buttonStyle(.plain)
-                            }
+                    LazyVStack(alignment: .leading, spacing: 10) {
+                        searchField
+                            .padding(.bottom, 6)
+
+                        HomeSectionHeader(title: DanceNames.display(danceName).uppercased(), count: filtered.count)
+                            .padding(.horizontal, 4)
+
+                        if filtered.isEmpty {
+                            Text(libraryItems.isEmpty ? "V knižnici zatiaľ nie je žiadna figúra tohto tanca." : "Žiadna figúra s týmto názvom.")
+                                .font(.footnote)
+                                .foregroundColor(.white.opacity(0.65))
+                                .padding(.horizontal, 4)
                         }
-                        .padding(.horizontal, 20)
+
+                        ForEach(filtered) { item in
+                            Button {
+                                addCount += 1
+                                onSelectFigure(item)
+                            } label: { row(item) }
+                            .buttonStyle(.pressable(scale: 0.97))
+                        }
+
+                        Button { showNewFigure = true } label: {
+                            Label(query.isEmpty ? "Nová figúra" : "Nová figúra „\(query)“", systemImage: "plus")
+                                .font(.subheadline.weight(.bold))
+                                .foregroundColor(Color.gold400)
+                                .frame(maxWidth: .infinity, minHeight: 52)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                        .strokeBorder(Color.gold400.opacity(0.35), style: StrokeStyle(lineWidth: 1, dash: [5, 4]))
+                                )
+                        }
+                        .buttonStyle(.pressable)
+                        .padding(.top, 6)
                     }
+                    .padding(20)
                 }
+                .scrollDismissesKeyboard(.interactively)
             }
             .navigationTitle("Pridať figúru")
             .navigationBarTitleDisplayMode(.inline)
@@ -87,11 +101,60 @@ struct FiguresDrawerSheet: View {
                         .foregroundColor(.gold400)
                 }
             }
+            .sheet(isPresented: $showNewFigure) {
+                NewFigureSheet(fixedDance: danceName) { figure in
+                    onSelectFigure(figure)
+                }
+            }
+            .sensoryFeedback(.success, trigger: addCount)
         }
+    }
+
+    private var searchField: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "magnifyingglass")
+                .foregroundColor(.white.opacity(0.6))
+            TextField("", text: $query, prompt: Text("Hľadať figúru").foregroundColor(.white.opacity(0.5)))
+                .foregroundColor(.white)
+                .autocorrectionDisabled()
+        }
+        .font(.subheadline)
+        .padding(.horizontal, 12)
+        .frame(minHeight: 40)
+        .background(Color.white.opacity(0.08), in: Capsule())
+        .overlay(Capsule().stroke(Color.white.opacity(0.1), lineWidth: 1))
+    }
+
+    private func row(_ item: FigureLibraryItem) -> some View {
+        HStack(spacing: 12) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(item.name)
+                    .font(.subheadline.weight(.bold))
+                    .foregroundColor(.white)
+                    .multilineTextAlignment(.leading)
+                if !item.rhythm.isEmpty {
+                    Text(item.rhythm)
+                        .font(.caption)
+                        .foregroundColor(.white.opacity(0.65))
+                        .lineLimit(2)
+                        .multilineTextAlignment(.leading)
+                }
+            }
+            Spacer(minLength: 8)
+            Image(systemName: "plus.circle.fill")
+                .font(.title3)
+                .foregroundColor(Color.gold400)
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .homeCard(cornerRadius: 16)
+        .accessibilityElement(children: .combine)
+        .accessibilityHint("Pridať na plátno")
     }
 }
 
 // MARK: - Transition Edit Sheet
+/// A note on the step between two figures, saved as you type.
 struct TransitionEditSheet: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
@@ -99,153 +162,120 @@ struct TransitionEditSheet: View {
     let toNode: CanvasNode
     let realtimeManager: CanvasRealtimeManager?
     var onSave: () -> Void
-    
+
     @AppStorage("profileName") private var userName = "Tanečník"
     @State private var notesText = ""
     @State private var autoSaveTask: Task<Void, Never>? = nil
     @State private var isAutoSaved = false
-    
+    @State private var sweepTrigger = 0
+    @FocusState private var isWriting: Bool
+
     var body: some View {
         NavigationStack {
             ZStack {
-                Color.obsidian800.ignoresSafeArea()
-                VStack(spacing: 20) {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Prechod zo:")
-                            .font(.system(size: 12, weight: .bold))
-                            .foregroundColor(.themeTextSecondary)
-                        Text(fromNode.figureName)
-                            .font(.system(size: 16, weight: .bold, design: .serif))
-                            .foregroundColor(.themeDark)
-                        Text("do:")
-                            .font(.system(size: 12, weight: .bold))
-                            .foregroundColor(.themeTextSecondary)
-                            .padding(.top, 8)
-                        Text(toNode.figureName)
-                            .font(.system(size: 16, weight: .bold, design: .serif))
-                            .foregroundColor(.themeDark)
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding()
-                    .background(Color.themeCard)
-                    .cornerRadius(14)
-                    .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.gold400.opacity(0.20), lineWidth: 1))
-                    .shadow(color: Color.black.opacity(0.4), radius: 8, x: 0, y: 3)
-                    .padding(.horizontal, 20)
-                    
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Poznámka k prechodu (spoju)")
-                            .font(.system(size: 14, weight: .bold, design: .serif))
-                            .foregroundColor(.themeDark)
-                            .padding(.horizontal, 20)
-                        TextEditor(text: $notesText)
-                            .scrollContentBackground(.hidden)
-                            .frame(height: 120)
-                            .padding(8)
-                            .background(Color.themeCard)
-                            .foregroundColor(.themeDark)
-                            .cornerRadius(12)
-                            .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.themeDark, lineWidth: 2))
-                            .padding(.horizontal, 20)
-                    }
-                    
-                    Spacer()
-                    
-                    Button(action: {
-                        saveNow()
-                        onSave()
-                    }) {
-                        Text("Hotovo")
-                            .font(.system(size: 16, weight: .bold))
-                            .foregroundColor(.white)
-                            .frame(maxWidth: .infinity)
-                    }
-                    .buttonStyle(.neubrutalist(accentColor: Color.themeAccent))
-                    .padding(.horizontal, 20)
-                    .padding(.bottom, 20)
-                }
-                .padding(.top, 20)
-            }
-            .navigationTitle("Poznámka prechodu")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbarBackground(Color.themeBg, for: .navigationBar)
-            .toolbarBackground(.visible, for: .navigationBar)
-            .toolbarColorScheme(.dark, for: .navigationBar)
-            .onAppear {
-                notesText = toNode.transitionNotes
-            }
-            .onChange(of: notesText) { _, newText in
-                autoSaveTask?.cancel()
-                autoSaveTask = Task {
-                    try? await Task.sleep(nanoseconds: 600_000_000)
-                    guard !Task.isCancelled else { return }
-                    
-                    toNode.transitionNotes = newText
-                    try? modelContext.save()
-                    realtimeManager?.broadcastTransitionUpdated(node: toNode, senderName: userName)
-                    
-                    if let routine = toNode.routine {
-                        routine.updatedAt = Date()
-                        routine.lastModifiedBy = userName
-                        try? routine.modelContext?.save()
-                        SupabaseSyncManager.shared.syncRoutineOnBackground(routine)
-                    }
-                    await MainActor.run {
-                        withAnimation { isAutoSaved = true }
-                    }
-                    try? await Task.sleep(nanoseconds: 2_000_000_000)
-                    await MainActor.run {
-                        withAnimation { isAutoSaved = false }
-                    }
-                }
-            }
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Zavrieť") {
-                        saveNow()
-                        onSave()
-                    }
-                        .foregroundColor(.gold400)
-                }
-                ToolbarItem(placement: .primaryAction) {
-                    if isAutoSaved {
-                        HStack(spacing: 4) {
-                            Image(systemName: "checkmark.cloud.fill")
-                                .foregroundColor(.themeAccent)
-                            Text("Uložené")
-                                .font(.system(size: 11, weight: .bold))
-                                .foregroundColor(.themeDark)
+                EllegancePageBackground()
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 18) {
+                        HStack(spacing: 10) {
+                            figurePill(fromNode.figureName)
+                            Image(systemName: "arrow.right")
+                                .font(.caption.weight(.bold))
+                                .foregroundColor(Color.gold400)
+                            figurePill(toNode.figureName)
                         }
-                        .transition(.opacity)
+
+                        VStack(alignment: .leading, spacing: 8) {
+                            HomeSectionHeader(title: "PRECHOD", systemImage: "arrow.triangle.turn.up.right.diamond") {
+                                if isAutoSaved {
+                                    Label("Uložené", systemImage: "checkmark.circle.fill")
+                                        .font(.caption.weight(.bold))
+                                        .foregroundColor(Color.syncEmerald)
+                                        .transition(.opacity.combined(with: .scale))
+                                }
+                            }
+                            ZStack(alignment: .topLeading) {
+                                if notesText.isEmpty {
+                                    Text("Ako sa dostaneš z jednej figúry do druhej…")
+                                        .font(.callout)
+                                        .foregroundColor(.white.opacity(0.5))
+                                        .padding(.top, 8)
+                                        .padding(.leading, 5)
+                                        .allowsHitTesting(false)
+                                }
+                                TextEditor(text: $notesText)
+                                    .focused($isWriting)
+                                    .scrollContentBackground(.hidden)
+                                    .font(.callout)
+                                    .foregroundColor(.white)
+                                    .tint(Color.gold400)
+                            }
+                            .frame(minHeight: 160)
+                            .padding(10)
+                            .homeCard(cornerRadius: 18)
+                            .overlay { FieldEdgeSweep(trigger: sweepTrigger) }
+                        }
                     }
+                    .padding(20)
+                    .animation(.spring(response: 0.3, dampingFraction: 0.8), value: isAutoSaved)
                 }
-                ToolbarItemGroup(placement: .keyboard) {
-                    Spacer()
-                    Button("Hotovo") { UIApplication.shared.endEditing() }
-                        .foregroundColor(.themeAccent)
+                .scrollDismissesKeyboard(.interactively)
+            }
+            .navigationTitle("Prechod")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Hotovo") {
+                        saveNow()
+                        onSave()
+                    }
+                    .fontWeight(.bold)
+                    .foregroundColor(.gold400)
                 }
             }
-            .onDisappear {
-                saveNow()
-            }
+            .onAppear { notesText = toNode.transitionNotes }
+            .onChange(of: isWriting) { _, writing in if writing { sweepTrigger += 1 } }
+            .onChange(of: notesText) { scheduleSave() }
+            .onDisappear { saveNow() }
+            .sensoryFeedback(.success, trigger: isAutoSaved) { _, saved in saved }
         }
     }
-    
-    private func saveNow() {
+
+    private func figurePill(_ name: String) -> some View {
+        Text(name)
+            .font(.footnote.weight(.bold))
+            .foregroundColor(.white)
+            .lineLimit(2)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+            .homeCard(cornerRadius: 12)
+    }
+
+    private func scheduleSave() {
         autoSaveTask?.cancel()
-        autoSaveTask = nil
-        
-        guard toNode.transitionNotes != notesText else { return }
+        autoSaveTask = Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(600))
+            guard !Task.isCancelled, saveNow() else { return }
+            isAutoSaved = true
+            try? await Task.sleep(for: .seconds(2))
+            isAutoSaved = false
+        }
+    }
+
+    /// Saves and shares the note if it changed; true when something was saved.
+    @discardableResult
+    private func saveNow() -> Bool {
+        guard toNode.transitionNotes != notesText else { return false }
         toNode.transitionNotes = notesText
         try? modelContext.save()
         realtimeManager?.broadcastTransitionUpdated(node: toNode, senderName: userName)
-        
+
         if let routine = toNode.routine {
             routine.updatedAt = Date()
             routine.lastModifiedBy = userName
             try? routine.modelContext?.save()
             SupabaseSyncManager.shared.syncRoutineOnBackground(routine)
         }
+        return true
     }
 }
 
@@ -409,7 +439,7 @@ struct QRExportSheet: View {
                                 .font(.system(.title2, design: .rounded).weight(.bold))
                                 .foregroundColor(.white)
                                 .multilineTextAlignment(.center)
-                            Text(routine.danceName.uppercased())
+                            Text(DanceNames.display(routine.danceName).uppercased())
                                 .font(.system(.caption, design: .rounded).weight(.black))
                                 .foregroundColor(Color.gold400)
                                 .tracking(1.4)

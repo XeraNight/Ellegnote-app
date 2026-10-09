@@ -378,7 +378,7 @@ struct RoutineCanvasView: View {
                                 .font(.system(.subheadline, design: .rounded).weight(.bold))
                                 .foregroundColor(.white)
                                 .lineLimit(1)
-                            Text(routine.danceName.uppercased())
+                            Text(DanceNames.display(routine.danceName).uppercased())
                                 .font(.system(.caption2, design: .rounded).weight(.black))
                                 .foregroundColor(LuxuryTheme.gold400)
                                 .tracking(1.2)

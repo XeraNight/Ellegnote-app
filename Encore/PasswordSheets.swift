@@ -223,7 +223,7 @@ struct EmailCodeSheet: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                Color.obsidian900.ignoresSafeArea()
+                EllegancePageBackground()
                     .contentShape(Rectangle())
                     .onTapGesture { focus = nil }
 
@@ -234,7 +234,7 @@ struct EmailCodeSheet: View {
                         .padding(.top, 8)
 
                     Text("Potvrď e-mail")
-                        .font(.system(size: 26, weight: .black, design: .serif))
+                        .font(.system(size: 26, weight: .black, design: .rounded))
                         .foregroundColor(.gold400)
 
                     Text("Poslali sme 6-miestny kód na \(email). Zadaj ho sem. Skontroluj aj spam.")
@@ -341,7 +341,7 @@ struct ForgotPasswordSheet: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                Color.obsidian900.ignoresSafeArea()
+                EllegancePageBackground()
                     .contentShape(Rectangle())
                     .onTapGesture { focus = nil }
 
@@ -352,7 +352,7 @@ struct ForgotPasswordSheet: View {
                         .padding(.top, 8)
 
                     Text("Obnova hesla")
-                        .font(.system(size: 26, weight: .black, design: .serif))
+                        .font(.system(size: 26, weight: .black, design: .rounded))
                         .foregroundColor(.gold400)
 
                     switch step {
@@ -362,7 +362,7 @@ struct ForgotPasswordSheet: View {
                             .foregroundColor(.white.opacity(0.65))
                             .fixedSize(horizontal: false, vertical: true)
 
-                        TextField("", text: $email, prompt: Text("Email Address").foregroundColor(Color.gold300.opacity(0.45)))
+                        TextField("", text: $email, prompt: Text("E-mailová adresa").foregroundColor(Color.gold300.opacity(0.45)))
                             .textContentType(.username)
                             .keyboardType(.emailAddress)
                             .textInputAutocapitalization(.never)
@@ -502,7 +502,7 @@ struct PasswordUpdateSheet: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                Color.obsidian900.ignoresSafeArea()
+                EllegancePageBackground()
                     .contentShape(Rectangle())
                     .onTapGesture { focus = nil }
 
@@ -514,7 +514,7 @@ struct PasswordUpdateSheet: View {
                             .padding(.top, 8)
 
                         Text(mode == .recovery ? "Nové heslo" : "Zmena hesla")
-                            .font(.system(size: 26, weight: .black, design: .serif))
+                            .font(.system(size: 26, weight: .black, design: .rounded))
                             .foregroundColor(.gold400)
 
                         Text(mode == .recovery

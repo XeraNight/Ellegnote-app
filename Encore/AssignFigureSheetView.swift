@@ -71,7 +71,7 @@ struct AssignFigureSheetView: View {
                     .padding(.bottom, 40)
                 }
             }
-            .navigationTitle("Priradiť Figúru")
+            .navigationTitle("Priradiť figúru")
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)
             .toolbarColorScheme(.dark, for: .navigationBar)

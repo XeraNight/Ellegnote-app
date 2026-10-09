@@ -97,7 +97,7 @@ struct StudioCoachRosterView: View {
         HStack(spacing: 8) {
             Image(systemName: "magnifyingglass")
                 .foregroundColor(Color.gold400)
-            TextField("", text: $searchQuery, prompt: Text("Meno, klub alebo Dancer ID").foregroundColor(.white.opacity(0.4)))
+            TextField("", text: $searchQuery, prompt: Text("Meno, klub alebo ID tanečníka").foregroundColor(.white.opacity(0.4)))
                 .foregroundColor(.white)
                 .autocorrectionDisabled()
         }
@@ -215,7 +215,7 @@ struct StudioCoachRosterView: View {
             Text("Zatiaľ žiadni zverenci")
                 .font(.headline)
                 .foregroundColor(.white)
-            Text("Pridaj zverenca cez jeho Dancer ID. Uvidíš jeho zostavy a môžeš mu pridávať figúry a poznámky.")
+            Text("Pridaj zverenca cez jeho ID tanečníka. Uvidíš jeho zostavy a môžeš mu pridávať figúry a poznámky.")
                 .font(.subheadline)
                 .foregroundColor(.white.opacity(0.65))
                 .multilineTextAlignment(.center)

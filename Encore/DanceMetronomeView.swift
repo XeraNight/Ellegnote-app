@@ -30,10 +30,6 @@ public struct DanceMetronomeView: View {
                         danceSection("ŠTANDARD", Self.standard)
                         danceSection("LATINA", Self.latin)
                         settingsCard
-                        Text("Základné tempo je stred rozsahu, ktorý povoľujú pravidlá WDSF.")
-                            .font(.caption)
-                            .foregroundColor(.white.opacity(0.5))
-                            .frame(maxWidth: .infinity, alignment: .leading)
                     }
                     .padding(.horizontal, 20)
                     .padding(.top, 8)

@@ -251,7 +251,7 @@ struct ProfileAvatarView: View {
                             .clipShape(Circle())
                     default:
                         Text(initials)
-                            .font(.system(size: size * 0.38, weight: .black, design: .serif))
+                            .font(.system(size: size * 0.38, weight: .black, design: .rounded))
                             .foregroundColor(.gold400)
                             .shadow(color: Color.gold500.opacity(0.4), radius: 6)
                     }
@@ -261,7 +261,7 @@ struct ProfileAvatarView: View {
             } else {
                 // Luxury Initials Monogram
                 Text(initials)
-                    .font(.system(size: size * 0.38, weight: .black, design: .serif))
+                    .font(.system(size: size * 0.38, weight: .black, design: .rounded))
                     .foregroundColor(.gold400)
                     .shadow(color: Color.gold500.opacity(0.45), radius: 8)
             }

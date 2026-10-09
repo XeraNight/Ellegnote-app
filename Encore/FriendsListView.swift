@@ -1,76 +1,65 @@
 import SwiftUI
 
-// MARK: - Connections & Community View (Unified Partners, Coaches & Students)
+// MARK: - Prepojenia
+/// Partners, coaches and students in one place (BRAND_GUIDELINES §1A). One way in: "+" (ID tanečníka),
+/// your QR code for others, or scanning theirs.
 struct FriendsListView: View {
     @ObservedObject private var connectionManager = ConnectionManager.shared
     @ObservedObject private var friendManager = FriendManager.shared
     @ObservedObject private var profileStore = UserProfileStore.shared
     @ObservedObject private var subscriptionManager = SubscriptionManager.shared
-    
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     enum ConnectionTab: String, CaseIterable, Identifiable {
         case partners = "Partneri"
         case coaches = "Tréneri"
         case students = "Zverenci"
         case requests = "Žiadosti"
-        
+
         var id: String { rawValue }
-        
-        var icon: String {
-            switch self {
-            case .partners: return "figure.dance"
-            case .coaches: return "graduationcap.fill"
-            case .students: return "person.3.sequence.fill"
-            case .requests: return "bell.badge.fill"
-            }
-        }
     }
-    
+
     @State private var selectedTab: ConnectionTab = .partners
     @State private var searchText = ""
     @State private var showScanner = false
     @State private var showMyCard = false
     @State private var showAddConnectionSheet = false
     @State private var showPaywallSheet = false
-    
+    @Namespace private var tabNamespace
+
     @State private var connectionToRevoke: DancerConnection? = nil
     @State private var showRevokeConfirmation = false
     @State private var showReportFallback = false
+    @State private var actionCount = 0
     @Environment(\.openURL) private var openURL
-    
+
     var body: some View {
         ZStack {
             EllegancePageBackground()
-            
-            VStack(spacing: 0) {
-                // 1. Top Action Bar
-                topActionBar
-                
-                // 2. Segmented Navigation Tabs
-                segmentedTabsSection
-                
-                // 3. Search Bar
-                searchBarSection
-                
-                // 4. Content List for Selected Tab
-                contentSection
-            }
-        }
-        .navigationTitle("Tanečné Prepojenia")
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbarBackground(.hidden, for: .navigationBar)
-        .toolbarColorScheme(.dark, for: .navigationBar)
-        .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                Button {
-                    showAddConnectionSheet = true
-                } label: {
-                    HStack(spacing: 4) {
-                        Image(systemName: "plus.circle.fill")
-                        Text("Prepojiť")
-                    }
-                    .font(.system(size: 13, weight: .bold))
-                    .foregroundColor(LuxuryTheme.gold400)
+
+            ScrollView(showsIndicators: false) {
+                VStack(alignment: .leading, spacing: 16) {
+                    quickActions
+                    tabsBar
+                    if showsSearch { searchBar }
+                    tabContent
                 }
+                .padding(.horizontal, 20)
+                .padding(.top, 8)
+                .padding(.bottom, 120)   // clear of the tab bar
+                .animation(reduceMotion ? nil : .spring(response: 0.35, dampingFraction: 0.85), value: selectedTab)
+            }
+            .scrollDismissesKeyboard(.interactively)
+            .refreshable { await connectionManager.fetchAllConnections() }
+        }
+        .navigationTitle("Prepojenia")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                Button { showAddConnectionSheet = true } label: {
+                    Image(systemName: "plus")
+                }
+                .accessibilityLabel("Pridať prepojenie")
             }
         }
         .sheet(isPresented: $showMyCard) {
@@ -95,396 +84,295 @@ struct FriendsListView: View {
                     Task {
                         try? await connectionManager.revokeConnection(connectionId: conn.id)
                         connectionToRevoke = nil
+                        actionCount += 1
                     }
                 }
             }
-            Button("Zrušiť", role: .cancel) {
+            Button("Ponechať", role: .cancel) {
                 connectionToRevoke = nil
             }
         } message: {
-            Text("Používateľ stratí prístup k vašim spoločným choreografiám a poznámkam. Kedykoľvek sa môžete prepojiť znova.")
+            Text("Stratí prístup k vašim spoločným zostavám a poznámkam. Prepojiť sa môžete kedykoľvek znova.")
         }
         .alert("Nahlásenie používateľa", isPresented: $showReportFallback) {
             Button("Rozumiem", role: .cancel) {}
         } message: {
-            Text("V iPhone nie je nastavená aplikácia Mail. Napíš nám na \(AppContact.supportEmail) meno a Dancer ID používateľa a čo sa stalo. Ozveme sa čo najskôr.")
+            Text("V iPhone nie je nastavená aplikácia Mail. Napíš nám na \(AppContact.supportEmail) meno a ID tanečníka a čo sa stalo. Ozveme sa čo najskôr.")
         }
+        .sensoryFeedback(.selection, trigger: selectedTab)
+        .sensoryFeedback(.success, trigger: actionCount)
         .task {
             await connectionManager.fetchAllConnections()
         }
     }
-    
-    // MARK: - 1. Top Action Bar
-    private var topActionBar: some View {
-        HStack(spacing: 12) {
-            Button {
-                showMyCard = true
-            } label: {
-                HStack(spacing: 6) {
-                    Image(systemName: "creditcard.fill")
-                        .font(.system(size: 13, weight: .bold))
-                    Text("Moja Karta & ID")
-                        .font(.system(size: 13, weight: .bold))
-                }
-                .foregroundColor(LuxuryTheme.obsidian900)
-                .padding(.horizontal, 14)
-                .padding(.vertical, 9)
-                .background(
-                    LinearGradient(
-                        colors: [LuxuryTheme.gold500, LuxuryTheme.gold400],
-                        startPoint: .leading,
-                        endPoint: .trailing
-                    )
-                )
-                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-            }
-            .buttonStyle(.plain)
-            
-            Spacer()
-            
-            Button {
-                showScanner = true
-            } label: {
-                HStack(spacing: 6) {
-                    Image(systemName: "qrcode.viewfinder")
-                        .font(.system(size: 13, weight: .bold))
-                    Text("Skenovať QR")
-                        .font(.system(size: 13, weight: .bold))
-                }
-                .foregroundColor(LuxuryTheme.gold300)
-                .padding(.horizontal, 14)
-                .padding(.vertical, 9)
-                .background(LuxuryTheme.obsidian800)
-                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .stroke(LuxuryTheme.gold500.opacity(0.35), lineWidth: 1)
-                )
-            }
-            .buttonStyle(.plain)
-        }
-        .padding(.horizontal, 20)
-        .padding(.top, 10)
-        .padding(.bottom, 12)
+
+    private var showsSearch: Bool {
+        guard selectedTab != .requests else { return false }
+        return currentList.count > 4 || !searchText.isEmpty
     }
-    
-    // MARK: - 2. Segmented Tabs
-    private var segmentedTabsSection: some View {
+
+    private var currentList: [DancerConnection] {
+        switch selectedTab {
+        case .partners: return connectionManager.activePartners
+        case .coaches: return connectionManager.activeCoaches
+        case .students: return connectionManager.activeStudents
+        case .requests: return []
+        }
+    }
+
+    // MARK: Quick actions
+    private var quickActions: some View {
+        HStack(spacing: 10) {
+            actionTile("Môj QR kód", icon: "qrcode") { showMyCard = true }
+            actionTile("Naskenovať QR", icon: "qrcode.viewfinder") { showScanner = true }
+        }
+    }
+
+    private func actionTile(_ title: String, icon: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Label(title, systemImage: icon)
+                .font(.subheadline.weight(.semibold))
+                .foregroundColor(Color.gold300)
+                .frame(maxWidth: .infinity, minHeight: 48)
+                .homeCard(cornerRadius: 14)
+        }
+        .buttonStyle(.pressable)
+    }
+
+    // MARK: Tabs
+    private var tabsBar: some View {
         HStack(spacing: 6) {
             ForEach(ConnectionTab.allCases) { tab in
                 let isSelected = selectedTab == tab
                 Button {
-                    withAnimation(.spring(response: 0.3)) {
-                        selectedTab = tab
-                    }
+                    withAnimation(reduceMotion ? nil : .spring(response: 0.32, dampingFraction: 0.78)) { selectedTab = tab }
                 } label: {
-                    HStack(spacing: 5) {
-                        Image(systemName: tab.icon)
-                            .font(.system(size: 11, weight: .bold))
+                    HStack(spacing: 4) {
                         Text(tab.rawValue)
-                            .font(.system(size: 12, weight: .bold))
-                        
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.85)
                         if tab == .requests && !connectionManager.incomingRequests.isEmpty {
                             Text("\(connectionManager.incomingRequests.count)")
-                                .font(.system(size: 9, weight: .black))
-                                .foregroundColor(.white)
+                                .font(.system(.caption2, design: .rounded).weight(.black))
+                                .foregroundColor(Color.obsidian900)
                                 .padding(.horizontal, 5)
-                                .padding(.vertical, 2)
-                                .background(Color.latinCrimson)
-                                .clipShape(Capsule())
+                                .padding(.vertical, 1)
+                                .background(Color.gold400, in: Capsule())
+                                .contentTransition(.numericText())
                         }
                     }
-                    .foregroundColor(isSelected ? LuxuryTheme.obsidian900 : .white.opacity(0.7))
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 8)
-                    .background(isSelected ? LuxuryTheme.gold400 : Color.white.opacity(0.05))
-                    .cornerRadius(10)
+                    .font(.footnote.weight(isSelected ? .bold : .medium))
+                    .foregroundColor(isSelected ? .white : .white.opacity(0.75))
+                    .frame(maxWidth: .infinity, minHeight: 36)
+                    .background {
+                        ZStack {
+                            Capsule().fill(Color.white.opacity(0.05))
+                            if isSelected {
+                                Capsule()
+                                    .fill(Color.white.opacity(0.14))
+                                    .matchedGeometryEffect(id: "connectionTab", in: tabNamespace)
+                            }
+                        }
+                    }
+                    .overlay(Capsule().stroke(isSelected ? Color.gold400.opacity(0.45) : Color.white.opacity(0.08), lineWidth: 1))
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.pressable)
+                .accessibilityAddTraits(isSelected ? .isSelected : [])
             }
         }
-        .padding(4)
-        .background(LuxuryTheme.obsidian800)
-        .cornerRadius(14)
-        .overlay(RoundedRectangle(cornerRadius: 14).stroke(LuxuryTheme.gold500.opacity(0.25), lineWidth: 1))
-        .padding(.horizontal, 20)
-        .padding(.bottom, 12)
     }
-    
-    // MARK: - 3. Search Bar
-    private var searchBarSection: some View {
-        HStack(spacing: 10) {
+
+    // MARK: Search
+    private var searchBar: some View {
+        HStack(spacing: 8) {
             Image(systemName: "magnifyingglass")
-                .foregroundColor(LuxuryTheme.gold400.opacity(0.7))
-            
-            TextField("", text: $searchText, prompt: Text("Filtrovať podľa mena, klubu alebo Dancer ID...").foregroundColor(Color.white.opacity(0.35)))
+                .foregroundColor(.white.opacity(0.6))
+            TextField("", text: $searchText, prompt: Text("Meno, klub alebo ID tanečníka").foregroundColor(.white.opacity(0.5)))
                 .foregroundColor(.white)
-                .font(.system(size: 13))
-            
+                .autocorrectionDisabled()
             if !searchText.isEmpty {
-                Button {
-                    searchText = ""
-                } label: {
-                    Image(systemName: "xmark.circle.fill")
-                        .foregroundColor(Color.white.opacity(0.4))
+                Button { searchText = "" } label: {
+                    Image(systemName: "xmark.circle.fill").foregroundColor(.white.opacity(0.5))
                 }
+                .accessibilityLabel("Vymazať hľadanie")
             }
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 10)
-        .background(LuxuryTheme.obsidian800)
-        .cornerRadius(12)
-        .overlay(RoundedRectangle(cornerRadius: 12).stroke(LuxuryTheme.gold500.opacity(0.2), lineWidth: 1))
-        .padding(.horizontal, 20)
-        .padding(.bottom, 12)
+        .font(.subheadline)
+        .padding(.horizontal, 12)
+        .frame(minHeight: 40)
+        .background(Color.white.opacity(0.08), in: Capsule())
+        .overlay(Capsule().stroke(Color.white.opacity(0.1), lineWidth: 1))
+        .transition(.opacity)
     }
-    
-    // MARK: - 4. Content Section
+
+    // MARK: Content
     @ViewBuilder
-    private var contentSection: some View {
-        ScrollView(showsIndicators: false) {
-            VStack(spacing: 12) {
-                switch selectedTab {
-                case .partners:
-                    partnersTabContent
-                case .coaches:
-                    coachesTabContent
-                case .students:
-                    studentsTabContent
-                case .requests:
-                    requestsTabContent
-                }
-            }
-            .padding(.horizontal, 20)
-            .padding(.top, 4)
-            .padding(.bottom, 40)
-        }
-    }
-    
-    // MARK: - Partners Tab Content
-    @ViewBuilder
-    private var partnersTabContent: some View {
-        let list = filtered(connections: connectionManager.activePartners)
-        if list.isEmpty {
-            emptyStateView(
-                icon: "figure.dance",
-                title: "Žiadny aktívny partner",
-                subtitle: "Pripojte svojho tanečného partnera a synchronizujte si choreografie naživo v cloude.",
-                actionTitle: "Pripojiť partnera",
-                action: { showAddConnectionSheet = true }
+    private var tabContent: some View {
+        switch selectedTab {
+        case .partners:
+            connectionList(
+                filtered(connections: connectionManager.activePartners), badge: "Partner",
+                empty: emptyStateView(
+                    icon: "figure.dance",
+                    title: "Zatiaľ žiadny partner",
+                    subtitle: "Prepoj sa s partnerom alebo partnerkou a zostavy uvidíte obaja, zmeny hneď.",
+                    actionTitle: "Pridať partnera"
+                )
             )
+        case .coaches:
+            connectionList(
+                filtered(connections: connectionManager.activeCoaches), badge: "Tréner",
+                empty: emptyStateView(
+                    icon: "graduationcap.fill",
+                    title: "Zatiaľ žiadny tréner",
+                    subtitle: "Tréner uvidí tvoje zostavy a môže ti k figúram písať poznámky.",
+                    actionTitle: "Pridať trénera"
+                )
+            )
+        case .students:
+            studentsTabContent
+        case .requests:
+            requestsTabContent
+        }
+    }
+
+    @ViewBuilder
+    private func connectionList(_ list: [DancerConnection], badge: String, empty: some View) -> some View {
+        if list.isEmpty {
+            empty
         } else {
             ForEach(list) { conn in
-                connectionRow(conn: conn, badgeTitle: "Partner", badgeColor: LuxuryTheme.gold400)
+                connectionRow(conn: conn, badgeTitle: badge)
+                    .transition(.opacity.combined(with: .scale(scale: 0.97)))
             }
         }
     }
-    
-    // MARK: - Coaches Tab Content
-    @ViewBuilder
-    private var coachesTabContent: some View {
-        let list = filtered(connections: connectionManager.activeCoaches)
-        if list.isEmpty {
-            emptyStateView(
-                icon: "graduationcap.fill",
-                title: "Žiaden pripojený tréner",
-                subtitle: "Udeľte svojmu trénerovi prístup k vašim zostavám, aby vám mohol pomáhať s revíziou figúr a techniky.",
-                actionTitle: "Pozvať trénera",
-                action: { showAddConnectionSheet = true }
-            )
-        } else {
-            ForEach(list) { conn in
-                connectionRow(conn: conn, badgeTitle: "Tréner", badgeColor: Color.blue)
-            }
-        }
-    }
-    
-    // MARK: - Students Tab Content (Gated for Premium)
+
+    // MARK: Students (Premium)
     @ViewBuilder
     private var studentsTabContent: some View {
         if !subscriptionManager.canAccessStudioRoster {
-            // Upsell prompt to unlock Premium
-            VStack(spacing: 16) {
-                ZStack {
-                    Circle()
-                        .fill(LuxuryTheme.gold500.opacity(0.18))
-                        .frame(width: 56, height: 56)
-                    Image(systemName: "building.columns.fill")
-                        .font(.system(size: 24, weight: .bold))
-                        .foregroundColor(LuxuryTheme.gold400)
-                }
-                
-                Text("Trénerský Roster Zverencov")
-                    .font(.system(size: 18, weight: .heavy))
+            VStack(spacing: 12) {
+                Image(systemName: "person.3.sequence.fill")
+                    .font(.title2)
+                    .foregroundColor(Color.gold400)
+                Text("Moji zverenci")
+                    .font(.headline)
                     .foregroundColor(.white)
-                
-                Text("Správa viacerých párov, dohľad nad zostavami žiakov a sledovanie ich postupových bodov je súčasťou prémiového balíka Encore Premium.")
-                    .font(.system(size: 13))
+                Text("Ako tréner vidíš zostavy svojich zverencov, píšeš im poznámky k figúram a zapisuješ, čo ste robili na lekcii. Je to súčasť Premium.")
+                    .font(.footnote)
                     .foregroundColor(.white.opacity(0.7))
                     .multilineTextAlignment(.center)
-                    .padding(.horizontal, 16)
-                
-                Button {
+                PrimarySheetButton(title: "Pozrieť Premium", isLoading: false, isEnabled: true) {
                     showPaywallSheet = true
-                } label: {
-                    HStack(spacing: 6) {
-                        Text("Prejsť na Encore Premium")
-                        Image(systemName: "crown.fill")
-                    }
-                    .font(.system(size: 14, weight: .bold))
-                    .foregroundColor(LuxuryTheme.obsidian900)
-                    .padding(.horizontal, 20)
-                    .padding(.vertical, 12)
-                    .background(LuxuryTheme.gold400)
-                    .cornerRadius(12)
                 }
+                .padding(.top, 4)
             }
-            .padding(24)
+            .padding(20)
             .frame(maxWidth: .infinity)
-            .background(LuxuryTheme.obsidian800)
-            .cornerRadius(18)
-            .overlay(RoundedRectangle(cornerRadius: 18).stroke(LuxuryTheme.gold500.opacity(0.3), lineWidth: 1))
-            .padding(.top, 16)
+            .homeCard(cornerRadius: 20)
         } else {
-            let list = filtered(connections: connectionManager.activeStudents)
-            
-            // Trénerské centrum / Roster banner
             NavigationLink {
                 StudioCoachRosterView()
             } label: {
                 HStack(spacing: 12) {
                     Image(systemName: "person.3.sequence.fill")
-                        .font(.system(size: 16, weight: .bold))
-                        .foregroundColor(LuxuryTheme.obsidian900)
+                        .font(.subheadline.weight(.bold))
+                        .foregroundColor(Color.obsidian900)
                         .frame(width: 36, height: 36)
-                        .background(LuxuryTheme.gold400)
-                        .clipShape(Circle())
-                    
+                        .background(Color.gold400, in: Circle())
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("Trénerský Roster & Zostavy")
-                            .font(.system(size: 15, weight: .bold))
+                        Text("Moji zverenci")
+                            .font(.subheadline.weight(.bold))
                             .foregroundColor(.white)
-                        Text("Otvoriť kompletný prehľad zverencov a ich choreografií")
-                            .font(.system(size: 11))
+                        Text("Zostavy, poznámky a čo ste robili naposledy")
+                            .font(.caption)
                             .foregroundColor(.white.opacity(0.65))
                     }
-                    
                     Spacer()
-                    
                     Image(systemName: "chevron.right")
-                        .font(.system(size: 12, weight: .bold))
-                        .foregroundColor(LuxuryTheme.gold400)
+                        .font(.caption.weight(.bold))
+                        .foregroundColor(.white.opacity(0.4))
                 }
                 .padding(14)
-                .background(LuxuryTheme.obsidian800)
-                .cornerRadius(14)
-                .overlay(RoundedRectangle(cornerRadius: 14).stroke(LuxuryTheme.gold500.opacity(0.3), lineWidth: 1))
+                .homeCard(cornerRadius: 16)
             }
-            .buttonStyle(.plain)
-            .padding(.bottom, 6)
-            
-            if list.isEmpty {
-                emptyStateView(
+            .buttonStyle(.pressable)
+
+            connectionList(
+                filtered(connections: connectionManager.activeStudents), badge: "Zverenec",
+                empty: emptyStateView(
                     icon: "person.3.sequence.fill",
                     title: "Zatiaľ žiadni zverenci",
-                    subtitle: "Pridajte svojich zverencov a páry z klubu cez ich Dancer ID pre dohľad nad ich zostavami.",
-                    actionTitle: "Pridať zverenca",
-                    action: { showAddConnectionSheet = true }
+                    subtitle: "Pridaj zverenca cez jeho ID tanečníka alebo QR kód.",
+                    actionTitle: "Pridať zverenca"
                 )
-            } else {
-                ForEach(list) { conn in
-                    connectionRow(conn: conn, badgeTitle: "Zverenec", badgeColor: Color.syncEmerald)
-                }
-            }
+            )
         }
     }
-    
-    // MARK: - Requests Tab Content
+
+    // MARK: Requests
     @ViewBuilder
     private var requestsTabContent: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            // 1. Incoming Requests
-            if !connectionManager.incomingRequests.isEmpty {
-                VStack(alignment: .leading, spacing: 10) {
-                    Text("PRICHÁDZAJÚCE ŽIADOSTI (\(connectionManager.incomingRequests.count))")
-                        .font(.system(size: 11, weight: .black))
-                        .foregroundColor(LuxuryTheme.gold400)
-                    
-                    ForEach(connectionManager.incomingRequests) { req in
-                        incomingRequestCard(req: req)
-                    }
-                }
-            }
-            
-            // 2. Outgoing Requests
-            if !connectionManager.outgoingRequests.isEmpty {
-                VStack(alignment: .leading, spacing: 10) {
-                    Text("ČAKAJÚCE ODCHÁDZAJÚCE ŽIADOSTI (\(connectionManager.outgoingRequests.count))")
-                        .font(.system(size: 11, weight: .black))
-                        .foregroundColor(.white.opacity(0.6))
-                    
-                    ForEach(connectionManager.outgoingRequests) { req in
-                        outgoingRequestCard(req: req)
-                    }
-                }
-            }
-            
-            if connectionManager.incomingRequests.isEmpty && connectionManager.outgoingRequests.isEmpty {
-                emptyStateView(
-                    icon: "tray.fill",
-                    title: "Žiadne čakajúce žiadosti",
-                    subtitle: "Keď vám niekto pošle žiadosť o prepojenie cez Dancer ID alebo QR kód, objaví sa tu.",
-                    actionTitle: "Vyhľadať tanečníka",
-                    action: { showAddConnectionSheet = true }
-                )
+        if !connectionManager.incomingRequests.isEmpty {
+            HomeSectionHeader(title: "CHCÚ SA PREPOJIŤ", count: connectionManager.incomingRequests.count)
+                .padding(.horizontal, 4)
+            ForEach(connectionManager.incomingRequests) { req in
+                incomingRequestCard(req: req)
+                    .transition(.opacity.combined(with: .scale(scale: 0.97)))
             }
         }
-    }
-    
-    // MARK: - Row Components
-    private func connectionRow(conn: DancerConnection, badgeTitle: String, badgeColor: Color) -> some View {
-        HStack(spacing: 12) {
-            ZStack {
-                Circle()
-                    .fill(badgeColor.opacity(0.18))
-                    .frame(width: 44, height: 44)
-                Image(systemName: conn.relationshipType.badgeIcon)
-                    .font(.system(size: 15, weight: .bold))
-                    .foregroundColor(badgeColor)
+
+        if !connectionManager.outgoingRequests.isEmpty {
+            HomeSectionHeader(title: "ČAKÁ NA POTVRDENIE", count: connectionManager.outgoingRequests.count)
+                .padding(.horizontal, 4)
+                .padding(.top, 8)
+            ForEach(connectionManager.outgoingRequests) { req in
+                outgoingRequestCard(req: req)
+                    .transition(.opacity.combined(with: .scale(scale: 0.97)))
             }
-            .overlay(Circle().stroke(badgeColor.opacity(0.4), lineWidth: 1))
-            
+        }
+
+        if connectionManager.incomingRequests.isEmpty && connectionManager.outgoingRequests.isEmpty {
+            emptyStateView(
+                icon: "tray",
+                title: "Žiadne žiadosti",
+                subtitle: "Keď ti niekto pošle žiadosť o prepojenie, uvidíš ju tu.",
+                actionTitle: "Pridať prepojenie"
+            )
+        }
+    }
+
+    // MARK: Rows
+    private func connectionRow(conn: DancerConnection, badgeTitle: String) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: conn.relationshipType.badgeIcon)
+                .font(.subheadline.weight(.bold))
+                .foregroundColor(Color.gold400)
+                .frame(width: 44, height: 44)
+                .background(Color.gold500.opacity(0.14), in: Circle())
+
             VStack(alignment: .leading, spacing: 3) {
                 HStack(spacing: 6) {
                     Text(conn.otherUserName)
-                        .font(.system(size: 15, weight: .bold))
+                        .font(.subheadline.weight(.bold))
                         .foregroundColor(.white)
-                    
+                        .lineLimit(1)
                     Text(badgeTitle)
-                        .font(.system(size: 9, weight: .black))
-                        .foregroundColor(badgeColor)
-                        .padding(.horizontal, 5)
+                        .font(.caption2.weight(.bold))
+                        .foregroundColor(Color.gold300)
+                        .padding(.horizontal, 6)
                         .padding(.vertical, 2)
-                        .background(badgeColor.opacity(0.18))
-                        .cornerRadius(5)
+                        .background(Color.gold500.opacity(0.16), in: Capsule())
                 }
-                
-                HStack(spacing: 6) {
-                    if !conn.otherUserDancerCode.isEmpty {
-                        Text(conn.otherUserDancerCode)
-                            .font(.system(size: 11, weight: .bold, design: .monospaced))
-                            .foregroundColor(LuxuryTheme.gold300)
-                    }
-                    if !conn.otherUserClub.isEmpty {
-                        Text("• \(conn.otherUserClub)")
-                            .font(.system(size: 11))
-                            .foregroundColor(.white.opacity(0.65))
-                    }
-                }
+                Text([conn.otherUserDancerCode, conn.otherUserClub].filter { !$0.isEmpty }.joined(separator: " · "))
+                    .font(.caption)
+                    .foregroundColor(.white.opacity(0.65))
+                    .lineLimit(1)
             }
-            
-            Spacer()
-            
+
+            Spacer(minLength: 4)
+
             Menu {
                 Button(role: .destructive) {
                     connectionToRevoke = conn
@@ -492,150 +380,123 @@ struct FriendsListView: View {
                 } label: {
                     Label("Zrušiť prepojenie", systemImage: "link.badge.slash")
                 }
-                
-                Button(role: .destructive) {
+                Button {
                     report(conn)
                 } label: {
                     Label("Nahlásiť používateľa", systemImage: "flag")
                 }
             } label: {
-                Image(systemName: "ellipsis")
-                    .font(.system(size: 14, weight: .bold))
-                    .foregroundColor(.white.opacity(0.5))
-                    .frame(width: 32, height: 32)
+                GlassCircleLabel(icon: "ellipsis", size: 36)
             }
+            .accessibilityLabel("Možnosti pre \(conn.otherUserName)")
         }
-        .padding(14)
-        .background(LuxuryTheme.obsidian800)
-        .cornerRadius(14)
-        .overlay(RoundedRectangle(cornerRadius: 14).stroke(LuxuryTheme.gold500.opacity(0.2), lineWidth: 1))
+        .padding(12)
+        .homeCard(cornerRadius: 16)
     }
-    
+
     private func incomingRequestCard(req: DancerConnection) -> some View {
-        VStack(spacing: 12) {
+        VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 12) {
-                ZStack {
-                    Circle()
-                        .fill(Color.orange.opacity(0.18))
-                        .frame(width: 42, height: 42)
-                    Image(systemName: "envelope.badge.fill")
-                        .foregroundColor(.orange)
-                }
-                
+                Image(systemName: "envelope.badge.fill")
+                    .font(.subheadline.weight(.bold))
+                    .foregroundColor(Color.gold400)
+                    .frame(width: 42, height: 42)
+                    .background(Color.gold500.opacity(0.14), in: Circle())
                 VStack(alignment: .leading, spacing: 2) {
                     Text(req.otherUserName)
-                        .font(.system(size: 15, weight: .bold))
+                        .font(.subheadline.weight(.bold))
                         .foregroundColor(.white)
-                    
                     Text("Chce sa prepojiť ako: \(req.relationshipType.title)")
-                        .font(.system(size: 12))
-                        .foregroundColor(LuxuryTheme.gold300)
+                        .font(.caption)
+                        .foregroundColor(Color.gold300)
                 }
-                
-                Spacer()
             }
-            
+
             HStack(spacing: 10) {
                 Button {
-                    Task { try? await connectionManager.acceptRequest(connectionId: req.id) }
-                } label: {
-                    HStack(spacing: 4) {
-                        Image(systemName: "checkmark")
-                        Text("Prijať")
+                    Task {
+                        try? await connectionManager.acceptRequest(connectionId: req.id)
+                        actionCount += 1
                     }
-                    .font(.system(size: 13, weight: .bold))
-                    .foregroundColor(LuxuryTheme.obsidian900)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 8)
-                    .background(Color.syncEmerald)
-                    .cornerRadius(8)
+                } label: {
+                    Label("Prijať", systemImage: "checkmark")
+                        .font(.footnote.weight(.bold))
+                        .foregroundColor(Color.obsidian900)
+                        .frame(maxWidth: .infinity, minHeight: 40)
+                        .background(Color.gold400, in: Capsule())
                 }
-                
+                .buttonStyle(.pressable)
+
                 Button {
                     Task { try? await connectionManager.rejectRequest(connectionId: req.id) }
                 } label: {
                     Text("Odmietnuť")
-                        .font(.system(size: 13, weight: .bold))
-                        .foregroundColor(Color.latinCrimson)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 8)
-                        .background(Color.latinCrimson.opacity(0.15))
-                        .cornerRadius(8)
+                        .font(.footnote.weight(.bold))
+                        .foregroundColor(.white.opacity(0.85))
+                        .frame(maxWidth: .infinity, minHeight: 40)
+                        .background(Color.white.opacity(0.1), in: Capsule())
                 }
+                .buttonStyle(.pressable)
             }
         }
         .padding(14)
-        .background(LuxuryTheme.obsidian800)
-        .cornerRadius(14)
-        .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.orange.opacity(0.4), lineWidth: 1))
+        .homeCard(cornerRadius: 16)
+        .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(Color.gold400.opacity(0.35), lineWidth: 1))
     }
-    
+
     private func outgoingRequestCard(req: DancerConnection) -> some View {
         HStack {
             VStack(alignment: .leading, spacing: 2) {
                 Text(req.otherUserName)
-                    .font(.system(size: 14, weight: .bold))
+                    .font(.subheadline.weight(.bold))
                     .foregroundColor(.white)
-                Text("Čaká na potvrdenie (\(req.relationshipType.title))")
-                    .font(.system(size: 11))
+                Text(req.relationshipType.title)
+                    .font(.caption)
                     .foregroundColor(.white.opacity(0.6))
             }
-            
             Spacer()
-            
-            Button("Zrušiť") {
+            Button("Zrušiť žiadosť") {
                 Task { try? await connectionManager.revokeConnection(connectionId: req.id) }
             }
-            .font(.system(size: 12, weight: .semibold))
-            .foregroundColor(.white.opacity(0.7))
-            .padding(.horizontal, 10)
-            .padding(.vertical, 6)
-            .background(Color.white.opacity(0.08))
-            .cornerRadius(8)
+            .font(.footnote.weight(.semibold))
+            .foregroundColor(.white.opacity(0.8))
+            .padding(.horizontal, 12)
+            .frame(minHeight: 34)
+            .background(Color.white.opacity(0.08), in: Capsule())
+            .buttonStyle(.pressable)
         }
         .padding(12)
-        .background(LuxuryTheme.obsidian800.opacity(0.7))
-        .cornerRadius(12)
+        .homeCard(cornerRadius: 14)
     }
-    
-    private func emptyStateView(icon: String, title: String, subtitle: String, actionTitle: String, action: @escaping () -> Void) -> some View {
-        VStack(spacing: 14) {
+
+    private func emptyStateView(icon: String, title: String, subtitle: String, actionTitle: String) -> some View {
+        VStack(spacing: 10) {
             Image(systemName: icon)
-                .font(.system(size: 38))
-                .foregroundColor(LuxuryTheme.gold400.opacity(0.6))
-                .padding(.top, 16)
-            
+                .font(.title)
+                .foregroundColor(Color.gold400.opacity(0.8))
             Text(title)
-                .font(.system(size: 16, weight: .bold))
+                .font(.headline)
                 .foregroundColor(.white)
-            
             Text(subtitle)
-                .font(.system(size: 13))
-                .foregroundColor(Color.white.opacity(0.65))
+                .font(.footnote)
+                .foregroundColor(.white.opacity(0.7))
                 .multilineTextAlignment(.center)
-                .padding(.horizontal, 24)
-            
-            Button(action: action) {
-                HStack(spacing: 6) {
-                    Image(systemName: "plus")
-                    Text(actionTitle)
-                }
-                .font(.system(size: 13, weight: .bold))
-                .foregroundColor(LuxuryTheme.obsidian900)
-                .padding(.horizontal, 16)
-                .padding(.vertical, 10)
-                .background(LuxuryTheme.gold400)
-                .cornerRadius(10)
+            Button { showAddConnectionSheet = true } label: {
+                Label(actionTitle, systemImage: "plus")
+                    .font(.footnote.weight(.bold))
+                    .foregroundColor(Color.obsidian900)
+                    .padding(.horizontal, 16)
+                    .frame(minHeight: 40)
+                    .background(Color.gold400, in: Capsule())
             }
-            .padding(.top, 6)
-            .padding(.bottom, 16)
+            .buttonStyle(.pressable)
+            .padding(.top, 4)
         }
+        .padding(20)
         .frame(maxWidth: .infinity)
-        .background(LuxuryTheme.obsidian800.opacity(0.5))
-        .cornerRadius(16)
-        .overlay(RoundedRectangle(cornerRadius: 16).stroke(LuxuryTheme.gold500.opacity(0.2), lineWidth: 1))
+        .homeCard(cornerRadius: 20)
     }
-    
+
     private func filtered(connections: [DancerConnection]) -> [DancerConnection] {
         let clean = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
         if clean.isEmpty { return connections }
@@ -645,20 +506,15 @@ struct FriendsListView: View {
             $0.otherUserDancerCode.localizedCaseInsensitiveContains(clean)
         }
     }
-    
-    // MARK: - My Card Modal Sheet
+
+    // MARK: - My card
     private var myCardSheet: some View {
         NavigationStack {
             ZStack {
                 EllegancePageBackground()
-                
+
                 ScrollView {
-                    VStack(spacing: 24) {
-                        Text("Tvoja Digitálna Karta")
-                            .font(.system(size: 20, weight: .black))
-                            .foregroundColor(.white)
-                            .padding(.top, 16)
-                        
+                    VStack(spacing: 20) {
                         EncoreMemberCardView(
                             name: profileStore.currentName,
                             club: profileStore.currentClub,
@@ -666,40 +522,42 @@ struct FriendsListView: View {
                             allowInteractiveTilt: true,
                             showActionButtons: true
                         )
-                        
-                        VStack(spacing: 8) {
-                            Text("DANCER ID: \(profileStore.dancerCode)")
-                                .font(.system(size: 15, weight: .bold, design: .monospaced))
-                                .foregroundColor(LuxuryTheme.gold300)
-                                .padding(.horizontal, 14)
-                                .padding(.vertical, 6)
-                                .background(LuxuryTheme.gold500.opacity(0.18))
-                                .cornerRadius(8)
-                            
-                            Text("Ťukni dvakrát na kartu pre zobrazenie druhej strany.\nIní tanečníci ťa môžu vyhľadať zadaním tvojho Dancer ID alebo naskenovaním QR kódu.")
-                                .font(.system(size: 12))
-                                .foregroundColor(Color.white.opacity(0.65))
-                                .multilineTextAlignment(.center)
-                                .padding(.horizontal, 32)
+
+                        if !profileStore.dancerCode.isEmpty {
+                            Button {
+                                UIPasteboard.general.string = profileStore.dancerCode
+                                actionCount += 1
+                            } label: {
+                                Label("ID tanečníka: \(profileStore.dancerCode)", systemImage: "doc.on.doc")
+                                    .font(.subheadline.weight(.bold).monospaced())
+                                    .foregroundColor(Color.gold300)
+                                    .padding(.horizontal, 14)
+                                    .frame(minHeight: 40)
+                                    .background(Color.gold500.opacity(0.16), in: Capsule())
+                            }
+                            .buttonStyle(.pressable)
+                            .accessibilityHint("Skopíruje ID tanečníka")
                         }
                     }
                     .padding(20)
                 }
             }
+            .navigationTitle("Môj QR kód")
+            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
+                ToolbarItem(placement: .confirmationAction) {
                     Button("Hotovo") { showMyCard = false }
-                        .foregroundColor(LuxuryTheme.gold400)
-                        .font(.system(size: 15, weight: .bold))
+                        .fontWeight(.bold)
+                        .foregroundColor(Color.gold400)
                 }
             }
         }
     }
-    
+
     private func handleScannedQRCode(_ code: String) {
         let clean = code.trimmingCharacters(in: .whitespacesAndNewlines)
         if clean.starts(with: "DNC-") {
-            // Direct Dancer ID scanned!
+            // A scanned ID tanečníka
             Task {
                 try? await connectionManager.sendRequestByDancerCode(code: clean, type: .partner)
             }
@@ -720,13 +578,13 @@ struct FriendsListView: View {
 
 // MARK: - Reporting a user
 private extension FriendsListView {
-    /// Opens an e-mail to support with the reported person's name and Dancer ID filled in.
+    /// Opens an e-mail to support with the reported person's name and ID tanečníka filled in.
     /// Nothing is "sent" silently: the user sees and sends the message, so the report is real.
     func report(_ conn: DancerConnection) {
         let body = """
         Nahlasujem používateľa:
         Meno: \(conn.otherUserName)
-        Dancer ID: \(conn.otherUserDancerCode)
+        ID tanečníka: \(conn.otherUserDancerCode)
 
         Čo sa stalo:
 

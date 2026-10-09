@@ -56,17 +56,23 @@ pevné veľkosti písma, vykanie)
 | **Postúra (čiary a uhly)** | ✅ 9. 10.: nahradená čiarami v Porovnaní | Anglické „Sway“, uloženie ide len do Fotiek, nie k figúre | **1** (pozri §4) |
 | **Výber médií** | ✅ 9. 10. | Filtre s emoji (🎬 📷 🟢 🔴), pätkový nadpis | **1** |
 | **Paywall (Členstvo)** | ✅ 9. 10. | Vykanie („Posuňte“, „Vyberte“), sľuby neexistujúcich funkcií, „trénerské štúdio“ v podnadpise | **1** (po rozhodnutí C2) |
-| **Knižnica figúr a úprava figúry** („Alemana“) | ❌ | Pätkové nadpisy sekcií, ploché polia, „Schránka instantných poznámok“ (jedno slovo = jeden význam: „Poznámky“) | **2** |
-| **Tanečné prepojenia** + pozvánky | ❌ | Štýl skoro v poriadku; **falošné nahlásenie** (C6) | **2** |
+| **Knižnica figúr a úprava figúry** („Alemana“) | ✅ 9. 10.: jedna knižnica (Profil aj Domov), hľadanie, filter tanca, skupiny podľa tancov, jeden formulár „Nová figúra“, spoločné sekcie video a fotka | Pätkové nadpisy sekcií, ploché polia, „Schránka instantných poznámok“ (jedno slovo = jeden význam: „Poznámky“) | **2** |
+| **Tanečné prepojenia** + pozvánky | ✅ 9. 10. (štýl, tykanie, „ID tanečníka“); C6 nahlásenie je e-mail | Štýl skoro v poriadku; **falošné nahlásenie** (C6) | **2** |
 | **Súťažný denník** | ✅ 9. 10. (nový, len čísla z KSIS) | Vymyslené hranice (§2), dlhé texty, „Plný prístup • KSIS Radar súperov“ (Radar neexistuje) | **1** (obsah), **2** (štýl) |
-| **Trénerské štúdio** + nástroje | ❌ | Žiadny nástroj nemá pruženie ani sklenené karty; pätkový veľký nadpis | **2** (§5) |
-| Trezor videí, Strih videa | ❌ | Ploché karty, pevné písmo | **2** |
-| Karta člena, Detail a úprava tanca | ❌ | Pätkové nadpisy | **3** |
-| Právne informácie | ❌ | Obsah (meno prevádzkovateľa, C18); štýl: pre právne texty je povolené pokojné obsidiánové pozadie | **2** (obsah), **3** (štýl) |
+| **Trénerské štúdio** + nástroje | ✅ 9. 10.: Metronóm, Hudba, Moji zverenci. ❌ Strih seminára a Zrkadlo čakajú na novú logiku (§7) | Žiadny nástroj nemá pruženie ani sklenené karty; pätkový veľký nadpis | **2** (§5) |
+| Trezor videí, Strih videa | ✅ 9. 10.: „Videá zostavy“ (bez emoji, Ja/Vzor, mazanie s potvrdením, nové videá do Fotiek). Strih videa má zamat, len pevné veľkosti písma | Ploché karty, pevné písmo | **2** |
+| Karta člena, Detail a úprava tanca | ✅ 9. 10. (Peňaženka skrytá do Developer účtu; názov tanca sa už nedá premenovať, odpájalo to zostavy) | Pätkové nadpisy | **3** |
+| Právne informácie | ✅ 9. 10. štýl a tykanie; obsah C18 ostáva | Obsah (meno prevádzkovateľa, C18); štýl: pre právne texty je povolené pokojné obsidiánové pozadie | **2** (obsah), **3** (štýl) |
 | Majiteľská konzola | ❌ | Ukážka s tvojím osobným e-mailom (C16); vidíš ju len ty | **3** |
-| Listy na plátne (výber figúr, prechod) | ❌ | Pätkové nadpisy | **2** |
+| Listy na plátne (výber figúr, prechod) | ✅ 9. 10. | Pätkové nadpisy | **2** |
 
 Väčšina týchto obrazoviek používa aj **vykanie**. §1A predpisuje tykanie, takže pri redizajne prepíšem aj texty.
+
+**9. 10. 2026 (druhý prechod podľa snímok z iPhonu):** všetky pätkové nadpisy sú SF Rounded (okrem samotnej
+členskej karty), nadpisy navigácie sú biele SF Rounded, dátumy idú podľa slovenčiny (Info.plist `sk`),
+Domov: logo sa pri otvorení ukloní (namiesto 3D piruety) a tlačidlá vyjdú po oblúku v smere tanca, ikony
+jednotne zlaté na skle. Panel KSIS: výška podľa obsahu, karmínové sklo. Starý štýl ostal len v Strihu
+seminára a Zrkadle (čakajú na novú logiku).
 
 ---
 

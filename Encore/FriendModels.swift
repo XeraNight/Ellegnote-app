@@ -78,7 +78,7 @@ struct FriendInvitePayload: Codable, Equatable {
             return "KSIS ID: \(ksis)"
         }
         if let dCode = dancerCode, !dCode.isEmpty {
-            return "DANCER ID: \(dCode)"
+            return "ID TANEČNÍKA: \(dCode)"
         }
         return "ENCORE DANCER"
     }

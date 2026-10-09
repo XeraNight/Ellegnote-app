@@ -137,8 +137,8 @@ struct ProfileView: View {
                         .contentTransition(.symbolEffect(.replace))
                 }
                 .buttonStyle(.pressable)
-                .accessibilityLabel("Dancer ID \(profileStore.dancerCode)")
-                .accessibilityHint("Skopíruje Dancer ID, aby ťa partner mohol pridať")
+                .accessibilityLabel("ID tanečníka \(profileStore.dancerCode)")
+                .accessibilityHint("Skopíruje ID tanečníka, aby ťa partner mohol pridať")
             }
         }
         .frame(maxWidth: .infinity)
@@ -180,7 +180,7 @@ struct ProfileView: View {
             connectionManager.activeStudents.count > 0
                 ? slovakCount(connectionManager.activeStudents.count, one: "žiak", few: "žiaci", many: "žiakov") : nil
         ].compactMap { $0 }
-        return parts.isEmpty ? "Pridaj partnera alebo trénera cez Dancer ID" : parts.joined(separator: " · ")
+        return parts.isEmpty ? "Pridaj partnera alebo trénera cez ID tanečníka" : parts.joined(separator: " · ")
     }
 
     /// Only numbers KSIS shows; nothing about how far the next class is.
@@ -306,7 +306,7 @@ struct ProfileView: View {
             HomeRowDivider()
 
             NavigationLink {
-                ProfileFiguresListView(figures: figures.sorted { $0.name < $1.name })
+                ProfileFiguresListView()
             } label: {
                 HomeRow(icon: "book.closed.fill", title: "Knižnica figúr", detail: "\(figures.count)")
             }

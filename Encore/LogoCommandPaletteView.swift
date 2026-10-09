@@ -182,7 +182,7 @@ struct LogoCommandPaletteView: View {
                     }
                 }
             }
-            .navigationTitle("Command Palette")
+            .navigationTitle("Rýchle hľadanie")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {

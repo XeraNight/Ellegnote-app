@@ -31,7 +31,7 @@ public enum DanceMetronomePreset: String, CaseIterable, Identifiable {
         case .slowfox: return "Slowfox"
         case .quickstep: return "Quickstep"
         case .samba: return "Samba"
-        case .chacha: return "Cha-cha"
+        case .chacha: return "Cha-cha-cha"
         case .rumba: return "Rumba"
         case .pasoDoble: return "Paso doble"
         case .jive: return "Jive"

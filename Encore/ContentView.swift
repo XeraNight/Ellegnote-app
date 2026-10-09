@@ -171,7 +171,6 @@ struct ContentView: View {
                 NavigationStack {
                     DanceCategorySelectionSheet(isPresented: $showNewRoutineCategorySheet)
                 }
-                .presentationDetents([.medium, .large])
             }
             .sheet(isPresented: $showCompareModeSheet) {
                 NavigationStack {
@@ -318,53 +317,46 @@ struct ContentView: View {
     private var manualCodeImportSheet: some View {
         NavigationStack {
             ZStack {
-                Color.obsidian800.ignoresSafeArea()
-                VStack(spacing: 20) {
-                    Text("Vloženie kódu zostavy")
-                        .font(.system(size: 18, weight: .bold, design: .serif))
-                        .foregroundColor(.themeDark)
-                        .padding(.top, 20)
-                    
-                    Text("Skopíruj textový kód zo zostavy na druhom zariadení a vlož ho sem.")
-                        .font(.system(size: 13, weight: .medium))
-                        .foregroundColor(.themeDark.opacity(0.6))
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal, 24)
-                    
+                EllegancePageBackground()
+                VStack(alignment: .leading, spacing: 16) {
+                    Text("Skopíruj textový kód zostavy z druhého iPhonu a vlož ho sem.")
+                        .font(.subheadline)
+                        .foregroundColor(.white.opacity(0.7))
+                        .fixedSize(horizontal: false, vertical: true)
+
                     TextEditor(text: $manualCodeInput)
                         .scrollContentBackground(.hidden)
-                        .frame(height: 150)
-                        .padding(8)
-                        .background(Color.themeCard, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        .font(.callout.monospaced())
                         .foregroundColor(.white)
-                        .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(Color.gold400.opacity(0.25), lineWidth: 1))
-                        .padding(.horizontal, 24)
-                    
-                    Button(action: {
+                        .frame(height: 150)
+                        .padding(10)
+                        .homeCard(cornerRadius: 16)
+
+                    PrimarySheetButton(
+                        title: "Naimportovať zostavu",
+                        isLoading: false,
+                        isEnabled: !manualCodeInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                    ) {
                         let codeToProcess = manualCodeInput
                         manualCodeInput = ""
                         showManualCodeSheet = false
                         handleScannedCode(codeToProcess)
-                    }) {
-                        Text("Naimportovať zostavu")
-                            .font(.system(size: 15, weight: .bold))
-                            .foregroundColor(Color.obsidian900)
-                            .frame(maxWidth: .infinity)
                     }
-                    .buttonStyle(.neubrutalist(accentColor: Color.gold500))
-                    .padding(.horizontal, 24)
-                    .disabled(manualCodeInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                    
+
                     Spacer()
                 }
-                .toolbar {
-                    ToolbarItem(placement: .cancellationAction) {
-                        Button("Zrušiť") { showManualCodeSheet = false }
-                            .foregroundColor(.gold400)
-                    }
+                .padding(20)
+            }
+            .navigationTitle("Kód zostavy")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Zrušiť") { showManualCodeSheet = false }
+                        .foregroundColor(.gold400)
                 }
             }
         }
+        .presentationDetents([.medium, .large])
     }
 }
 
