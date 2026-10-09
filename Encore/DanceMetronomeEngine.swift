@@ -3,6 +3,7 @@ import AVFoundation
 import UIKit
 import SwiftUI
 import Combine
+import OSLog
 
 // MARK: - Dance Metronome Preset
 public enum DanceMetronomePreset: String, CaseIterable, Identifiable {
@@ -172,7 +173,7 @@ public final class DanceMetronomeEngine: ObservableObject {
             tickPlayer = try AVAudioPlayer(data: tickData)
             tickPlayer?.prepareToPlay()
         } catch {
-            print("⚠️ [DanceMetronomeEngine] Error initializing audio players: \(error)")
+            Logger.audio.error("Metronome players setup failed: \(error.localizedDescription, privacy: .public)")
         }
     }
     
@@ -189,7 +190,7 @@ public final class DanceMetronomeEngine: ObservableObject {
             )
             try AVAudioSession.sharedInstance().setActive(true, options: .notifyOthersOnDeactivation)
         } catch {
-            print("⚠️ [DanceMetronomeEngine] Failed to configure audio session: \(error)")
+            Logger.audio.error("Metronome audio session setup failed: \(error.localizedDescription, privacy: .public)")
         }
     }
     

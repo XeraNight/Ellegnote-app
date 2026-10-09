@@ -2,6 +2,7 @@ import SwiftUI
 import SwiftData
 import PhotosUI
 import AVFoundation
+import OSLog
 
 enum VaultFilter: String, CaseIterable, Identifiable {
     case all = "Všetky"
@@ -175,9 +176,7 @@ struct VideoVaultView: View {
             .sheet(isPresented: $showDuelPlayer) {
                 DualVideoComparisonView(
                     pathA: $activeSlotAPath,
-                    pathB: $activeSlotBPath,
-                    titleA: "Moje video (Slot A)",
-                    titleB: "Vzor / Idol (Slot B)"
+                    pathB: $activeSlotBPath
                 )
             }
             .sheet(item: $editingEntry) { entry in
@@ -391,14 +390,14 @@ struct VideoVaultView: View {
                     activeSlotAPath = entry.filePath
                     saveChanges()
                 } label: {
-                    Label("Nastaviť ako Moje (Slot A)", systemImage: "person.fill")
+                    Label("Porovnať ako moje video", systemImage: "person.fill")
                 }
                 
                 Button {
                     activeSlotBPath = entry.filePath
                     saveChanges()
                 } label: {
-                    Label("Nastaviť ako Idol (Slot B)", systemImage: "star.fill")
+                    Label("Porovnať ako vzor", systemImage: "star.fill")
                 }
                 
                 Divider()
@@ -615,7 +614,7 @@ struct VideoVaultView: View {
                     return
                 }
             } catch {
-                print("Failed to import media from photos: \(error)")
+                Logger.camera.error("Importing media from Photos failed: \(error.localizedDescription, privacy: .public)")
             }
         }
     }

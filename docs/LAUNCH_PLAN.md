@@ -1,3 +1,5 @@
+> **8. 10. 2026:** kontrolný zoznam pred spustením je `docs/V1_LAUNCH_CHECKLIST.md`, hodinky `docs/WATCHOS_V1_1_PLAN.md`, videá `docs/VIDEO_STORAGE_AND_SHARING.md`. Plán „Studio“ sa volá Premium.
+
 # Encore: plán do launchu (stav k 5. 10. 2026)
 
 Rozhodnutia: poznámky a videá zostávajú v telefóne; logo sa na Home rozdelí na mužskú a ženskú časť; knižnica figúr sa filtruje podľa výkonnostnej triedy; Kamera sa presúva z doku na Home.

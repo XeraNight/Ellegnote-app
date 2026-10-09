@@ -6,9 +6,6 @@ import CoreGraphics
 import SwiftUI
 
 public struct MediaResolver {
-    private static let downloadLock = NSLock()
-    private static var activeDownloads = Set<URL>()
-    
     // In-memory hardware thumbnail cache (max 150 items, 50MB budget)
     private static let imageCache: NSCache<NSString, UIImage> = {
         let cache = NSCache<NSString, UIImage>()
@@ -28,30 +25,24 @@ public struct MediaResolver {
         return ["jpg", "jpeg", "png", "heic", "heif", "webp", "gif"].contains(ext)
     }
     
-    /// Any video path, also a video in Fotky (`photos:`), which has to be looked up asynchronously.
-    /// Players use this one; `resolveVideoURL` covers only files in the app and in Supabase.
+    /// Any video path, also a video in Fotky (`photos:`) or a shared copy (`r2:`), looked up asynchronously.
+    /// Players use this one; `resolveVideoURL` covers only files stored in the app.
     public static func videoURL(path: String) async -> URL? {
         if PhotoLibraryVideoStore.isReference(path) {
             return await PhotoLibraryVideoStore.playableURL(for: path)
         }
+        if SharedVideoStore.isReference(path) {
+            return await SharedVideoStore.localURL(for: path)
+        }
         return resolveVideoURL(path: path)
     }
 
-    /// Rozhodne, či je video dostupné lokálne. Ak nie, vráti online stream URL zo Supabase a spustí sťahovanie na pozadí.
+    /// A video file stored in the app, or nil when it is not on this iPhone. There is no online fallback:
+    /// the storage bucket is private, and videos from other people arrive as shared copies (`r2:`).
     public static func resolveVideoURL(path: String) -> URL? {
-        guard !PhotoLibraryVideoStore.isReference(path) else { return nil }
-        let localURL = MediaStorageManager.url(for: path)
-        if MediaStorageManager.fileExists(path) {
-            return localURL
-        }
-        
-        // Ak neexistuje lokálne, streamujeme online zo Supabase Storage a ukladáme do lokálnej cache
-        if let publicURL = getPublicStorageURL(for: path) {
-            downloadFileToCache(from: publicURL, destination: localURL)
-            return publicURL
-        }
-        
-        return nil
+        guard !PhotoLibraryVideoStore.isReference(path), !SharedVideoStore.isReference(path),
+              MediaStorageManager.fileExists(path) else { return nil }
+        return MediaStorageManager.url(for: path)
     }
     
     /// Získa náhľad pre video alebo fotku z pamäťovej keše (alebo okamžite dekóduje statický obrázok)
@@ -121,13 +112,7 @@ public struct MediaResolver {
         }
         
         let localURL = MediaStorageManager.url(for: path)
-        guard MediaStorageManager.fileExists(path) else {
-            // Asynchrónne stiahneme z cloudu ak chýba
-            if let publicURL = getPublicStorageURL(for: path) {
-                downloadFileToCache(from: publicURL, destination: localURL)
-            }
-            return nil
-        }
+        guard MediaStorageManager.fileExists(path) else { return nil }
         
         // Hardvérové dekódovanie priamo z disku do požadovaného rozlíšenia
         guard let source = CGImageSourceCreateWithURL(localURL as CFURL, nil) else {
@@ -149,57 +134,6 @@ public struct MediaResolver {
         let memoryCost = cgImage.bytesPerRow * cgImage.height
         imageCache.setObject(image, forKey: cacheKey, cost: memoryCost)
         return image
-    }
-    
-    /// Vytvorí verejnú URL pre stiahnutie alebo streamovanie súboru zo Supabase Storage
-    public static func getPublicStorageURL(for fileName: String) -> URL? {
-        return SupabaseConfig.url
-            .appendingPathComponent("storage/v1/object/public")
-            .appendingPathComponent("encore-media")
-            .appendingPathComponent(fileName)
-    }
-    
-    /// Stiahne súbor z online úložiska na pozadí a uloží ho do lokálnej pamäte zariadenia
-    private static func downloadFileToCache(from url: URL, destination: URL) {
-        guard markDownloadStarted(for: destination) else { return }
-        
-        URLSession.shared.downloadTask(with: url) { tempLocalURL, response, error in
-            defer { markDownloadFinished(for: destination) }
-            
-            guard let tempURL = tempLocalURL, error == nil else {
-                print("Failed to download media file: \(String(describing: error))")
-                return
-            }
-            
-            do {
-                if FileManager.default.fileExists(atPath: destination.path) {
-                    try? FileManager.default.removeItem(at: destination)
-                }
-                try FileManager.default.copyItem(at: tempURL, to: destination)
-                print("Successfully cached media file locally: \(destination.lastPathComponent)")
-                
-                DispatchQueue.main.async {
-                    NotificationCenter.default.post(name: NSNotification.Name("MediaCacheDidUpdate"), object: nil)
-                }
-            } catch {
-                print("Failed to save downloaded file to local cache: \(error)")
-            }
-        }.resume()
-    }
-    
-    private static func markDownloadStarted(for destination: URL) -> Bool {
-        downloadLock.lock()
-        defer { downloadLock.unlock() }
-        
-        guard !activeDownloads.contains(destination) else { return false }
-        activeDownloads.insert(destination)
-        return true
-    }
-    
-    private static func markDownloadFinished(for destination: URL) {
-        downloadLock.lock()
-        activeDownloads.remove(destination)
-        downloadLock.unlock()
     }
 }
 
@@ -224,39 +158,32 @@ public struct MediaThumbnailView: View {
     }
     
     public var body: some View {
-        ZStack {
-            Color.obsidian800
-            
-            if let thumb = thumbnail {
-                Image(uiImage: thumb)
-                    .resizable()
-                    .scaledToFill()
-            } else {
-                VStack(spacing: 4) {
+        // The container decides the size; the picture only fills it. Otherwise a large photo would
+        // size the view itself and spill over its neighbours in a grid.
+        Color.obsidian800
+            .overlay {
+                if let thumb = thumbnail {
+                    Image(uiImage: thumb)
+                        .resizable()
+                        .scaledToFill()
+                } else {
                     Image(systemName: placeholderIcon)
-                        .font(.system(size: 24))
-                        .foregroundColor(Color.white.opacity(0.35))
+                        .font(.title2)
+                        .foregroundColor(Color.white.opacity(0.4))
                 }
             }
-            
-            // Format icon indicator (Video vs Photo)
-            if let path = path, !path.isEmpty {
-                VStack {
-                    Spacer()
-                    HStack {
-                        Spacer()
-                        Image(systemName: MediaResolver.isImagePath(path: path) ? "photo.fill" : "play.fill")
-                            .font(.system(size: 8, weight: .bold))
-                            .foregroundColor(.white)
-                            .padding(4)
-                            .background(Color.black.opacity(0.65))
-                            .clipShape(Circle())
-                    }
-                    .padding(6)
+            .overlay(alignment: .bottomTrailing) {
+                // Format icon indicator (Video vs Photo)
+                if let path = path, !path.isEmpty {
+                    Image(systemName: MediaResolver.isImagePath(path: path) ? "photo.fill" : "play.fill")
+                        .font(.system(size: 8, weight: .bold))
+                        .foregroundColor(.white)
+                        .padding(4)
+                        .background(Color.black.opacity(0.65), in: Circle())
+                        .padding(6)
                 }
             }
-        }
-        .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
+            .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
         .onAppear {
             loadThumb()
         }

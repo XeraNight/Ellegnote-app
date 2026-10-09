@@ -1,5 +1,6 @@
 import Foundation
 import UIKit
+import OSLog
 
 enum MediaStorageManager {
     nonisolated static var documentsDirectory: URL {
@@ -28,7 +29,7 @@ enum MediaStorageManager {
                 return capacity / (1024 * 1024)
             }
         } catch {
-            print("Failed to query free disk space: \(error)")
+            Logger.general.error("Free disk space query failed: \(error.localizedDescription, privacy: .public)")
         }
         return 1024 // Fallback 1GB
     }

@@ -1,23 +1,40 @@
 import SwiftUI
 import SwiftData
 
-/// The 20-second reflection after a training: dictate or type, pick the dance and how it felt.
-/// The text is saved as an `InstantNote` (tag #Reflexia) so it lands in the same inbox as every note.
+/// The 20-second reflection after a training: dictate or type, pick the dance and how it felt, and (Plus)
+/// the coach's Top 3 for that dance. The text is saved as an `InstantNote` (tag #Reflexia) so it lands in
+/// the same inbox as every note; the Top 3 stays on Home and in Plán until ticked off.
 struct DebriefSheet: View {
     let entry: TrainingLogEntry
 
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
     @Query(sort: \Dance.name) private var dances: [Dance]
+    @Query private var priorities: [LessonPriority]
+    @ObservedObject private var subscriptionManager = SubscriptionManager.shared
 
     @StateObject private var speech = SpeechRecognizerHelper()
     @State private var text = ""
     @State private var danceName: String?
     @State private var feeling: TrainingFeeling?
     @State private var saveTick = 0
+    @State private var priorityTexts = ["", "", ""]
+    @State private var showPaywall = false
+
+    private var canWritePriorities: Bool { subscriptionManager.currentTier >= .plus }
+
+    private var cleanedPriorities: [String] {
+        priorityTexts.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }
+    }
+
+    /// Only a real change makes a new Top 3; opening and saving the reflection keeps the old one as it is.
+    private var prioritiesChanged: Bool {
+        guard let danceName, canWritePriorities, !cleanedPriorities.isEmpty else { return false }
+        return cleanedPriorities != LessonPriorities.openTexts(for: danceName, in: priorities)
+    }
 
     private var canSave: Bool {
-        !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || feeling != nil
+        !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || feeling != nil || prioritiesChanged
     }
 
     var body: some View {
@@ -70,6 +87,8 @@ struct DebriefSheet: View {
                         }
                         .scrollClipDisabled()
                     }
+
+                    prioritiesSection
 
                     VStack(alignment: .leading, spacing: 10) {
                         plannerSectionTitle("AKO TO BOLO")
@@ -132,9 +151,55 @@ struct DebriefSheet: View {
                 feeling = entry.feeling
             }
             .onDisappear { _ = speech.stopTranscribing() }
+            .onChange(of: danceName, initial: true) { _, dance in
+                guard let dance else { return }
+                let open = LessonPriorities.openTexts(for: dance, in: priorities)
+                priorityTexts = open + Array(repeating: "", count: max(0, LessonPriorities.maxCount - open.count))
+            }
+            .sheet(isPresented: $showPaywall) {
+                SubscriptionPaywallView(initialTier: .plus)
+            }
             .sensoryFeedback(.success, trigger: saveTick)
         }
         .preferredColorScheme(.dark)
+    }
+
+    // MARK: Top 3
+    @ViewBuilder
+    private var prioritiesSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            plannerSectionTitle("TOP 3 OD TRÉNERA")
+            if canWritePriorities {
+                LessonPriorityFields(texts: $priorityTexts, isEnabled: danceName != nil)
+                if danceName == nil {
+                    Text("Vyber tanec a zapíš 3 hlavné korekcie. Uvidíš ich na Domove, kým ich nezvládneš.")
+                        .font(.system(size: 12))
+                        .foregroundColor(Color.white.opacity(0.55))
+                }
+            } else {
+                Button {
+                    showPaywall = true
+                } label: {
+                    HStack(spacing: 10) {
+                        Image(systemName: "lock.fill")
+                            .foregroundColor(Color.gold400)
+                        Text("Zapíš si 3 hlavné korekcie trénera pre tanec. Budú na Domove, kým ich nezvládneš.")
+                            .font(.system(size: 13))
+                            .foregroundColor(Color.white.opacity(0.8))
+                            .multilineTextAlignment(.leading)
+                        Spacer(minLength: 0)
+                        Text("PLUS")
+                            .font(.system(size: 10, weight: .black, design: .rounded))
+                            .foregroundColor(Color.obsidian900)
+                            .padding(.horizontal, 7)
+                            .padding(.vertical, 3)
+                            .background(Color.gold400, in: Capsule())
+                    }
+                    .plannerCard(cornerRadius: 14)
+                }
+                .buttonStyle(.pressable)
+            }
+        }
     }
 
     private func chip(_ title: String, isOn: Bool, action: @escaping () -> Void) -> some View {
@@ -171,6 +236,10 @@ struct DebriefSheet: View {
         entry.danceName = danceName
         entry.feeling = feeling
         entry.status = .attended
+
+        if prioritiesChanged, let danceName {
+            LessonPriorities.save(priorityTexts, danceName: danceName, logEntryId: entry.id, in: modelContext)
+        }
 
         if !trimmed.isEmpty {
             if let noteId = entry.noteId, let existing = fetchNote(noteId) {

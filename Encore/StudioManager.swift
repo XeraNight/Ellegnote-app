@@ -11,6 +11,8 @@ final class StudioManager: ObservableObject {
     
     @Published var studentRoutines: [UUID: [DBRoutineRow]] = [:]
     @Published var routineNodes: [UUID: [DBCanvasNodeRow]] = [:]
+    /// The newest lesson per student, for "Naposledy" on the roster (Premium).
+    @Published var lastLessons: [UUID: CoachLesson] = [:]
     @Published var isLoading: Bool = false
     @Published var errorMessage: String? = nil
     
@@ -31,6 +33,7 @@ final class StudioManager: ObservableObject {
     func reset() {
         studentRoutines = [:]
         routineNodes = [:]
+        lastLessons = [:]
         isLoading = false
         errorMessage = nil
     }
@@ -53,7 +56,7 @@ final class StudioManager: ObservableObject {
             self.studentRoutines[studentUserId] = rows
             return rows
         } catch {
-            print("[StudioManager] fetchStudentRoutines error: \(error.localizedDescription)")
+            Logger.sync.error("fetchStudentRoutines failed: \(error.localizedDescription, privacy: .public)")
             self.errorMessage = error.localizedDescription
             return []
         }
@@ -75,7 +78,7 @@ final class StudioManager: ObservableObject {
             self.routineNodes[routineId] = nodes
             return nodes
         } catch {
-            print("[StudioManager] fetchRoutineNodes error: \(error.localizedDescription)")
+            Logger.sync.error("fetchRoutineNodes failed: \(error.localizedDescription, privacy: .public)")
             return []
         }
     }
@@ -208,5 +211,89 @@ final class StudioManager: ObservableObject {
         
         // Refresh local cache
         _ = await fetchRoutineNodes(routineId: routineId)
+    }
+
+    // MARK: - "Čo sme robili naposledy" (Premium; only the coach sees it)
+    /// Newest lesson per student. Reading works on every plan; writing is Premium (the server checks too).
+    func fetchLastLessons() async {
+        do {
+            let rows: [CoachLesson] = try await SupabaseConfig.client
+                .from("coach_lessons")
+                .select("id, student_id, lesson_date, summary, created_at")
+                .order("lesson_date", ascending: false)
+                .order("created_at", ascending: false)
+                .limit(500)
+                .execute()
+                .value
+            var newest: [UUID: CoachLesson] = [:]
+            for lesson in rows where newest[lesson.studentId] == nil {
+                newest[lesson.studentId] = lesson
+            }
+            lastLessons = newest
+        } catch {
+            Logger.sync.error("fetchLastLessons failed: \(error.localizedDescription, privacy: .public)")
+        }
+    }
+
+    func lessons(for studentId: UUID) async throws -> [CoachLesson] {
+        try await SupabaseConfig.client
+            .from("coach_lessons")
+            .select("id, student_id, lesson_date, summary, created_at")
+            .eq("student_id", value: studentId)
+            .order("lesson_date", ascending: false)
+            .order("created_at", ascending: false)
+            .limit(100)
+            .execute()
+            .value
+    }
+
+    func addLesson(studentId: UUID, date: Date, summary: String) async throws {
+        struct Row: Encodable { let student_id: UUID; let lesson_date: String; let summary: String }
+        try await SupabaseConfig.client
+            .from("coach_lessons")
+            .insert(Row(student_id: studentId, lesson_date: CoachLesson.dayString(date), summary: summary))
+            .execute()
+        await fetchLastLessons()
+    }
+
+    func deleteLesson(_ lesson: CoachLesson) async throws {
+        try await SupabaseConfig.client.from("coach_lessons").delete().eq("id", value: lesson.id).execute()
+        await fetchLastLessons()
+    }
+}
+
+/// One lesson summary a coach wrote for a student (`coach_lessons`).
+struct CoachLesson: Identifiable, Decodable, Sendable, Equatable {
+    let id: UUID
+    let studentId: UUID
+    /// yyyy-MM-dd
+    let lessonDate: String
+    let summary: String
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case studentId = "student_id"
+        case lessonDate = "lesson_date"
+        case summary
+    }
+
+    private static let isoDay: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.calendar = Calendar(identifier: .gregorian)
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = .current
+        formatter.dateFormat = "yyyy-MM-dd"
+        return formatter
+    }()
+
+    static func dayString(_ date: Date) -> String { isoDay.string(from: date) }
+
+    /// "dnes", "včera", "7. okt."
+    var dayText: String {
+        guard let date = Self.isoDay.date(from: lessonDate) else { return lessonDate }
+        let calendar = Calendar.current
+        if calendar.isDateInToday(date) { return "dnes" }
+        if calendar.isDateInYesterday(date) { return "včera" }
+        return date.formatted(.dateTime.day().month(.abbreviated).locale(Locale(identifier: "sk")))
     }
 }

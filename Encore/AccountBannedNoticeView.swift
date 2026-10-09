@@ -62,7 +62,7 @@ struct AccountBannedNoticeView: View {
                 // Action Buttons
                 VStack(spacing: 12) {
                     Button {
-                        if let url = URL(string: "mailto:support@encore-dance.com?subject=Odvolanie%20vo%C4%8Di%20pozastaveniu%20%C3%BA%C4%8Dtu") {
+                        if let url = AppContact.mailURL(subject: "Odvolanie voči pozastaveniu účtu") {
                             UIApplication.shared.open(url)
                         }
                     } label: {

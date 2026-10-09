@@ -2,468 +2,351 @@ import SwiftUI
 import SwiftData
 import PhotosUI
 import AVFoundation
+import OSLog
 
+// MARK: - Choose a video or photo
+/// Picks media for one slot (my video or the model): record now, pick from Fotky, or reuse anything already
+/// in Encore (BRAND_GUIDELINES §1A). A video picked from Fotky is referenced, not copied, so the iPhone keeps
+/// one copy; a photo is copied, because photos are small and must open without Fotky access.
 struct UniversalMediaPickerSheet: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
-    
+
     let slotTitle: String
     let currentPath: String?
     let onSelectMedia: (String) -> Void
     var onClearMedia: (() -> Void)? = nil
-    
-    // Queries from SwiftData to find all available media in the app
+
     @Query(sort: \VideoMediaEntry.createdAt, order: .reverse) private var allVaultEntries: [VideoMediaEntry]
     @Query(sort: \Routine.createdAt, order: .reverse) private var allRoutines: [Routine]
     @Query(sort: \InstantNote.createdAt, order: .reverse) private var allNotes: [InstantNote]
     @Query(sort: \Dance.name) private var allDances: [Dance]
-    
-    @State private var selectedPhotoItem: PhotosPickerItem? = nil
-    @State private var showCameraModal: Bool = false
-    @State private var selectedMediaTypeFilter: MediaFilterType = .all
-    @State private var searchText: String = ""
-    @State private var isImporting: Bool = false
-    
-    enum MediaFilterType: String, CaseIterable, Identifiable {
+
+    @State private var selectedPhotoItem: PhotosPickerItem?
+    @State private var showCameraModal = false
+    @State private var filter: MediaFilter = .all
+    @State private var searchText = ""
+    @State private var isImporting = false
+    @State private var importFailed = false
+
+    enum MediaFilter: String, CaseIterable, Identifiable {
         case all = "Všetko"
-        case videos = "🎬 Videá"
-        case photos = "📷 Fotky"
-        case idols = "🟢 Idoly / Vzory"
-        case myTakes = "🔴 Moje pokusy"
-        
+        case videos = "Videá"
+        case photos = "Fotky"
+        case models = "Vzory"
+        case mine = "Moje"
+
         var id: String { rawValue }
     }
-    
+
     struct MediaItemRecord: Identifiable {
         let id: String
         let title: String
         let path: String
         let role: String
         let isImage: Bool
-        let date: Date?
+        /// A model to compare against (dance model, routine target, vault "Idol / Vzor").
+        let isModel: Bool
     }
-    
-    var aggregatedItems: [MediaItemRecord] {
+
+    private var aggregatedItems: [MediaItemRecord] {
         var items: [MediaItemRecord] = []
         var seenPaths = Set<String>()
-        
-        // 1. Vault Entries
+        func add(_ id: String, _ title: String, _ path: String?, _ role: String, isImage: Bool, isModel: Bool) {
+            guard let path, !path.isEmpty, seenPaths.insert(path).inserted else { return }
+            items.append(MediaItemRecord(id: id, title: title, path: path, role: role, isImage: isImage, isModel: isModel))
+        }
+
         for entry in allVaultEntries {
-            guard !seenPaths.contains(entry.filePath) else { continue }
-            seenPaths.insert(entry.filePath)
-            items.append(
-                MediaItemRecord(
-                    id: entry.id.uuidString,
-                    title: entry.title.isEmpty ? "Záznam" : entry.title,
-                    path: entry.filePath,
-                    role: entry.role.displayName,
-                    isImage: MediaResolver.isImagePath(path: entry.filePath),
-                    date: entry.createdAt
-                )
-            )
+            add(entry.id.uuidString, entry.title.isEmpty ? "Záznam" : entry.title, entry.filePath, entry.role.displayName,
+                isImage: MediaResolver.isImagePath(path: entry.filePath), isModel: entry.role == .targetIdol)
         }
-        
-        // 2. Routines with video/image
         for routine in allRoutines {
-            if let p = routine.videoPath, !seenPaths.contains(p) {
-                seenPaths.insert(p)
-                items.append(
-                    MediaItemRecord(
-                        id: "rt_v_\(routine.id)",
-                        title: "\(routine.name) (Moje)",
-                        path: p,
-                        role: "Zostava",
-                        isImage: MediaResolver.isImagePath(path: p),
-                        date: routine.updatedAt
-                    )
-                )
-            }
-            if let p = routine.activeTargetVideoPath, !seenPaths.contains(p) {
-                seenPaths.insert(p)
-                items.append(
-                    MediaItemRecord(
-                        id: "rt_tgt_\(routine.id)",
-                        title: "\(routine.name) (Vzor)",
-                        path: p,
-                        role: "Vzor idol",
-                        isImage: MediaResolver.isImagePath(path: p),
-                        date: routine.updatedAt
-                    )
-                )
-            }
+            add("rt_v_\(routine.id)", routine.name, routine.videoPath, "Zostava",
+                isImage: routine.videoPath.map { MediaResolver.isImagePath(path: $0) } ?? false, isModel: false)
+            add("rt_tgt_\(routine.id)", routine.name, routine.activeTargetVideoPath, "Vzor zostavy",
+                isImage: routine.activeTargetVideoPath.map { MediaResolver.isImagePath(path: $0) } ?? false, isModel: true)
         }
-        
-        // 3. Notes with media
         for note in allNotes {
-            if let p = note.videoPath, !seenPaths.contains(p) {
-                seenPaths.insert(p)
-                items.append(
-                    MediaItemRecord(
-                        id: "note_v_\(note.id)",
-                        title: note.text.isEmpty ? "Video z poznámky" : note.text,
-                        path: p,
-                        role: "Poznámka",
-                        isImage: false,
-                        date: note.createdAt
-                    )
-                )
-            }
-            if let p = note.imagePath, !seenPaths.contains(p) {
-                seenPaths.insert(p)
-                items.append(
-                    MediaItemRecord(
-                        id: "note_img_\(note.id)",
-                        title: note.text.isEmpty ? "Fotka z poznámky" : note.text,
-                        path: p,
-                        role: "Poznámka",
-                        isImage: true,
-                        date: note.createdAt
-                    )
-                )
-            }
+            add("note_v_\(note.id)", note.text.isEmpty ? "Video z poznámky" : note.text, note.videoPath, "Poznámka",
+                isImage: false, isModel: false)
+            add("note_img_\(note.id)", note.text.isEmpty ? "Fotka z poznámky" : note.text, note.imagePath, "Poznámka",
+                isImage: true, isModel: false)
         }
-        
-        // 4. Standard/Latin dances vzory
         for dance in allDances {
-            if let p = dance.videoPath, !seenPaths.contains(p) {
-                seenPaths.insert(p)
-                items.append(
-                    MediaItemRecord(
-                        id: "dance_v_\(dance.id)",
-                        title: "\(dance.name) (Vzor)",
-                        path: p,
-                        role: "Vzor tanca",
-                        isImage: false,
-                        date: nil
-                    )
-                )
-            }
-            if let p = dance.imagePath, !seenPaths.contains(p) {
-                seenPaths.insert(p)
-                items.append(
-                    MediaItemRecord(
-                        id: "dance_img_\(dance.id)",
-                        title: "\(dance.name) (Foto)",
-                        path: p,
-                        role: "Foto tanca",
-                        isImage: true,
-                        date: nil
-                    )
-                )
-            }
+            add("dance_v_\(dance.id)", dance.name, dance.videoPath, "Vzor tanca", isImage: false, isModel: true)
+            add("dance_img_\(dance.id)", dance.name, dance.imagePath, "Fotka tanca", isImage: true, isModel: true)
         }
-        
         return items
     }
-    
-    var filteredItems: [MediaItemRecord] {
-        aggregatedItems.filter { item in
-            // Search filter
-            if !searchText.isEmpty {
-                let q = searchText.lowercased()
-                let matches = item.title.lowercased().contains(q) || item.role.lowercased().contains(q)
-                if !matches { return false }
+
+    private var filteredItems: [MediaItemRecord] {
+        let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        return aggregatedItems.filter { item in
+            if !query.isEmpty,
+               !item.title.localizedCaseInsensitiveContains(query),
+               !item.role.localizedCaseInsensitiveContains(query) {
+                return false
             }
-            
-            // Category filter
-            switch selectedMediaTypeFilter {
-            case .all:
-                return true
-            case .videos:
-                return !item.isImage
-            case .photos:
-                return item.isImage
-            case .idols:
-                return item.role.localizedCaseInsensitiveContains("vzor") || item.role.localizedCaseInsensitiveContains("idol")
-            case .myTakes:
-                return item.role.localizedCaseInsensitiveContains("moje") || item.role.localizedCaseInsensitiveContains("pokus")
+            switch filter {
+            case .all: return true
+            case .videos: return !item.isImage
+            case .photos: return item.isImage
+            case .models: return item.isModel
+            case .mine: return !item.isModel
             }
         }
     }
-    
+
     var body: some View {
         NavigationStack {
             ZStack {
                 EllegancePageBackground()
-                
-                VStack(spacing: 0) {
-                    // Top Action Buttons (Camera + iOS Photos Gallery)
-                    topActionBar
-                        .padding(.horizontal, 16)
-                        .padding(.top, 14)
-                        .padding(.bottom, 10)
-                    
-                    // Search Bar
-                    HStack(spacing: 8) {
-                        Image(systemName: "magnifyingglass")
-                            .foregroundColor(Color.gold400)
-                        TextField("Hľadať podľa názvu...", text: $searchText)
-                            .foregroundColor(.white)
-                        if !searchText.isEmpty {
-                            Button {
-                                searchText = ""
-                            } label: {
-                                Image(systemName: "xmark.circle.fill")
-                                    .foregroundColor(.gray)
-                            }
-                        }
-                    }
-                    .padding(10)
-                    .background(Color.themeCard)
-                    .cornerRadius(12)
-                    .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.white.opacity(0.1), lineWidth: 1))
-                    .padding(.horizontal, 16)
-                    .padding(.bottom, 8)
-                    
-                    // Filter Chips Bar
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 8) {
-                            ForEach(MediaFilterType.allCases) { filter in
-                                Button {
-                                    selectedMediaTypeFilter = filter
-                                } label: {
-                                    Text(filter.rawValue)
-                                        .font(.system(size: 12, weight: selectedMediaTypeFilter == filter ? .bold : .medium))
-                                        .padding(.horizontal, 12)
-                                        .padding(.vertical, 6)
-                                        .background(selectedMediaTypeFilter == filter ? Color.gold400 : Color.themeCard)
-                                        .foregroundColor(selectedMediaTypeFilter == filter ? Color.obsidian900 : Color.white.opacity(0.75))
-                                        .cornerRadius(16)
-                                }
-                            }
-                        }
-                        .padding(.horizontal, 16)
-                    }
-                    .padding(.bottom, 12)
-                    
-                    // Content Grid / Empty state
-                    if filteredItems.isEmpty {
-                        emptyStateView
-                            .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    } else {
-                        ScrollView {
+
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 18) {
+                        sourceButtons
+                        searchField
+                        filterChips
+
+                        if filteredItems.isEmpty {
+                            emptyState
+                        } else {
                             LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
                                 ForEach(filteredItems) { item in
-                                    mediaCard(for: item)
+                                    mediaCard(item)
                                 }
                             }
-                            .padding(.horizontal, 16)
-                            .padding(.top, 4)
-                            .padding(.bottom, 32)
                         }
                     }
+                    .padding(.horizontal, 16)
+                    .padding(.top, 8)
+                    .padding(.bottom, 32)
                 }
-                
+                .scrollDismissesKeyboard(.interactively)
+
                 if isImporting {
-                    Color.black.opacity(0.6)
-                        .ignoresSafeArea()
+                    Color.black.opacity(0.55).ignoresSafeArea()
                     VStack(spacing: 12) {
-                        ProgressView()
-                            .tint(Color.gold400)
-                            .scaleEffect(1.3)
-                        Text("Spracovávam súbor...")
-                            .font(.system(size: 13, weight: .bold))
+                        ProgressView().tint(Color.gold400).controlSize(.large)
+                        Text("Pripravujem…")
+                            .font(.subheadline.weight(.semibold))
                             .foregroundColor(.white)
                     }
                     .padding(24)
-                    .background(Color.obsidian800)
-                    .cornerRadius(16)
-                    .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.gold400.opacity(0.4), lineWidth: 1))
+                    .homeCard(cornerRadius: 20)
                 }
             }
-            .navigationTitle("Zvoliť pre: \(slotTitle)")
+            .navigationTitle(slotTitle)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Zrušiť") { dismiss() }
                         .foregroundColor(Color.gold400)
                 }
-                
-                if currentPath != nil, let onClear = onClearMedia {
+                if currentPath != nil, let onClearMedia {
                     ToolbarItem(placement: .destructiveAction) {
-                        Button("Vyčistiť slot") {
-                            onClear()
+                        Button("Odstrániť") {
+                            onClearMedia()
                             dismiss()
                         }
-                        .foregroundColor(Color.latinCrimson)
+                        .foregroundColor(Color.latinRed)
                     }
                 }
             }
             .fullScreenCover(isPresented: $showCameraModal) {
-                DanceCameraView { localPath in
-                    onSelectMedia(localPath)
+                DanceCameraView(savesToPhotos: true) { path in
+                    onSelectMedia(path)
                     dismiss()
                 }
                 .ignoresSafeArea()
             }
-            .onChange(of: selectedPhotoItem) { _, newItem in
-                handlePhotoLibraryImport(newItem)
+            .onChange(of: selectedPhotoItem) { _, item in
+                importFromPhotos(item)
             }
+            .alert("Nepodarilo sa načítať", isPresented: $importFailed) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text("Toto video alebo fotku sa nedá otvoriť. Skús iné.")
+            }
+            .sensoryFeedback(.selection, trigger: filter)
         }
+        .preferredColorScheme(.dark)
     }
-    
-    // MARK: - Top Quick Actions (Camera & Gallery)
-    private var topActionBar: some View {
+
+    // MARK: Sources
+    private var sourceButtons: some View {
         HStack(spacing: 10) {
-            // Camera Button
             Button {
                 showCameraModal = true
             } label: {
-                HStack(spacing: 6) {
-                    Image(systemName: "video.badge.plus.fill")
-                        .font(.system(size: 13))
-                    Text("Natočiť kamerou")
-                        .font(.system(size: 13, weight: .bold))
-                }
-                .foregroundColor(Color.obsidian900)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 12)
-                .background(
-                    LinearGradient(colors: [Color.gold500, Color.gold400], startPoint: .leading, endPoint: .trailing)
-                )
-                .cornerRadius(12)
+                Label("Natočiť", systemImage: "video.fill")
+                    .font(.subheadline.weight(.bold))
+                    .foregroundColor(Color.obsidian900)
+                    .frame(maxWidth: .infinity, minHeight: 50)
+                    .background(
+                        LinearGradient(colors: [Color.gold400, Color.gold500], startPoint: .topLeading, endPoint: .bottomTrailing),
+                        in: RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    )
             }
-            .buttonStyle(.plain)
-            
-            // Photos & Videos Picker (Any: Videos + Images!)
-            PhotosPicker(
-                selection: $selectedPhotoItem,
-                matching: .any(of: [.videos, .images]),
-                photoLibrary: .shared()
-            ) {
-                HStack(spacing: 6) {
-                    Image(systemName: "photo.on.rectangle.angled")
-                        .font(.system(size: 13))
-                    Text("Z fotiek & videí")
-                        .font(.system(size: 13, weight: .bold))
-                }
-                .foregroundColor(.white)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 12)
-                .background(Color.white.opacity(0.12))
-                .cornerRadius(12)
-                .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.white.opacity(0.18), lineWidth: 1))
+            .buttonStyle(.pressable)
+
+            PhotosPicker(selection: $selectedPhotoItem, matching: .any(of: [.videos, .images]), photoLibrary: .shared()) {
+                Label("Z Fotiek", systemImage: "photo.on.rectangle")
+                    .font(.subheadline.weight(.bold))
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity, minHeight: 50)
+                    .homeCard(cornerRadius: 16)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.pressable)
         }
     }
-    
-    // MARK: - Media Item Card
-    private func mediaCard(for item: MediaItemRecord) -> some View {
+
+    private var searchField: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "magnifyingglass")
+                .foregroundColor(Color.gold400)
+            TextField("", text: $searchText, prompt: Text("Hľadať v Encore").foregroundColor(.white.opacity(0.4)))
+                .foregroundColor(.white)
+                .autocorrectionDisabled()
+            if !searchText.isEmpty {
+                Button {
+                    searchText = ""
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .foregroundColor(.white.opacity(0.4))
+                }
+                .accessibilityLabel("Vymazať hľadanie")
+            }
+        }
+        .padding(.horizontal, 14)
+        .frame(minHeight: 46)
+        .homeCard(cornerRadius: 14)
+    }
+
+    private var filterChips: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(MediaFilter.allCases) { option in
+                    let isOn = filter == option
+                    Button {
+                        withAnimation(.spring(response: 0.28, dampingFraction: 0.75)) { filter = option }
+                    } label: {
+                        Text(option.rawValue)
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundColor(isOn ? Color.obsidian900 : .white.opacity(0.85))
+                            .padding(.horizontal, 14)
+                            .frame(minHeight: 36)
+                            .background(isOn ? AnyShapeStyle(Color.gold400) : AnyShapeStyle(Color.white.opacity(0.07)), in: Capsule())
+                    }
+                    .buttonStyle(.pressable)
+                    .accessibilityAddTraits(isOn ? .isSelected : [])
+                }
+            }
+        }
+        .scrollClipDisabled()
+    }
+
+    // MARK: Items
+    private func mediaCard(_ item: MediaItemRecord) -> some View {
         let isSelected = currentPath == item.path
-        
         return Button {
             onSelectMedia(item.path)
             dismiss()
         } label: {
-            VStack(alignment: .leading, spacing: 6) {
-                ZStack(alignment: .topLeading) {
-                    MediaThumbnailView(path: item.path, placeholderIcon: item.isImage ? "photo" : "film", cornerRadius: 10)
-                        .aspectRatio(16/11, contentMode: .fill)
-                        .clipped()
-                    
-                    // Tag Badge
-                    HStack {
-                        Text(item.role)
-                            .font(.system(size: 9, weight: .heavy))
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 3)
-                            .background(item.isImage ? Color.blue.opacity(0.85) : Color.gold500.opacity(0.9))
-                            .foregroundColor(item.isImage ? .white : Color.obsidian900)
-                            .cornerRadius(5)
-                        
-                        Spacer()
-                        
+            VStack(alignment: .leading, spacing: 8) {
+                MediaThumbnailView(path: item.path, placeholderIcon: item.isImage ? "photo" : "film", cornerRadius: 12)
+                    .aspectRatio(16 / 11, contentMode: .fit)
+                    .overlay(alignment: .topTrailing) {
                         if isSelected {
                             Image(systemName: "checkmark.circle.fill")
-                                .font(.system(size: 16))
-                                .foregroundColor(Color.syncEmerald)
-                                .background(Color.black.clipShape(Circle()))
+                                .font(.title3)
+                                .foregroundStyle(Color.obsidian900, Color.gold400)
+                                .padding(6)
                         }
                     }
-                    .padding(6)
-                }
-                
+
                 VStack(alignment: .leading, spacing: 2) {
                     Text(item.title)
-                        .font(.system(size: 12, weight: .bold))
+                        .font(.footnote.weight(.bold))
                         .foregroundColor(.white)
                         .lineLimit(1)
-                    
-                    HStack(spacing: 4) {
-                        Image(systemName: item.isImage ? "camera.metering.center.weighted" : "video")
-                            .font(.system(size: 9))
-                            .foregroundColor(Color.gold400.opacity(0.8))
-                        Text(item.isImage ? "Fotografia" : "Video záznam")
-                            .font(.system(size: 10))
-                            .foregroundColor(Color.white.opacity(0.5))
-                    }
+                    Text(item.role)
+                        .font(.caption2.weight(.semibold))
+                        .foregroundColor(item.isModel ? Color.gold400 : .white.opacity(0.55))
                 }
                 .padding(.horizontal, 4)
-                .padding(.bottom, 6)
+                .padding(.bottom, 4)
             }
-            .background(Color.themeCard)
-            .cornerRadius(12)
+            .padding(6)
+            .homeCard(cornerRadius: 16)
             .overlay(
-                RoundedRectangle(cornerRadius: 12)
-                    .stroke(isSelected ? Color.gold400 : Color.white.opacity(0.08), lineWidth: isSelected ? 2 : 1)
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .stroke(isSelected ? Color.gold400 : Color.clear, lineWidth: 2)
             )
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.pressable(scale: 0.97))
+        .accessibilityLabel("\(item.title), \(item.role)\(isSelected ? ", vybraté" : "")")
     }
-    
-    // MARK: - Empty State
-    private var emptyStateView: some View {
-        VStack(spacing: 12) {
+
+    private var emptyState: some View {
+        VStack(spacing: 10) {
             Image(systemName: "photo.stack")
-                .font(.system(size: 42))
-                .foregroundColor(Color.gold400.opacity(0.4))
-            
-            Text("Žiadne zodpovedajúce médiá")
-                .font(.system(size: 15, weight: .bold))
+                .font(.system(size: 38))
+                .foregroundColor(Color.gold400.opacity(0.5))
+            Text(searchText.isEmpty ? "Tu zatiaľ nič nie je" : "Nič sa nenašlo")
+                .font(.subheadline.weight(.bold))
                 .foregroundColor(.white)
-            
-            Text("Nahraj video kamerou alebo vyber fotku/video z galérie tvojho iPhonu pomocou tlačidiel hore.")
-                .font(.system(size: 12))
-                .foregroundColor(Color.white.opacity(0.55))
+            Text("Natoč video alebo vyber fotku či video z Fotiek tlačidlami hore.")
+                .font(.footnote)
+                .foregroundColor(.white.opacity(0.6))
                 .multilineTextAlignment(.center)
-                .padding(.horizontal, 32)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 40)
+    }
+
+    // MARK: Import from Fotky
+    private func importFromPhotos(_ item: PhotosPickerItem?) {
+        guard let item else { return }
+        selectedPhotoItem = nil
+        isImporting = true
+        Task {
+            defer { isImporting = false }
+            if let path = await pickedPath(item) {
+                onSelectMedia(path)
+                dismiss()
+            } else {
+                importFailed = true
+            }
         }
     }
-    
-    // MARK: - Import Logic
-    private func handlePhotoLibraryImport(_ item: PhotosPickerItem?) {
-        guard let item = item else { return }
-        isImporting = true
-        
-        Task {
-            // Check if movie
-            if let movie = try? await item.loadTransferable(type: MovieTransferable.self) {
-                if let filename = try? MediaStorageManager.copyIntoDocuments(from: movie.url, fileExtension: "mp4") {
-                    await MainActor.run {
-                        isImporting = false
-                        onSelectMedia(filename)
-                        dismiss()
-                    }
-                    return
+
+    /// A video stays in Fotky and is referenced; a photo (or a video Encore may not read) is copied.
+    private func pickedPath(_ item: PhotosPickerItem) async -> String? {
+        let isVideo = item.supportedContentTypes.contains { $0.conforms(to: .movie) }
+        if isVideo {
+            if let identifier = item.itemIdentifier {
+                var allowed = PhotoLibraryVideoStore.hasAccess
+                if !allowed { allowed = await PhotoLibraryVideoStore.requestAccess() }
+                if allowed { return PhotoLibraryVideoStore.referencePrefix + identifier }
+            }
+            do {
+                if let movie = try await item.loadTransferable(type: MovieTransferable.self) {
+                    return try MediaStorageManager.copyIntoDocuments(from: movie.url, fileExtension: "mp4")
                 }
+            } catch {
+                Logger.camera.error("Copying a video from Photos failed: \(error.localizedDescription, privacy: .public)")
             }
-            
-            // Check if photo / image data
-            if let data = try? await item.loadTransferable(type: Data.self) {
-                if let filename = try? MediaStorageManager.store(data: data, prefix: "import_photo", fileExtension: "jpg") {
-                    await MainActor.run {
-                        isImporting = false
-                        onSelectMedia(filename)
-                        dismiss()
-                    }
-                    return
-                }
-            }
-            
-            await MainActor.run {
-                isImporting = false
-            }
+            return nil
         }
+        do {
+            if let data = try await item.loadTransferable(type: Data.self) {
+                return try MediaStorageManager.store(data: data, prefix: "import_photo", fileExtension: "jpg")
+            }
+        } catch {
+            Logger.camera.error("Copying a photo from Photos failed: \(error.localizedDescription, privacy: .public)")
+        }
+        return nil
     }
 }

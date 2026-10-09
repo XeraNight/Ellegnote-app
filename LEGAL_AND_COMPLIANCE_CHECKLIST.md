@@ -1,3 +1,5 @@
+> **Nahradené 8. 10. 2026:** aktuálny a overený zoznam je `docs/V1_LAUNCH_CHECKLIST.md`. Tento dokument je zastaraný (napr. Sign in with Apple je v appke skryté, zmazanie účtu ide cez funkciu `delete-account`, RLS je už sprísnené). Ponechaný pre históriu a text e-mailu pre SZTŠ (§5.3).
+
 # ⚖️ Encore / Ellegnote — Oficiálny Právny & App Store Compliance Checklist
 
 > **Poznámka k statusu:** Tento dokument slúži ako technicko-právny audit a akčný checklist pripravený priamo na mieru kódu aplikácie **Encore**. Pred finálnym komerčným spustením sa odporúča dať vygenerované dokumenty (Privacy Policy & EULA/ToS) prebehnúť právnikovi špecializujúcemu sa na IT/GDPR.

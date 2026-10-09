@@ -1,812 +1,1150 @@
 import SwiftUI
 import AVKit
 import Combine
+import OSLog
 
+// MARK: - Layout, sound, slots
 enum DualLayoutMode: String, CaseIterable, Identifiable {
     case stacked = "Nad sebou"
     case sideBySide = "Vedľa seba"
-    case singleSwitch = "Prepínač A/B"
-    
+    case singleSwitch = "Prepínanie"
+
     var id: String { rawValue }
-    
+
     var iconName: String {
         switch self {
-        case .stacked: return "rectangle.split.1x2.fill"
-        case .sideBySide: return "rectangle.split.2x1.fill"
-        case .singleSwitch: return "arrow.left.and.right.square.fill"
+        case .stacked: return "rectangle.split.1x2"
+        case .sideBySide: return "rectangle.split.2x1"
+        case .singleSwitch: return "arrow.left.arrow.right.square"
         }
     }
 }
 
 enum DualAudioSource: String, CaseIterable, Identifiable {
-    case slotA = "Zvuk: Moje (A)"
-    case slotB = "Zvuk: Vzor (B)"
+    case slotA = "Zvuk z môjho videa"
+    case slotB = "Zvuk zo vzoru"
     case mute = "Bez zvuku"
-    
+
     var id: String { rawValue }
 }
 
-enum DualSlotTarget: String, Identifiable {
-    case slotA = "Moje video / fotka (Slot A)"
-    case slotB = "Vzor / Idol (Slot B)"
-    
+enum DualSlot: String, Identifiable {
+    case a = "Moje video alebo fotka"
+    case b = "Vzor"
+
     var id: String { rawValue }
 }
 
+// MARK: - Porovnanie
+/// My video next to (or under) a model video (BRAND_GUIDELINES §1A, docs/V1_UI_FEATURE_REVIEW.md §4).
+/// A calm screen: the videos, playback and three tools.
+/// - Zarovnať: find the same moment in both videos once; then they play together.
+/// - Prekrytie: the model lies see-through over my video; two fingers fit it to my body.
+/// - Čiary: plumb line and level line with the tilt.
+/// "Uložiť" turns the moment into a correction in the figure's notes (overlay, lines and corrections are Premium).
 struct DualVideoComparisonView: View {
     @Environment(\.dismiss) private var dismiss
-    
-    // Video/Photo Paths (Local file names in Documents)
+    @Environment(\.displayScale) private var displayScale
+    @ObservedObject private var subscriptionManager = SubscriptionManager.shared
+
     @Binding var pathA: String?
     @Binding var pathB: String?
-    
-    var titleA: String = "Moje video (A)"
-    var titleB: String = "Vzor / Idol (B)"
-    
-    // Player instances
+    var titleA: String = "Ja"
+    var titleB: String = "Vzor"
+    /// The figure this comparison belongs to. With `onSaveCorrection` the save button adds a correction
+    /// to its notes; without a figure it saves the snapshot to Fotky.
+    var figureName: String? = nil
+    var onSaveCorrection: ((FigureCorrection) -> Void)? = nil
+
+    // Players
     @State private var playerA: AVPlayer?
     @State private var playerB: AVPlayer?
-    @State private var observerTokenA: Any?
-    @State private var observerTokenB: Any?
+    @State private var loopToken: Any?
+    @State private var timeObserverToken: Any?
+    @State private var timeObserverPlayer: AVPlayer?
     @State private var setupGeneration = 0
     @State private var resolvedURLA: URL?
     @State private var resolvedURLB: URL?
-    @State private var timeObserverTokenA: Any?
-    
-    // Photo Image instances
-    @State private var imageA: UIImage? = nil
-    @State private var imageB: UIImage? = nil
-    
-    // Slot Picker Sheet Target
-    @State private var activePickerSlot: DualSlotTarget? = nil
-    
-    // Playback state
-    @State private var isPlaying: Bool = false
-    @State private var currentTime: Double = 0.0
-    @State private var duration: Double = 1.0
-    @State private var isScrubbing: Bool = false
+    @State private var isResolving = false
+    @State private var imageA: UIImage?
+    @State private var imageB: UIImage?
+    @State private var frameDurationA = 1.0 / 30
+    @State private var frameDurationB = 1.0 / 30
+    @State private var durationB = 1.0
+
+    // Playback
+    @State private var isPlaying = false
+    @State private var currentTime = 0.0
+    @State private var duration = 1.0
+    @State private var isScrubbing = false
     @State private var playbackRate: Float = 1.0
-    @State private var isLooping: Bool = true
-    
-    // Synchronization & Offset
-    /// Offset in seconds applied to Video B relative to Video A (e.g. +0.50s means Video B starts 0.5s later)
-    @State private var offsetB: Double = 0.0
+    @State private var isLooping = true
+    /// How far the model video is ahead of mine once "Zarovnať" found the same moment in both.
+    @State private var offsetB = 0.0
     @State private var layoutMode: DualLayoutMode = .stacked
-    @State private var activeSingleSlot: Int = 1 // 1 for A, 2 for B
+    @State private var showsSlotB = false
     @State private var audioSource: DualAudioSource = .slotA
-    
-    // UI Feedback
-    @State private var showOffsetFineControl: Bool = false
-    @State private var showPostureAnalysis: Bool = false
-    
-    var isPhotoA: Bool {
-        guard let p = pathA else { return false }
-        return MediaResolver.isImagePath(path: p) || imageA != nil
+
+    // Tools
+    @State private var isAligning = false
+    @State private var alignTimeB = 0.0
+    @State private var isOverlayOn = false
+    @State private var overlayOpacity = 0.5
+    @State private var overlayMirrored = false
+    @State private var overlayScale: CGFloat = 1
+    @State private var overlayOffset: CGSize = .zero
+    @State private var overlayScaleBase: CGFloat?
+    @State private var overlayOffsetBase: CGSize?
+    @State private var showsGuides = false
+    @State private var guides = AnalysisGuides()
+    @State private var analysisSize: CGSize = .zero
+
+    // Sheets and feedback
+    @State private var pickerSlot: DualSlot?
+    @State private var showPaywall = false
+    @State private var correctionSnapshot: UIImage?
+    @State private var showCorrectionSheet = false
+    @State private var isPreparingSnapshot = false
+    @State private var toast: String?
+    @State private var toolTaps = 0
+    @State private var successTaps = 0
+
+    private var hasA: Bool { playerA != nil || imageA != nil }
+    private var hasB: Bool { playerB != nil || imageB != nil }
+    private var hasVideo: Bool { playerA != nil || playerB != nil }
+    private var canCompareBoth: Bool { hasA && hasB }
+    private var isPremium: Bool { subscriptionManager.currentTier >= .premium }
+    private var isAligned: Bool { abs(offsetB) > 0.001 }
+    private var isOverlayShown: Bool { isOverlayOn && canCompareBoth }
+
+    /// The slot that gets the lines and the snapshot.
+    private var analysisSlot: DualSlot {
+        if layoutMode == .singleSwitch { return showsSlotB ? .b : .a }
+        return hasA || !hasB ? .a : .b
     }
-    
-    var isPhotoB: Bool {
-        guard let p = pathB else { return false }
-        return MediaResolver.isImagePath(path: p) || imageB != nil
-    }
-    
-    var isBothPhotos: Bool {
-        (pathA != nil || pathB != nil) && (pathA == nil || isPhotoA) && (pathB == nil || isPhotoB) && (playerA == nil && playerB == nil)
-    }
-    
+
     var body: some View {
-        NavigationStack {
-            ZStack {
-                EllegancePageBackground()
-                
-                VStack(spacing: 0) {
-                    // Header Bar with Layout Switcher & Audio source
-                    topControlsBar
+        ZStack {
+            EllegancePageBackground()
+
+            VStack(spacing: 12) {
+                topBar
+                    .padding(.horizontal, 16)
+                    .padding(.top, 8)
+
+                viewport
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .padding(.horizontal, 12)
+
+                Group {
+                    if isAligning { alignDeck } else { controlDeck }
+                }
+                .padding(.horizontal, 12)
+                .padding(.bottom, 12)
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
+
+            if let toast {
+                VStack {
+                    Text(toast)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundColor(.white)
                         .padding(.horizontal, 16)
-                        .padding(.top, 8)
-                        .padding(.bottom, 6)
-                    
-                    // Video Viewport Area
-                    videoViewportArea
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        .padding(.horizontal, 12)
-                    
-                    // Bottom Synchronization & Control Deck
-                    bottomControlDeck
-                        .padding(.horizontal, 16)
-                        .padding(.top, 10)
-                        .padding(.bottom, 16)
-                        .background(
-                            Color.obsidian900
-                                .shadow(color: Color.black.opacity(0.4), radius: 10, y: -4)
-                        )
+                        .padding(.vertical, 10)
+                        .glassEffect(.regular, in: Capsule())
+                        .padding(.top, 64)
+                    Spacer()
                 }
-            }
-            .navigationTitle("⚔️ Dual Porovnávač")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button("Zavrieť") {
-                        tearDownPlayers()
-                        dismiss()
-                    }
-                    .font(.system(size: 15, weight: .bold))
-                    .foregroundColor(Color.gold400)
-                }
-                
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    HStack(spacing: 8) {
-                        Button {
-                            if isPlaying { togglePlayPause() }
-                            showPostureAnalysis = true
-                        } label: {
-                            HStack(spacing: 4) {
-                                Image(systemName: "angle")
-                                Text("Postúra")
-                            }
-                            .font(.system(size: 13, weight: .bold))
-                            .foregroundColor(.latinRed)
-                        }
-                        
-                        Button(action: swapSlots) {
-                            HStack(spacing: 4) {
-                                Image(systemName: "arrow.left.arrow.right")
-                                Text("Prehodiť")
-                            }
-                            .font(.system(size: 13, weight: .bold))
-                            .foregroundColor(Color.gold400)
-                        }
-                    }
-                }
-            }
-            .sheet(item: $activePickerSlot) { slot in
-                UniversalMediaPickerSheet(
-                    slotTitle: slot.rawValue,
-                    currentPath: slot == .slotA ? pathA : pathB,
-                    onSelectMedia: { selectedPath in
-                        if slot == .slotA {
-                            pathA = selectedPath
-                        } else {
-                            pathB = selectedPath
-                        }
-                        setupPlayers()
-                    },
-                    onClearMedia: {
-                        if slot == .slotA {
-                            pathA = nil
-                        } else {
-                            pathB = nil
-                        }
-                        setupPlayers()
-                    }
-                )
-            }
-            .fullScreenCover(isPresented: $showPostureAnalysis) {
-                if let resolvedURL = resolvedURLA ?? resolvedURLB {
-                    PostureAnalysisOverlayView(videoURL: resolvedURL, freezeTime: currentTime)
-                }
-            }
-            .onChange(of: pathA) { _, _ in
-                setupPlayers()
-            }
-            .onChange(of: pathB) { _, _ in
-                setupPlayers()
-            }
-            .onAppear {
-                setupPlayers()
-            }
-            .onDisappear {
-                tearDownPlayers()
+                .transition(.move(edge: .top).combined(with: .opacity))
+                .accessibilityAddTraits(.isStaticText)
             }
         }
-    }
-    
-    // MARK: - Top Controls Bar
-    private var topControlsBar: some View {
-        HStack {
-            // Layout picker
-            Picker("Rozloženie", selection: $layoutMode) {
-                ForEach(DualLayoutMode.allCases) { mode in
-                    Label(mode.rawValue, systemImage: mode.iconName).tag(mode)
+        .animation(.spring(response: 0.35, dampingFraction: 0.85), value: isAligning)
+        .animation(.spring(response: 0.35, dampingFraction: 0.85), value: isOverlayShown)
+        .animation(.spring(response: 0.35, dampingFraction: 0.85), value: layoutMode)
+        .sheet(item: $pickerSlot) { slot in
+            UniversalMediaPickerSheet(
+                slotTitle: slot.rawValue,
+                currentPath: slot == .a ? pathA : pathB,
+                onSelectMedia: { selectedPath in
+                    if slot == .a { pathA = selectedPath } else { pathB = selectedPath }
+                },
+                onClearMedia: {
+                    if slot == .a { pathA = nil } else { pathB = nil }
+                }
+            )
+        }
+        .sheet(isPresented: $showPaywall) {
+            SubscriptionPaywallView(initialTier: .premium)
+        }
+        .sheet(isPresented: $showCorrectionSheet) {
+            FigureCorrectionSheet(
+                figureName: figureName ?? "",
+                snapshot: correctionSnapshot,
+                tilt: showsGuides && guides.showsLevel ? guides.roundedAngle : nil
+            ) { correction, alsoToPhotos in
+                onSaveCorrection?(correction)
+                successTaps += 1
+                showToast("Korekcia je v poznámkach figúry")
+                if alsoToPhotos, let snapshot = correctionSnapshot {
+                    Task { await saveToPhotos(snapshot, announce: false) }
                 }
             }
-            .pickerStyle(.segmented)
-            
-            // Audio selection menu
+        }
+        .onChange(of: pathA) { setupPlayers() }
+        .onChange(of: pathB) { setupPlayers() }
+        .onChange(of: audioSource) { applyAudioVolumes() }
+        .onAppear { setupPlayers() }
+        .onDisappear { tearDownPlayers() }
+        .sensoryFeedback(.impact(weight: .light), trigger: toolTaps)
+        .sensoryFeedback(.success, trigger: successTaps)
+        .preferredColorScheme(.dark)
+    }
+
+    // MARK: - Top bar
+    private var topBar: some View {
+        HStack(spacing: 12) {
+            LiquidGlassCircleButton(icon: "xmark", label: "Zavrieť") {
+                tearDownPlayers()
+                dismiss()
+            }
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Porovnanie")
+                    .font(.system(.headline, design: .rounded).weight(.bold))
+                    .foregroundColor(.white)
+                if let figureName, !figureName.isEmpty {
+                    Text(figureName)
+                        .font(.caption.weight(.semibold))
+                        .foregroundColor(Color.gold400)
+                        .lineLimit(1)
+                }
+            }
+
+            Spacer(minLength: 8)
+
+            if hasA || hasB {
+                LiquidGlassCircleButton(
+                    icon: isPreparingSnapshot ? "hourglass" : "square.and.arrow.down",
+                    label: onSaveCorrection == nil ? "Uložiť snímku do Fotiek" : "Uložiť korekciu",
+                    isActive: true
+                ) {
+                    requirePremium { Task { await startSaving() } }
+                }
+                .disabled(isPreparingSnapshot)
+            }
+
             Menu {
+                moreMenu
+            } label: {
+                GlassCircleLabel(icon: "ellipsis")
+            }
+            .accessibilityLabel("Ďalšie možnosti")
+        }
+    }
+
+    @ViewBuilder
+    private var moreMenu: some View {
+        Picker(selection: $layoutMode) {
+            ForEach(DualLayoutMode.allCases) { mode in
+                Label(mode.rawValue, systemImage: mode.iconName).tag(mode)
+            }
+        } label: {
+            Label("Rozloženie", systemImage: "rectangle.3.group")
+        }
+        .pickerStyle(.menu)
+
+        if hasVideo {
+            Picker(selection: $audioSource) {
                 ForEach(DualAudioSource.allCases) { source in
-                    Button {
-                        audioSource = source
-                        applyAudioVolumes()
-                    } label: {
-                        HStack {
-                            Text(source.rawValue)
-                            if audioSource == source {
-                                Image(systemName: "checkmark")
-                            }
-                        }
-                    }
+                    Text(source.rawValue).tag(source)
                 }
             } label: {
-                HStack(spacing: 4) {
-                    Image(systemName: audioSource == .mute ? "speaker.slash.fill" : "speaker.wave.2.fill")
-                        .foregroundColor(Color.gold400)
-                    Text(audioSource == .slotA ? "Zvuk: A" : (audioSource == .slotB ? "Zvuk: B" : "Ticho"))
-                        .font(.system(size: 12, weight: .bold))
-                }
-                .padding(.horizontal, 10)
-                .padding(.vertical, 6)
-                .background(Color.obsidian800)
-                .cornerRadius(8)
-                .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.white.opacity(0.15), lineWidth: 1))
-                .foregroundColor(.white)
+                Label("Zvuk", systemImage: "speaker.wave.2")
+            }
+            .pickerStyle(.menu)
+
+            Toggle(isOn: $isLooping) {
+                Label("Opakovať", systemImage: "repeat")
+            }
+        }
+
+        if showsGuides {
+            Toggle(isOn: $guides.showsPlumb) {
+                Label("Olovnica", systemImage: "arrow.up.and.down")
+            }
+            Toggle(isOn: $guides.showsLevel) {
+                Label("Vodorovná čiara", systemImage: "level")
+            }
+        }
+
+        if canCompareBoth {
+            Button {
+                swapSlots()
+            } label: {
+                Label("Prehodiť videá", systemImage: "arrow.left.arrow.right")
+            }
+        }
+
+        if isAligned {
+            Button(role: .destructive) {
+                offsetB = 0
+                seekPlayers(to: currentTime)
+            } label: {
+                Label("Zrušiť zarovnanie", systemImage: "arrow.uturn.backward")
             }
         }
     }
-    
-    // MARK: - Video Viewport Area
-    private var videoViewportArea: some View {
-        Group {
+
+    // MARK: - Videos
+    @ViewBuilder
+    private var viewport: some View {
+        if isOverlayShown {
+            overlayViewport
+        } else {
             switch layoutMode {
             case .stacked:
                 VStack(spacing: 8) {
-                    videoSlotView(title: titleA, path: pathA, player: playerA, image: imageA, isPhoto: isPhotoA, slotBadge: "A · Moje", isSlotA: true)
-                    videoSlotView(title: titleB, path: pathB, player: playerB, image: imageB, isPhoto: isPhotoB, slotBadge: "B · Vzor", isSlotA: false)
+                    slotView(.a)
+                    slotView(.b)
                 }
             case .sideBySide:
                 HStack(spacing: 8) {
-                    videoSlotView(title: titleA, path: pathA, player: playerA, image: imageA, isPhoto: isPhotoA, slotBadge: "A · Moje", isSlotA: true)
-                    videoSlotView(title: titleB, path: pathB, player: playerB, image: imageB, isPhoto: isPhotoB, slotBadge: "B · Vzor", isSlotA: false)
+                    slotView(.a)
+                    slotView(.b)
                 }
             case .singleSwitch:
                 VStack(spacing: 8) {
-                    HStack {
-                        Button {
-                            activeSingleSlot = 1
-                        } label: {
-                            Text("🔴 \(titleA)")
-                                .font(.system(size: 13, weight: .bold))
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 8)
-                                .background(activeSingleSlot == 1 ? Color.red.opacity(0.2) : Color.themeCard)
-                                .foregroundColor(activeSingleSlot == 1 ? .red : .white)
-                                .cornerRadius(8)
-                                .overlay(RoundedRectangle(cornerRadius: 8).stroke(activeSingleSlot == 1 ? Color.red : Color.white.opacity(0.12), lineWidth: 1.5))
-                        }
-                        
-                        Button {
-                            activeSingleSlot = 2
-                        } label: {
-                            Text("🟢 \(titleB)")
-                                .font(.system(size: 13, weight: .bold))
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 8)
-                                .background(activeSingleSlot == 2 ? Color.green.opacity(0.2) : Color.themeCard)
-                                .foregroundColor(activeSingleSlot == 2 ? .green : .white)
-                                .cornerRadius(8)
-                                .overlay(RoundedRectangle(cornerRadius: 8).stroke(activeSingleSlot == 2 ? Color.green : Color.white.opacity(0.12), lineWidth: 1.5))
-                        }
+                    Picker("Zobraziť", selection: $showsSlotB) {
+                        Text(titleA).tag(false)
+                        Text(titleB).tag(true)
                     }
-                    
-                    if activeSingleSlot == 1 {
-                        videoSlotView(title: titleA, path: pathA, player: playerA, image: imageA, isPhoto: isPhotoA, slotBadge: "A · Moje", isSlotA: true)
-                    } else {
-                        videoSlotView(title: titleB, path: pathB, player: playerB, image: imageB, isPhoto: isPhotoB, slotBadge: "B · Vzor", isSlotA: false)
-                    }
+                    .pickerStyle(.segmented)
+                    slotView(showsSlotB ? .b : .a)
                 }
             }
         }
     }
-    
-    // MARK: - Individual Media Slot Card
-    private func videoSlotView(title: String, path: String?, player: AVPlayer?, image: UIImage?, isPhoto: Bool, slotBadge: String, isSlotA: Bool) -> some View {
-        ZStack(alignment: .topLeading) {
-            Color.obsidian900
-                .cornerRadius(12)
-            
-            if isPhoto, let image = image {
-                Image(uiImage: image)
-                    .resizable()
-                    .scaledToFit()
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
-            } else if let player = player {
-                CustomAVPlayerRepresentable(player: player)
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
-            } else {
-                Button {
-                    activePickerSlot = isSlotA ? .slotA : .slotB
-                } label: {
-                    VStack(spacing: 10) {
-                        ZStack {
-                            Circle()
-                                .fill(isSlotA ? Color.red.opacity(0.15) : Color.green.opacity(0.15))
-                                .frame(width: 52, height: 52)
-                            Image(systemName: "plus.circle.fill")
-                                .font(.system(size: 28))
-                                .foregroundColor(isSlotA ? .red : .green)
-                        }
-                        
-                        Text("Zvoliť video alebo fotku")
-                            .font(.system(size: 13, weight: .bold))
-                            .foregroundColor(.white)
-                        
-                        Text("Klepni pre výber z knižnice, galérie alebo natočenie")
-                            .font(.system(size: 11))
-                            .foregroundColor(.white.opacity(0.55))
-                            .multilineTextAlignment(.center)
-                            .padding(.horizontal, 16)
-                    }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
+
+    private func slotView(_ slot: DualSlot) -> some View {
+        let isAnalysis = slot == analysisSlot
+        let hasMedia = slot == .a ? hasA : hasB
+        return ZStack(alignment: .topLeading) {
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(Color.black.opacity(0.55))
+
+            media(for: slot)
+
+            if showsGuides && isAnalysis && hasMedia {
+                AnalysisGuidesOverlay(guides: $guides)
+                    .transition(.opacity)
             }
-            
-            // Top badge and one compact menu, so the words never wrap in a narrow column.
-            HStack(spacing: 6) {
-                Text(slotBadge)
-                    .font(.system(size: 11, weight: .heavy))
-                    .lineLimit(1)
-                    .fixedSize()
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .background(isSlotA ? Color.red.opacity(0.85) : Color.green.opacity(0.85), in: Capsule())
-                    .foregroundColor(.white)
 
-                if !isSlotA && !isPhoto && abs(offsetB) > 0.01 {
-                    Text(String(format: "%+.2fs", offsetB))
-                        .font(.system(size: 10, weight: .bold, design: .monospaced))
-                        .lineLimit(1)
-                        .fixedSize()
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 4)
-                        .background(Color.black.opacity(0.65), in: Capsule())
-                        .foregroundColor(.yellow)
-                }
-
-                Spacer(minLength: 0)
-
-                if path != nil {
-                    Menu {
-                        Button {
-                            activePickerSlot = isSlotA ? .slotA : .slotB
-                        } label: { Label("Zmeniť médium", systemImage: "arrow.triangle.2.circlepath") }
-                        Button(role: .destructive) {
-                            if isSlotA { pathA = nil } else { pathB = nil }
-                            setupPlayers()
-                        } label: { Label("Odstrániť", systemImage: "xmark") }
-                    } label: {
-                        Image(systemName: "ellipsis")
-                            .font(.system(size: 13, weight: .bold))
-                            .foregroundColor(.white)
-                            .frame(width: 30, height: 30)
-                            .background(Color.black.opacity(0.55), in: Circle())
-                    }
-                }
-            }
-            .padding(8)
+            slotHeader(slot)
         }
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: 12)
-                .stroke(isSlotA ? Color.red.opacity(0.4) : Color.green.opacity(0.4), lineWidth: 2)
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .stroke(Color.white.opacity(0.10), lineWidth: 1)
+        )
+        .onGeometryChange(for: CGSize.self) { $0.size } action: { size in
+            if isAnalysis { analysisSize = size }
+        }
+    }
+
+    @ViewBuilder
+    private func media(for slot: DualSlot) -> some View {
+        let path = slot == .a ? pathA : pathB
+        if let image = slot == .a ? imageA : imageB {
+            Image(uiImage: image)
+                .resizable()
+                .scaledToFit()
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        } else if let player = slot == .a ? playerA : playerB {
+            CustomAVPlayerRepresentable(player: player, gravity: .resizeAspect)
+        } else if path != nil && isResolving {
+            ProgressView()
+                .tint(Color.gold400)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        } else if path != nil {
+            missingMediaView(slot)
+        } else {
+            emptySlotButton(slot)
+        }
+    }
+
+    private func slotHeader(_ slot: DualSlot) -> some View {
+        let isA = slot == .a
+        return HStack(spacing: 6) {
+            Text(isA ? titleA : titleB)
+                .font(.system(.caption, design: .rounded).weight(.heavy))
+                .lineLimit(1)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 5)
+                .background(isA ? Color.latinRed : Color.gold400, in: Capsule())
+                .foregroundColor(isA ? .white : Color.obsidian900)
+
+            Spacer(minLength: 0)
+
+            if (isA ? pathA : pathB) != nil {
+                Menu {
+                    Button {
+                        pickerSlot = slot
+                    } label: {
+                        Label("Zmeniť", systemImage: "arrow.triangle.2.circlepath")
+                    }
+                    Button(role: .destructive) {
+                        if isA { pathA = nil } else { pathB = nil }
+                    } label: {
+                        Label("Odstrániť z porovnania", systemImage: "xmark")
+                    }
+                } label: {
+                    GlassCircleLabel(icon: "ellipsis", size: 32)
+                }
+                .accessibilityLabel(isA ? "Moje video: možnosti" : "Vzor: možnosti")
+            }
+        }
+        .padding(8)
+    }
+
+    private func emptySlotButton(_ slot: DualSlot) -> some View {
+        Button {
+            pickerSlot = slot
+            toolTaps += 1
+        } label: {
+            VStack(spacing: 10) {
+                Image(systemName: "plus")
+                    .font(.system(size: 22, weight: .bold))
+                    .foregroundColor(slot == .a ? Color.latinRed : Color.gold400)
+                    .frame(width: 52, height: 52)
+                    .glassEffect(.regular, in: .circle)
+                Text(slot == .a ? "Vyber svoje video alebo fotku" : "Vyber vzor")
+                    .font(.subheadline.weight(.bold))
+                    .foregroundColor(.white)
+                Text("Z knižnice, z Fotiek alebo natoč nové")
+                    .font(.caption)
+                    .foregroundColor(.white.opacity(0.6))
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.pressable)
+    }
+
+    /// The slot has a video or photo, but it is not on this iPhone or cannot be played.
+    private func missingMediaView(_ slot: DualSlot) -> some View {
+        VStack(spacing: 10) {
+            Image(systemName: "video.slash.fill")
+                .font(.title2)
+                .foregroundColor(Color.gold400)
+            Text("Video sa nenašlo")
+                .font(.subheadline.weight(.bold))
+                .foregroundColor(.white)
+            Text("Nie je v tomto iPhone alebo sa nedá prehrať.")
+                .font(.footnote)
+                .foregroundColor(.white.opacity(0.65))
+                .multilineTextAlignment(.center)
+            Button {
+                pickerSlot = slot
+            } label: {
+                Text("Vybrať iné")
+                    .font(.footnote.weight(.bold))
+                    .foregroundColor(Color.obsidian900)
+                    .padding(.horizontal, 16)
+                    .frame(minHeight: 36)
+                    .background(Color.gold400, in: Capsule())
+            }
+            .buttonStyle(.pressable)
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .accessibilityElement(children: .combine)
+    }
+
+    // MARK: - Overlay
+    private var overlayViewport: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(Color.black.opacity(0.55))
+
+            media(for: .a)
+
+            media(for: .b)
+                .scaleEffect(x: overlayMirrored ? -overlayScale : overlayScale, y: overlayScale)
+                .offset(overlayOffset)
+                .opacity(overlayOpacity)
+                .allowsHitTesting(false)
+
+            if showsGuides {
+                AnalysisGuidesOverlay(guides: $guides)
+                    .transition(.opacity)
+            }
+
+            VStack(spacing: 0) {
+                HStack {
+                    Text("\(titleA) + \(titleB.lowercased())")
+                        .font(.system(.caption, design: .rounded).weight(.heavy))
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 5)
+                        .background(Color.gold400, in: Capsule())
+                        .foregroundColor(Color.obsidian900)
+                    if !showsGuides {
+                        Text("Dvoma prstami prispôsob vzor")
+                            .font(.caption2.weight(.semibold))
+                            .foregroundColor(.white.opacity(0.75))
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.8)
+                    }
+                    Spacer(minLength: 0)
+                }
+                .padding(8)
+                Spacer()
+                overlayControls
+            }
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .stroke(Color.gold400.opacity(0.35), lineWidth: 1)
+        )
+        .contentShape(Rectangle())
+        // With the lines shown, touches belong to the lines; the model stays where it was fitted.
+        .gesture(overlayTransformGesture, including: showsGuides ? .subviews : .all)
+        .onGeometryChange(for: CGSize.self) { $0.size } action: { analysisSize = $0 }
+    }
+
+    private var overlayControls: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "circle.lefthalf.filled")
+                .foregroundColor(.white.opacity(0.8))
+                .accessibilityHidden(true)
+            Slider(value: $overlayOpacity, in: 0.15...0.85)
+                .tint(Color.gold400)
+                .accessibilityLabel("Priehľadnosť vzoru")
+            Button {
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) { overlayMirrored.toggle() }
+                toolTaps += 1
+            } label: {
+                Image(systemName: "arrow.left.and.right.righttriangle.left.righttriangle.right")
+                    .font(.system(size: 15, weight: .bold))
+                    .foregroundColor(overlayMirrored ? Color.obsidian900 : .white)
+                    .frame(width: 36, height: 36)
+                    .background(overlayMirrored ? Color.gold400 : Color.white.opacity(0.12), in: Circle())
+            }
+            .buttonStyle(.pressable(scale: 0.9))
+            .accessibilityLabel("Zrkadliť vzor")
+            .accessibilityAddTraits(overlayMirrored ? .isSelected : [])
+
+            if overlayScale != 1 || overlayOffset != .zero {
+                Button {
+                    withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                        overlayScale = 1
+                        overlayOffset = .zero
+                    }
+                    toolTaps += 1
+                } label: {
+                    Image(systemName: "arrow.counterclockwise")
+                        .font(.system(size: 15, weight: .bold))
+                        .foregroundColor(.white)
+                        .frame(width: 36, height: 36)
+                        .background(Color.white.opacity(0.12), in: Circle())
+                }
+                .buttonStyle(.pressable(scale: 0.9))
+                .accessibilityLabel("Vrátiť vzor na pôvodné miesto")
+                .transition(.scale.combined(with: .opacity))
+            }
+        }
+        .padding(.horizontal, 14)
+        .frame(height: 52)
+        .glassEffect(.regular, in: Capsule())
+        .padding(10)
+    }
+
+    private var overlayTransformGesture: some Gesture {
+        SimultaneousGesture(
+            MagnifyGesture()
+                .onChanged { value in
+                    let base = overlayScaleBase ?? overlayScale
+                    overlayScaleBase = base
+                    overlayScale = min(max(base * value.magnification, 0.5), 3)
+                }
+                .onEnded { _ in overlayScaleBase = nil },
+            DragGesture()
+                .onChanged { value in
+                    let base = overlayOffsetBase ?? overlayOffset
+                    overlayOffsetBase = base
+                    overlayOffset = CGSize(width: base.width + value.translation.width,
+                                           height: base.height + value.translation.height)
+                }
+                .onEnded { _ in overlayOffsetBase = nil }
         )
     }
-    
-    // MARK: - Bottom Control Deck
-    private var bottomControlDeck: some View {
-        VStack(spacing: 12) {
-            if isBothPhotos {
-                VStack(spacing: 8) {
-                    HStack(spacing: 8) {
-                        Image(systemName: "camera.metering.center.weighted")
-                            .font(.system(size: 16, weight: .bold))
-                            .foregroundColor(Color.gold400)
-                        Text("Porovnanie línie & postúry (Statické fotky)")
-                            .font(.system(size: 13, weight: .bold))
-                            .foregroundColor(.white)
-                    }
-                    Text("Obe médiá v slotoch sú fotografie. Porovnaj geometriu držania tela, polohu rúk a ťažisko.")
-                        .font(.system(size: 11))
-                        .foregroundColor(Color.white.opacity(0.6))
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal, 16)
-                }
-                .padding(.vertical, 10)
-                .frame(maxWidth: .infinity)
-                .background(Color.obsidian800)
-                .cornerRadius(12)
-                .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.white.opacity(0.1), lineWidth: 1))
-            } else {
-                // Combined Scrubber
+
+    // MARK: - Control deck
+    private var controlDeck: some View {
+        VStack(spacing: 14) {
+            if hasVideo {
                 VStack(spacing: 4) {
-                    Slider(value: Binding(
-                        get: { currentTime },
-                        set: { newTime in
+                    Slider(
+                        value: Binding(get: { currentTime }, set: { newTime in
                             currentTime = newTime
                             seekPlayers(to: newTime)
-                        }
-                    ), in: 0...max(duration, 0.1))
+                        }),
+                        in: 0...max(duration, 0.1),
+                        onEditingChanged: { isScrubbing = $0 }
+                    )
                     .tint(Color.gold400)
-                    
+                    .accessibilityLabel("Čas")
+                    .accessibilityValue(formatTime(currentTime))
+
                     HStack {
                         Text(formatTime(currentTime))
-                            .font(.system(size: 12, weight: .bold, design: .monospaced))
-                            .foregroundColor(.white)
                         Spacer()
                         Text(formatTime(duration))
-                            .font(.system(size: 12, weight: .medium, design: .monospaced))
-                            .foregroundColor(Color.white.opacity(0.5))
                     }
+                    .font(.caption.monospacedDigit())
+                    .foregroundColor(.white.opacity(0.6))
                 }
-                
-                // Row 1: transport. Row 2: speed, loop and offset. Two rows keep every label on one line.
-                HStack(spacing: 22) {
-                    Button { stepFrame(by: -1) } label: {
-                        Image(systemName: "backward.frame").font(.system(size: 20, weight: .bold)).foregroundColor(.white)
-                    }
-                    Button {
-                        let target = max(0, currentTime - 1.0)
-                        currentTime = target
-                        seekPlayers(to: target)
-                    } label: {
-                        Image(systemName: "gobackward.10").font(.system(size: 20, weight: .semibold)).foregroundColor(.white)
-                    }
-                    Button(action: togglePlayPause) {
-                        ZStack {
-                            Circle()
-                                .fill(LinearGradient(colors: [Color.gold500, Color.gold400], startPoint: .topLeading, endPoint: .bottomTrailing))
-                                .frame(width: 56, height: 56)
-                                .shadow(color: Color.gold500.opacity(0.35), radius: 8, y: 3)
-                            Image(systemName: isPlaying ? "pause.fill" : "play.fill")
-                                .font(.system(size: 22, weight: .bold))
-                                .foregroundColor(Color.obsidian900)
-                                .offset(x: isPlaying ? 0 : 1.5)
-                        }
-                    }
-                    Button {
-                        let target = min(duration, currentTime + 1.0)
-                        currentTime = target
-                        seekPlayers(to: target)
-                    } label: {
-                        Image(systemName: "goforward.10").font(.system(size: 20, weight: .semibold)).foregroundColor(.white)
-                    }
-                    Button { stepFrame(by: 1) } label: {
-                        Image(systemName: "forward.frame").font(.system(size: 20, weight: .bold)).foregroundColor(.white)
-                    }
+
+                HStack(spacing: 28) {
+                    LiquidGlassCircleButton(icon: "backward.frame.fill", label: "O snímku späť") { stepFrame(by: -1) }
+                    playButton
+                    LiquidGlassCircleButton(icon: "forward.frame.fill", label: "O snímku dopredu") { stepFrame(by: 1) }
                 }
-                .frame(maxWidth: .infinity)
-
-                HStack(spacing: 10) {
-                    Menu {
-                        ForEach([0.25, 0.5, 0.75, 1.0], id: \.self) { rate in
-                            Button("\(String(format: "%.2f", rate))x") {
-                                playbackRate = Float(rate)
-                                if isPlaying {
-                                    playerA?.rate = playbackRate
-                                    playerB?.rate = playbackRate
-                                }
-                            }
-                        }
-                    } label: {
-                        deckChip(String(format: "%.2fx", playbackRate), systemImage: "speedometer", highlighted: false)
-                    }
-
-                    Button {
-                        withAnimation(.spring(response: 0.25)) { isLooping.toggle() }
-                    } label: {
-                        deckChip("Opakovať", systemImage: "repeat", highlighted: isLooping)
-                    }
-
-                    Button {
-                        withAnimation(.spring(response: 0.35)) { showOffsetFineControl.toggle() }
-                    } label: {
-                        deckChip("Offset", systemImage: "slider.horizontal.below.rectangle", highlighted: showOffsetFineControl)
-                    }
-                }
-                .frame(maxWidth: .infinity)
+            } else if canCompareBoth {
+                Text("Obe sú fotky: porovnaj polohu tela, rúk a ťažisko.")
+                    .font(.footnote)
+                    .foregroundColor(.white.opacity(0.7))
+                    .multilineTextAlignment(.center)
             }
 
-            // Fine Offset Controller Sheet/Slider (Align Dancers Beats)
-            if showOffsetFineControl && !isBothPhotos {
-                VStack(spacing: 8) {
-                    HStack {
-                        Text("⏱️ Synchronizácia dôb (Offset Vzoru B):")
-                            .font(.system(size: 12, weight: .bold))
-                            .foregroundColor(.white)
-                        Spacer()
-                        Text(String(format: "%+.2f s", offsetB))
-                            .font(.system(size: 13, weight: .heavy, design: .monospaced))
-                            .foregroundColor(Color.gold400)
-                    }
-                    
-                    HStack(spacing: 12) {
-                        Button {
-                            offsetB = max(-3.0, offsetB - 0.1)
-                            seekPlayers(to: currentTime)
-                        } label: {
-                            Text("-0.1s")
-                                .font(.system(size: 12, weight: .bold))
-                                .padding(.horizontal, 10)
-                                .padding(.vertical, 6)
-                                .background(Color.obsidian800)
-                                .foregroundColor(.white)
-                                .cornerRadius(6)
-                        }
-                        
-                        Slider(value: $offsetB, in: -3.0...3.0, step: 0.05) { editing in
-                            if !editing {
-                                seekPlayers(to: currentTime)
-                            }
-                        }
-                        .tint(.yellow)
-                        
-                        Button {
-                            offsetB = min(3.0, offsetB + 0.1)
-                            seekPlayers(to: currentTime)
-                        } label: {
-                            Text("+0.1s")
-                                .font(.system(size: 12, weight: .bold))
-                                .padding(.horizontal, 10)
-                                .padding(.vertical, 6)
-                                .background(Color.obsidian800)
-                                .foregroundColor(.white)
-                                .cornerRadius(6)
-                        }
-                        
-                        Button("Reset") {
-                            offsetB = 0.0
-                            seekPlayers(to: currentTime)
-                        }
-                        .font(.system(size: 11, weight: .bold))
-                        .foregroundColor(Color.white.opacity(0.6))
-                    }
-                }
-                .padding(10)
-                .background(Color.obsidian800)
-                .cornerRadius(10)
-                .transition(.opacity.combined(with: .move(edge: .bottom)))
+            if hasA || hasB {
+                toolRow
             }
         }
+        .padding(14)
+        .homeCard(cornerRadius: 22)
     }
-    
-    private func deckChip(_ title: String, systemImage: String, highlighted: Bool) -> some View {
-        HStack(spacing: 5) {
-            Image(systemName: systemImage)
+
+    private var playButton: some View {
+        Button(action: togglePlayPause) {
+            Image(systemName: isPlaying ? "pause.fill" : "play.fill")
+                .font(.system(size: 22, weight: .bold))
+                .foregroundColor(Color.obsidian900)
+                .contentTransition(.symbolEffect(.replace))
+                .offset(x: isPlaying ? 0 : 1.5)
+                .frame(width: 60, height: 60)
+                .background(
+                    LinearGradient(colors: [Color.gold400, Color.gold500], startPoint: .topLeading, endPoint: .bottomTrailing),
+                    in: Circle()
+                )
+                .shadow(color: Color.gold500.opacity(0.35), radius: 10, y: 4)
+        }
+        .buttonStyle(.pressable(scale: 0.9))
+        .sensoryFeedback(.impact(weight: .medium), trigger: isPlaying)
+        .accessibilityLabel(isPlaying ? "Pozastaviť" : "Prehrať")
+    }
+
+    private var toolRow: some View {
+        HStack(spacing: 8) {
+            if hasVideo {
+                Menu {
+                    ForEach([0.25, 0.5, 0.75, 1.0], id: \.self) { rate in
+                        Button(rateText(Float(rate))) { setRate(Float(rate)) }
+                    }
+                } label: {
+                    toolChip(rateText(playbackRate), icon: "tortoise.fill", isOn: playbackRate < 1)
+                }
+                .accessibilityLabel("Rýchlosť \(rateText(playbackRate))")
+            }
+
+            if hasVideo && canCompareBoth {
+                Button {
+                    startAligning()
+                } label: {
+                    toolChip("Zarovnať", icon: "arrow.left.and.right", isOn: isAligned)
+                }
+                .buttonStyle(.pressable)
+            }
+
+            if canCompareBoth {
+                Button {
+                    requirePremium {
+                        isOverlayOn.toggle()
+                        toolTaps += 1
+                    }
+                } label: {
+                    toolChip("Prekrytie", icon: "square.on.square", isOn: isOverlayOn, locked: !isPremium)
+                }
+                .buttonStyle(.pressable)
+            }
+
+            Button {
+                requirePremium {
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) { showsGuides.toggle() }
+                    toolTaps += 1
+                }
+            } label: {
+                toolChip("Čiary", icon: "ruler", isOn: showsGuides, locked: !isPremium)
+            }
+            .buttonStyle(.pressable)
+        }
+    }
+
+    private func toolChip(_ title: String, icon: String, isOn: Bool, locked: Bool = false) -> some View {
+        VStack(spacing: 4) {
+            Image(systemName: icon)
+                .font(.system(size: 17, weight: .semibold))
+                .symbolEffect(.bounce, value: isOn)
             Text(title)
+                .font(.caption2.weight(.bold))
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
         }
-        .font(.system(size: 13, weight: .bold))
-        .lineLimit(1)
-        .fixedSize()
-        .padding(.horizontal, 12)
-        .frame(height: 36)
-        .background(highlighted ? Color.gold400.opacity(0.22) : Color.obsidian800, in: Capsule())
-        .overlay(Capsule().stroke(highlighted ? Color.gold400 : Color.white.opacity(0.15), lineWidth: 1))
-        .foregroundColor(highlighted ? Color.gold400 : .white)
+        .foregroundColor(isOn ? Color.obsidian900 : .white)
+        .frame(maxWidth: .infinity, minHeight: 54)
+        .background(isOn ? AnyShapeStyle(Color.gold400) : AnyShapeStyle(Color.white.opacity(0.07)),
+                    in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .stroke(isOn ? Color.gold400 : Color.white.opacity(0.12), lineWidth: 1)
+        )
+        .overlay(alignment: .topTrailing) {
+            if locked {
+                Image(systemName: "lock.fill")
+                    .font(.system(size: 9, weight: .bold))
+                    .foregroundColor(Color.gold400)
+                    .padding(6)
+                    .accessibilityLabel("Premium")
+            }
+        }
+        .animation(.spring(response: 0.28, dampingFraction: 0.75), value: isOn)
     }
 
-    // MARK: - Player Setup & Lifecycle
+    // MARK: - Align deck
+    private var alignDeck: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HomeSectionHeader(title: "ZAROVNAŤ VZOR", systemImage: "arrow.left.and.right")
+            Text("Tvoje video stojí na \(formatTime(currentTime, precise: true)). Posuň vzor na ten istý moment, napríklad na prvý krok figúry.")
+                .font(.footnote)
+                .foregroundColor(.white.opacity(0.75))
+                .fixedSize(horizontal: false, vertical: true)
+
+            Slider(
+                value: Binding(get: { alignTimeB }, set: { newTime in
+                    alignTimeB = newTime
+                    seekB(to: newTime)
+                }),
+                in: 0...max(durationB, 0.1)
+            )
+            .tint(Color.gold400)
+            .accessibilityLabel("Čas vzoru")
+            .accessibilityValue(formatTime(alignTimeB, precise: true))
+
+            HStack(spacing: 20) {
+                LiquidGlassCircleButton(icon: "backward.frame.fill", label: "Vzor o snímku späť") { stepAlign(by: -1) }
+                Text(formatTime(alignTimeB, precise: true))
+                    .font(.system(.title3, design: .rounded).weight(.bold))
+                    .monospacedDigit()
+                    .foregroundColor(.white)
+                    .contentTransition(.numericText())
+                LiquidGlassCircleButton(icon: "forward.frame.fill", label: "Vzor o snímku dopredu") { stepAlign(by: 1) }
+            }
+            .frame(maxWidth: .infinity)
+
+            HStack(spacing: 10) {
+                Button {
+                    cancelAligning()
+                } label: {
+                    Text("Zrušiť")
+                        .font(.headline.weight(.semibold))
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity, minHeight: 50)
+                        .background(Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                }
+                .buttonStyle(.pressable)
+
+                PrimarySheetButton(title: "Hotovo", isLoading: false, isEnabled: true) { finishAligning() }
+            }
+        }
+        .padding(14)
+        .homeCard(cornerRadius: 22)
+    }
+
+    private func startAligning() {
+        if isPlaying { togglePlayPause() }
+        if layoutMode == .singleSwitch { showsSlotB = true }
+        alignTimeB = min(max(currentTime + offsetB, 0), durationB)
+        seekB(to: alignTimeB)
+        isAligning = true
+        toolTaps += 1
+    }
+
+    private func finishAligning() {
+        offsetB = alignTimeB - currentTime
+        isAligning = false
+        seekPlayers(to: currentTime)
+        successTaps += 1
+        showToast("Videá sú zarovnané a hrajú spolu")
+    }
+
+    private func cancelAligning() {
+        isAligning = false
+        seekPlayers(to: currentTime)
+    }
+
+    private func stepAlign(by frames: Int) {
+        alignTimeB = min(max(alignTimeB + Double(frames) * frameDurationB, 0), durationB)
+        seekB(to: alignTimeB)
+    }
+
+    // MARK: - Saving
+    private func requirePremium(_ action: () -> Void) {
+        if isPremium {
+            action()
+        } else {
+            showPaywall = true
+        }
+    }
+
+    private func startSaving() async {
+        if isPlaying { togglePlayPause() }
+        isPreparingSnapshot = true
+        let snapshot = await makeSnapshot()
+        isPreparingSnapshot = false
+
+        if onSaveCorrection != nil {
+            correctionSnapshot = snapshot
+            showCorrectionSheet = true
+        } else if let snapshot {
+            await saveToPhotos(snapshot, announce: true)
+        } else {
+            showToast("Snímku sa nepodarilo pripraviť")
+        }
+    }
+
+    /// What the user sees in the analysed slot: the frame, the model over it and the lines.
+    private func makeSnapshot() async -> UIImage? {
+        let size = analysisSize
+        guard size.width > 0, size.height > 0 else { return nil }
+        let overlay = isOverlayShown
+        guard let base = await still(of: overlay ? .a : analysisSlot) else { return nil }
+        let top = overlay ? await still(of: .b) : nil
+
+        let composition = CorrectionSnapshotView(
+            base: base,
+            overlay: top,
+            overlayOpacity: overlayOpacity,
+            overlayMirrored: overlayMirrored,
+            overlayScale: overlayScale,
+            overlayOffset: overlayOffset,
+            guides: showsGuides ? guides : nil
+        )
+        .frame(width: size.width, height: size.height)
+        let renderer = ImageRenderer(content: composition)
+        renderer.scale = displayScale
+        return renderer.uiImage
+    }
+
+    private func still(of slot: DualSlot) async -> UIImage? {
+        if let image = slot == .a ? imageA : imageB { return image }
+        guard let url = slot == .a ? resolvedURLA : resolvedURLB else { return nil }
+        let time = slot == .a ? currentTime : currentTime + offsetB
+        return await VideoStill.frame(of: url, at: max(0, time))
+    }
+
+    private func saveToPhotos(_ image: UIImage, announce: Bool) async {
+        var allowed = PhotoLibraryVideoStore.hasAccess
+        if !allowed { allowed = await PhotoLibraryVideoStore.requestAccess() }
+        guard allowed, let data = image.jpegData(compressionQuality: 0.9) else {
+            showToast("Povoľ Encore prístup k Fotkám v Nastaveniach")
+            return
+        }
+        do {
+            try await PhotoLibraryVideoStore.save(imageData: data)
+            if announce {
+                successTaps += 1
+                showToast("Snímka je vo Fotkách v albume Encore")
+            }
+        } catch {
+            Logger.camera.error("Saving comparison snapshot failed: \(error.localizedDescription, privacy: .public)")
+            showToast("Snímku sa nepodarilo uložiť")
+        }
+    }
+
+    private func showToast(_ text: String) {
+        withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) { toast = text }
+        Task { @MainActor in
+            try? await Task.sleep(for: .seconds(2.2))
+            guard toast == text else { return }
+            withAnimation(.easeOut(duration: 0.25)) { toast = nil }
+        }
+    }
+
+    // MARK: - Player setup
     private func setupPlayers() {
         tearDownPlayers()
 
         // Videos in Fotky are looked up asynchronously. Only the newest request builds players:
-        // closing the duel or changing a slot meanwhile bumps the generation.
+        // closing the comparison or changing a slot meanwhile bumps the generation.
         let generation = setupGeneration
         let requestedA = pathA
         let requestedB = pathB
+        isResolving = requestedA != nil || requestedB != nil
         Task { @MainActor in
             let urlA = await videoURL(for: requestedA)
             let urlB = await videoURL(for: requestedB)
+            let frameA = await VideoStill.frameDuration(of: urlA)
+            let frameB = await VideoStill.frameDuration(of: urlB)
+            let lengthB = await VideoStill.duration(of: urlB)
             guard generation == setupGeneration else { return }
+            isResolving = false
+            frameDurationA = frameA
+            frameDurationB = frameB
+            durationB = lengthB
             buildPlayers(urlA: urlA, urlB: urlB)
         }
     }
 
-    /// nil for an empty slot or a photo.
+    /// nil for an empty slot, a photo, or a video that is missing or cannot be played
+    /// (the slot then says so instead of showing a crossed-out player).
     private func videoURL(for path: String?) async -> URL? {
-        guard let path, !MediaResolver.isImagePath(path: path) else { return nil }
-        return await MediaResolver.videoURL(path: path)
+        guard let path, !MediaResolver.isImagePath(path: path),
+              let url = await MediaResolver.videoURL(path: path) else { return nil }
+        let playable = (try? await AVURLAsset(url: url).load(.isPlayable)) ?? false
+        return playable ? url : nil
     }
 
     private func buildPlayers(urlA: URL?, urlB: URL?) {
         resolvedURLA = urlA
         resolvedURLB = urlB
-
-        // Setup Slot A (Video or Photo)
-        if let pathA = pathA {
-            if MediaResolver.isImagePath(path: pathA) {
-                self.imageA = MediaResolver.resolveImage(path: pathA)
-                self.playerA = nil
-            } else if let urlA {
-                self.imageA = nil
-                let itemA = AVPlayerItem(url: urlA)
-                let pA = AVPlayer(playerItem: itemA)
-                self.playerA = pA
-                
-                // Loop A
-                observerTokenA = NotificationCenter.default.addObserver(
-                    forName: .AVPlayerItemDidPlayToEndTime,
-                    object: itemA,
-                    queue: OperationQueue.main
-                ) { [weak pA] _ in
-                    if isLooping {
-                        pA?.seek(to: .zero)
-                        pA?.play()
-                    }
-                }
-            } else if let imgA = MediaResolver.resolveImage(path: pathA) {
-                self.imageA = imgA
-                self.playerA = nil
-            }
-        } else {
-            self.imageA = nil
-            self.playerA = nil
-        }
-        
-        // Setup Slot B (Video or Photo)
-        if let pathB = pathB {
-            if MediaResolver.isImagePath(path: pathB) {
-                self.imageB = MediaResolver.resolveImage(path: pathB)
-                self.playerB = nil
-            } else if let urlB {
-                self.imageB = nil
-                let itemB = AVPlayerItem(url: urlB)
-                let pB = AVPlayer(playerItem: itemB)
-                self.playerB = pB
-                
-                // Loop B
-                observerTokenB = NotificationCenter.default.addObserver(
-                    forName: .AVPlayerItemDidPlayToEndTime,
-                    object: itemB,
-                    queue: OperationQueue.main
-                ) { [weak pB] _ in
-                    if isLooping {
-                        pB?.seek(to: .zero)
-                        pB?.play()
-                    }
-                }
-            } else if let imgB = MediaResolver.resolveImage(path: pathB) {
-                self.imageB = imgB
-                self.playerB = nil
-            }
-        } else {
-            self.imageB = nil
-            self.playerB = nil
-        }
-        
+        (playerA, imageA) = makeMedia(path: pathA, url: urlA)
+        (playerB, imageB) = makeMedia(path: pathB, url: urlB)
         applyAudioVolumes()
-        
-        // Time observation from Player A (or B if A is nil)
-        let observedPlayer = playerA ?? playerB
-        if let p = observedPlayer {
-            let interval = CMTime(seconds: 0.05, preferredTimescale: CMTimeScale(NSEC_PER_SEC))
-            timeObserverTokenA = p.addPeriodicTimeObserver(forInterval: interval, queue: DispatchQueue.main) { time in
-                guard !isScrubbing else { return }
-                self.currentTime = time.seconds
-                
-                if let dur = p.currentItem?.duration.seconds, !dur.isNaN && dur > 0 {
-                    self.duration = dur
+
+        // My video leads; without it the model does.
+        guard let leader = playerA ?? playerB else { return }
+        loopToken = NotificationCenter.default.addObserver(
+            forName: .AVPlayerItemDidPlayToEndTime,
+            object: leader.currentItem,
+            queue: .main
+        ) { _ in
+            MainActor.assumeIsolated { leaderDidReachEnd() }
+        }
+        let interval = CMTime(seconds: 0.05, preferredTimescale: 600)
+        timeObserverToken = leader.addPeriodicTimeObserver(forInterval: interval, queue: .main) { time in
+            MainActor.assumeIsolated {
+                guard !isScrubbing, !isAligning else { return }
+                currentTime = time.seconds
+                if let total = leader.currentItem?.duration.seconds, total.isFinite, total > 0 {
+                    duration = total
                 }
             }
         }
-        
+        timeObserverPlayer = leader
+
         Task {
             try? await AudioSessionCoordinator.shared.activate(.player)
         }
     }
-    
+
+    private func makeMedia(path: String?, url: URL?) -> (AVPlayer?, UIImage?) {
+        guard let path else { return (nil, nil) }
+        if MediaResolver.isImagePath(path: path) { return (nil, MediaResolver.resolveImage(path: path)) }
+        if let url { return (AVPlayer(playerItem: AVPlayerItem(url: url)), nil) }
+        return (nil, MediaResolver.resolveImage(path: path))
+    }
+
+    private func leaderDidReachEnd() {
+        guard isLooping else {
+            isPlaying = false
+            return
+        }
+        seekPlayers(to: 0)
+        playerA?.play()
+        playerB?.play()
+        playerA?.rate = playbackRate
+        playerB?.rate = playbackRate
+    }
+
     private func tearDownPlayers() {
         setupGeneration += 1
-        if let token = observerTokenA {
-            NotificationCenter.default.removeObserver(token)
-            observerTokenA = nil
+        if let loopToken {
+            NotificationCenter.default.removeObserver(loopToken)
+            self.loopToken = nil
         }
-        if let token = observerTokenB {
-            NotificationCenter.default.removeObserver(token)
-            observerTokenB = nil
+        if let timeObserverToken, let timeObserverPlayer {
+            timeObserverPlayer.removeTimeObserver(timeObserverToken)
         }
-        if let token = timeObserverTokenA, let p = (playerA ?? playerB) {
-            p.removeTimeObserver(token)
-            timeObserverTokenA = nil
-        }
-        
+        timeObserverToken = nil
+        timeObserverPlayer = nil
+
         playerA?.pause()
         playerB?.pause()
         playerA = nil
         playerB = nil
         isPlaying = false
-        
+
         Task {
             await AudioSessionCoordinator.shared.deactivate(.player)
         }
     }
-    
+
+    // MARK: - Playback
     private func togglePlayPause() {
         if isPlaying {
             playerA?.pause()
             playerB?.pause()
             isPlaying = false
         } else {
-            // Activate audio session first
-            Task {
+            Task { @MainActor in
                 try? await AudioSessionCoordinator.shared.activate(.player)
-                await MainActor.run {
-                    seekPlayers(to: currentTime)
-                    playerA?.play()
-                    playerA?.rate = playbackRate
-                    playerB?.play()
-                    playerB?.rate = playbackRate
-                    isPlaying = true
-                }
+                seekPlayers(to: currentTime)
+                playerA?.play()
+                playerA?.rate = playbackRate
+                playerB?.play()
+                playerB?.rate = playbackRate
+                isPlaying = true
             }
         }
     }
-    
-    private func seekPlayers(to time: Double) {
-        let timeA = CMTime(seconds: max(0, time), preferredTimescale: 600)
-        let timeB = CMTime(seconds: max(0, time + offsetB), preferredTimescale: 600)
-        
-        playerA?.seek(to: timeA, toleranceBefore: .zero, toleranceAfter: .zero)
-        playerB?.seek(to: timeB, toleranceBefore: .zero, toleranceAfter: .zero)
-    }
-    
-    private func stepFrame(by count: Int) {
+
+    private func setRate(_ rate: Float) {
+        playbackRate = rate
         if isPlaying {
-            togglePlayPause()
+            playerA?.rate = rate
+            playerB?.rate = rate
         }
-        let frameDuration = 1.0 / 30.0
-        let target = max(0, min(duration, currentTime + Double(count) * frameDuration))
+        toolTaps += 1
+    }
+
+    private func seekPlayers(to time: Double) {
+        playerA?.seek(to: CMTime(seconds: max(0, time), preferredTimescale: 600), toleranceBefore: .zero, toleranceAfter: .zero)
+        seekB(to: time + offsetB)
+    }
+
+    private func seekB(to time: Double) {
+        playerB?.seek(to: CMTime(seconds: max(0, time), preferredTimescale: 600), toleranceBefore: .zero, toleranceAfter: .zero)
+    }
+
+    private func stepFrame(by frames: Int) {
+        if isPlaying { togglePlayPause() }
+        let target = max(0, min(duration, currentTime + Double(frames) * frameDurationA))
         currentTime = target
         seekPlayers(to: target)
-        let gen = UIImpactFeedbackGenerator(style: .light)
-        gen.impactOccurred()
     }
-    
+
     private func applyAudioVolumes() {
-        switch audioSource {
-        case .slotA:
-            playerA?.volume = 1.0
-            playerB?.volume = 0.0
-        case .slotB:
-            playerA?.volume = 0.0
-            playerB?.volume = 1.0
-        case .mute:
-            playerA?.volume = 0.0
-            playerB?.volume = 0.0
-        }
+        playerA?.volume = audioSource == .slotA ? 1 : 0
+        playerB?.volume = audioSource == .slotB ? 1 : 0
     }
-    
+
     private func swapSlots() {
-        let temp = pathA
+        let previousA = pathA
         pathA = pathB
-        pathB = temp
-        setupPlayers()
+        pathB = previousA
+        offsetB = 0
     }
-    
-    private func formatTime(_ seconds: Double) -> String {
-        guard !seconds.isNaN && !seconds.isInfinite else { return "00:00" }
-        let total = Int(seconds)
-        let m = total / 60
-        let s = total % 60
-        return String(format: "%02d:%02d", m, s)
+
+    private func rateText(_ rate: Float) -> String {
+        Double(rate).formatted(.number.precision(.fractionLength(0...2)).locale(Locale(identifier: "sk_SK"))) + "×"
+    }
+
+    private func formatTime(_ seconds: Double, precise: Bool = false) -> String {
+        guard seconds.isFinite else { return "0:00" }
+        let total = max(0, seconds)
+        let minutes = Int(total) / 60
+        let rest = total - Double(minutes * 60)
+        if precise {
+            return String(format: "%d:%05.2f", minutes, rest).replacingOccurrences(of: ".", with: ",")
+        }
+        return String(format: "%d:%02d", minutes, Int(rest))
     }
 }
 
-// MARK: - Native AVPlayer Layer Representable
+// MARK: - Snapshot
+/// The analysed moment as a picture: my frame, the fitted model over it, the lines.
+private struct CorrectionSnapshotView: View {
+    let base: UIImage
+    let overlay: UIImage?
+    let overlayOpacity: Double
+    let overlayMirrored: Bool
+    let overlayScale: CGFloat
+    let overlayOffset: CGSize
+    let guides: AnalysisGuides?
+
+    var body: some View {
+        ZStack {
+            Color.black
+            Image(uiImage: base)
+                .resizable()
+                .scaledToFit()
+            if let overlay {
+                Image(uiImage: overlay)
+                    .resizable()
+                    .scaledToFit()
+                    .scaleEffect(x: overlayMirrored ? -overlayScale : overlayScale, y: overlayScale)
+                    .offset(overlayOffset)
+                    .opacity(overlayOpacity)
+            }
+            if let guides {
+                AnalysisGuidesDrawing(guides: guides)
+            }
+        }
+        .clipped()
+    }
+}
+
+// MARK: - Still frames
+nonisolated enum VideoStill {
+    /// The exact frame at a moment, upright, at most 1600 px on the long side.
+    @concurrent
+    static func frame(of url: URL, at seconds: Double) async -> UIImage? {
+        let generator = AVAssetImageGenerator(asset: AVURLAsset(url: url))
+        generator.appliesPreferredTrackTransform = true
+        generator.requestedTimeToleranceBefore = .zero
+        generator.requestedTimeToleranceAfter = .zero
+        generator.maximumSize = CGSize(width: 1600, height: 1600)
+        guard let result = try? await generator.image(at: CMTime(seconds: seconds, preferredTimescale: 600)) else { return nil }
+        return UIImage(cgImage: result.image)
+    }
+
+    /// Length in seconds; 1 when there is no video, so sliders always have a range.
+    @concurrent
+    static func duration(of url: URL?) async -> Double {
+        guard let url, let time = try? await AVURLAsset(url: url).load(.duration),
+              time.seconds.isFinite, time.seconds > 0 else { return 1 }
+        return time.seconds
+    }
+
+    /// One frame of the video in seconds (1/30 when unknown), so frame steps land on real frames.
+    @concurrent
+    static func frameDuration(of url: URL?) async -> Double {
+        guard let url,
+              let track = try? await AVURLAsset(url: url).loadTracks(withMediaType: .video).first,
+              let rate = try? await track.load(.nominalFrameRate), rate > 0 else { return 1.0 / 30 }
+        return 1.0 / Double(rate)
+    }
+}
+
+// MARK: - Native AVPlayer layer
 struct CustomAVPlayerRepresentable: UIViewControllerRepresentable {
     let player: AVPlayer
-    
+    var gravity: AVLayerVideoGravity = .resizeAspectFill
+
     func makeUIViewController(context: Context) -> AVPlayerViewController {
         let controller = AVPlayerViewController()
         controller.player = player
         controller.showsPlaybackControls = false
-        controller.videoGravity = .resizeAspectFill
+        controller.videoGravity = gravity
         controller.view.backgroundColor = .clear
         return controller
     }
-    
+
     func updateUIViewController(_ uiViewController: AVPlayerViewController, context: Context) {
         if uiViewController.player !== player {
             uiViewController.player = player
         }
+        uiViewController.videoGravity = gravity
     }
 }

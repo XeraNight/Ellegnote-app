@@ -76,6 +76,7 @@ enum LocalDataGuard {
             for item in try context.fetch(FetchDescriptor<TrainingCadence>()) { context.delete(item) }
             for item in try context.fetch(FetchDescriptor<TrainingLogEntry>()) { context.delete(item) }
             for item in try context.fetch(FetchDescriptor<PlannedCompetition>()) { context.delete(item) }
+            for item in try context.fetch(FetchDescriptor<LessonPriority>()) { context.delete(item) }
             try context.save()
         } catch {
             Logger.auth.error("[LocalDataGuard] Wipe failed: \(error.localizedDescription, privacy: .public)")

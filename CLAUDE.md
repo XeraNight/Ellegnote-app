@@ -46,10 +46,16 @@ Xcode is not the active developer dir, so prefix with `DEVELOPER_DIR`:
   - `app.md`: current app state and screens
   - `SECURITY.md`: RLS, owner/Studio grants, Wallet certs
   - `docs/SUPABASE_LIBRARY_AND_REALTIME_SPEC.md`, `docs/CANVAS_*`: canvas and realtime
+  - `docs/VIDEO_STORAGE_AND_SHARING.md`: where videos live (Fotky, Cloudflare R2), sharing, limits, costs, keys
   - `docs/KSIS_*`: competitions
   - `docs/HOME_RADIAL_HUB_AND_RIVE_SPECIFICATION.md`: Home hub
   - `docs/AUTH_AUDIT.md` + `MOZNE_CHYBY.md` (kategória VII): login, registration and account edge cases, score and fix order
   - `docs/LAUNCH_PLAN.md`: current launch plan (Home, Plán, library, gating)
-  - `LEGAL_AND_COMPLIANCE_CHECKLIST.md`, `MOZNE_CHYBY.md`: release and edge cases
+  - `docs/V1_REMAINING_WORK.md`: one overview of what is left for v1 (start here when planning work)
+  - `docs/V1_LAUNCH_CHECKLIST.md`: everything before the v1 release (accounts, keys, code audit, legal, App Store Connect, tests)
+  - `docs/WATCHOS_V1_1_PLAN.md`: Apple Watch, planned for 1.1 (not in v1)
+  - `docs/V1_UI_FEATURE_REVIEW.md`: which screens still need the §1A redesign, feature value per screen, work order
+  - `docs/V1_PAYWALL_FEATURES_PLAN.md`: paywall features to build, what each does, dependencies, order
+  - `MOZNE_CHYBY.md`: edge cases
 - Use `rg` and read file ranges, not whole files. Use an Explore subagent for wide searches.
 - One task per session; `/clear` between unrelated tasks. Default to Sonnet; use plan mode only for multi-file work.

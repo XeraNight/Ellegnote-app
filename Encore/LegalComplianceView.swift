@@ -120,7 +120,7 @@ public struct LegalComplianceView: View {
             
             legalSection(
                 title: "1. Prevádzkovateľ a správca osobných údajov",
-                body: "Prevádzkovateľom aplikácie Encore a správcom osobných údajov je autor aplikácie. Kontakt pre uplatnenie práv dotknutých osôb v zmysle GDPR: jakub.encoreapp@gmail.com."
+                body: "Prevádzkovateľom aplikácie Encore a správcom osobných údajov je Jakub Kalina (fyzická osoba). Kontakt pre otázky a uplatnenie práv dotknutých osôb podľa GDPR: \(AppContact.supportEmail)."
             )
             
             legalSection(
@@ -128,8 +128,8 @@ public struct LegalComplianceView: View {
                 body: """
                 • Registračné údaje: Meno/Prezývka, e-mailová adresa (získané priamo alebo cez Google Sign-In / Sign in with Apple). Právny základ: Plnenie zmluvy o poskytovaní služby.
                 • Tanečné materiály: Zoznam zostáv, choreografií, vlastné poznámky a nahrávky figúr. Tieto dáta sú privátne pre váš účet.
-                • Tréningové videá a analýza držania tela: Videá slúžia výhradne na orientačnú biomechanickú analýzu pre váš tréning. Neslúžia na biometrickú identifikáciu osoby. Sú primárne uložené na vašom zariadení.
-                • Súťažné dáta: Výsledky zo systému ksis.eu, ktoré si používateľ sám importuje pre prehľad o svojom postupe.
+                • Tréningové videá a porovnanie so vzorom: Videá sú v tvojich Fotkách. Čiary a sklon v porovnaní kreslíš sám; appka nerozpoznáva postavu ani tvár a videá nepoužíva na biometrickú identifikáciu.
+                • Súťažné dáta: Trieda, body, finále a výsledky tvojho páru z verejného systému KSIS (szts.ksis.eu), ktoré si sám uložíš zo stránky KSIS otvorenej v appke.
                 """
             )
             
@@ -152,12 +152,12 @@ public struct LegalComplianceView: View {
             
             legalSection(
                 title: "5. Tretie strany a infraštruktúra",
-                body: "Dáta sú bezpečne ukladané v databáze Supabase s platnou zmluvou o spracovaní údajov (DPA) a servermi umiestnenými v Európskej únii. Žiadne osobné údaje nepredávame reklamným sieťam ani nesledujeme používateľov naprieč inými aplikáciami (App Tracking Transparency = No Tracking)."
+                body: "Dáta sú bezpečne ukladané v databáze Supabase s platnou zmluvou o spracovaní údajov (DPA) a servermi umiestnenými v Európskej únii. Tvoje tréningové videá ostávajú v tvojich Fotkách na iPhone. Keď video zdieľaš s partnerom alebo trénerom, jeho zmenšenú kópiu ukladáme v úložisku Cloudflare R2 v Európe (so zmluvou o spracovaní údajov); vidia ju len ľudia, s ktorými si prepojený, a po zrušení zdieľania sa zmaže. Žiadne osobné údaje nepredávame reklamným sieťam ani nesledujeme používateľov naprieč inými aplikáciami (App Tracking Transparency = No Tracking)."
             )
             
             legalSection(
                 title: "6. Verejné športové dáta (SZTŠ / ksis.eu)",
-                body: "Import a zobrazenie súťažných výsledkov a postupových bodov z verejného systému ksis.eu sa riadi právnym základom Oprávneného záujmu (čl. 6 ods. 1 písm. f GDPR) pre potreby evidencie športovej výkonnosti. Žiadne citlivé osobné údaje nie sú spracúvané."
+                body: "Keď v appke otvoríš stránku KSIS, appka ju pošle na náš server, ktorý z nej prečíta údaje tvojho prepojeného páru. Uloží len ich: triedu, body, finále, umiestnenia a krížiky porotcov pri tvojich súťažiach. Mená ostatných párov sa neukladajú. Pár prepojíš len so súhlasom partnera alebo partnerky a kedykoľvek ho odpojíš, tým sa zmažú aj uložené výsledky. Právny základ: oprávnený záujem (čl. 6 ods. 1 písm. f GDPR), evidencia vlastnej športovej výkonnosti. Jediným oficiálnym zdrojom výsledkov je SZTŠ."
             )
             
             legalSection(
@@ -223,7 +223,7 @@ public struct LegalComplianceView: View {
                 title: "1. Zdravotné a tréningové vyhlásenie",
                 body: """
                 Aplikácia Encore je asistenčný nástroj pre tanečníkov a trénerov. 
-                • Analýza držania tela, biomechanické odporúčania a tréningové záznamy majú výhradne orientačný a edukatívny charakter.
+                • Porovnanie so vzorom, čiary, sklon a tréningové záznamy majú výhradne orientačný charakter a nenahrádzajú trénera.
                 • Aplikácia nenahrádza odborné vedenie certifikovaného trénera, fyzioterapeuta ani lekára.
                 • Tréning a fyzické cvičenie vykonávate na vlastné riziko. Prevádzkovateľ nenesie zodpovednosť za akékoľvek zranenia, úrazy alebo poškodenia zdravia vzniknuté v súvislosti s tréningom podľa aplikácie.
                 """

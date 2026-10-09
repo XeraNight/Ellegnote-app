@@ -1,0 +1,193 @@
+<!-- Anonymized KSIS page (szts.ksis.eu), saved 2026-10-09. Every person name is fake; numbers, ids and layout are unchanged. -->
+<!DOCTYPE html>
+<html><head>
+    
+    
+    
+    
+
+
+
+<title>
+KSIS Výsledky - http://szts.ksis.eu/menu.php?akcia=CZP&amp;cis_pr=95397&amp;aktivne=on</title>
+      
+      
+  
+  
+  <!-- Bootstrap core CSS -->
+    
+                 
+    
+    
+    
+
+    
+    
+    
+    
+    
+
+    <!-- HTML5 shim and Respond.js IE8 support of HTML5 elements and media queries -->
+    <!--[if lt IE 9]>
+      
+      
+    <![endif]-->
+
+</head>
+<body style="">
+
+    <div class="navbar navbar-inverse navbar-fixed-top" role="navigation">
+    <div class="container">
+       <div class="navbar-header">
+        <button type="button" class="navbar-toggle" data-toggle="collapse" data-target="#navbar-collapse-1">
+          <span class="sr-only">Toggle navigation</span>
+          <span class="icon-bar"></span>
+          <span class="icon-bar"></span>
+          <span class="icon-bar"></span>
+        </button>
+        <a class="navbar-brand" href="https://szts.ksis.eu/login.php">KSIS</a>
+      </div>
+   
+        <div class="navbar-collapse collapse" id="navbar-collapse-1">
+          <ul class="nav navbar-nav">
+            <li><a href="https://szts.ksis.eu/menu.php?akcia=KS">Kalendár súťaží</a></li>
+            <li><a href="https://szts.ksis.eu/menu.php?akcia=S">Výsledky</a></li>
+            <li class="dropdown">
+              <a href="#" class="dropdown-toggle" data-toggle="dropdown">WDSF <b class="caret"></b></a>
+              <ul class="dropdown-menu">
+                <li><a href="https://szts.ksis.eu/wdsf_events.php">WDSF výsledky</a></li>
+                <li><a href="https://szts.ksis.eu/wdsf.php">WDSF Ranking List</a></li>
+              </ul>
+            </li>
+            
+           <li class="dropdown">
+              <a href="#" class="dropdown-toggle" data-toggle="dropdown">Členská základňa<b class="caret"></b></a>
+              <ul class="dropdown-menu">
+                <li><a href="https://szts.ksis.eu/menu.php?akcia=CZ">Zoznam členov</a></li>
+                <li><a href="https://szts.ksis.eu/menu.php?akcia=CZP">Zoznam párov</a></li>
+                <li><a href="https://szts.ksis.eu/menu.php?akcia=CZSD">Zoznam solo dievčat</a></li>
+                <li><a href="https://szts.ksis.eu/menu.php?akcia=CZPA">Zoznam PRO-AM</a></li>
+                <li><a href="https://szts.ksis.eu/menu.php?akcia=CZSY">Zoznam SYNCHRO</a></li>
+                <li><a href="https://szts.ksis.eu/menu.php?akcia=CZK">Zoznam klubov</a></li>
+                <li><a href="https://szts.ksis.eu/menu.php?akcia=CZR">Zoznam rozhodcov</a></li>
+                <li><a href="https://szts.ksis.eu/menu.php?akcia=CZF">Zoznam funkcionárov</a></li>
+                <li><a href="https://szts.ksis.eu/menu.php?akcia=CZS">Zoznam sčitateľov</a></li>
+                <li><a href="https://szts.ksis.eu/menu.php?akcia=CZT">Zoznam trénerov</a></li>
+              </ul>
+            </li>
+              <li><a href="https://szts.ksis.eu/menu.php?akcia=K">Kontakt</a></li>
+          </ul>
+        
+          <ul class="nav navbar-nav navbar-right">
+          
+            <li class="dropdown">
+              <a href="#" class="dropdown-toggle" data-toggle="dropdown"><img src="KSIS%20Vy%CC%81sledky%20-%20http___szts.ksis.eu_menu.php_akcia=CZP&amp;cis_pr=95397&amp;aktivne=on_files/sk_xbjk.png" style="width:20px">
+              Slovensky<b class="caret"></b></a>
+              <ul class="dropdown-menu">
+                <li><a href="javascript: change_lang('en')"><img src="KSIS%20Vy%CC%81sledky%20-%20http___szts.ksis.eu_menu.php_akcia=CZP&amp;cis_pr=95397&amp;aktivne=on_files/en_xbjk.png" style="width:20px"> English</a></li>
+                <li><a href="javascript: change_lang('sk')"><img src="KSIS%20Vy%CC%81sledky%20-%20http___szts.ksis.eu_menu.php_akcia=CZP&amp;cis_pr=95397&amp;aktivne=on_files/sk_xbjk.png" style="width:20px"> Slovensky</a></li>
+                <li><a href="javascript: change_lang('hu')"><img src="KSIS%20Vy%CC%81sledky%20-%20http___szts.ksis.eu_menu.php_akcia=CZP&amp;cis_pr=95397&amp;aktivne=on_files/hu_xbjk.png" style="width:20px"> Magyarul</a></li>
+              </ul>
+            </li>            
+          
+<form class="navbar-form navbar-right">                          
+          <button id="loginBtn" type="button" class="btn btn-success" onclick="showLogin()">Prihlásiť sa</button>   
+          <button id="regBtn" type="button" class="btn btn-default" onclick="showRegister()">Register</button>   
+
+</form>          
+          </ul>
+        </div><!--/.navbar-collapse -->
+        </div>
+    </div>
+
+  <!-- Modal -->
+  <div class="modal fade" id="loginModal" tabindex="-1" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true"></div><!-- /.modal -->
+
+
+ 
+
+  
+<div class="jumbotron">
+  <div class="container">
+    <h3>Členská základňa páry SZTŠ</h3>
+    <form id="searchfrm" class="form-inline navbar-form navbar-left">
+<div class="col-sm-4 col-md-4 pull-left">
+        <div class="input-group">
+            <input type="hidden" id="akcia" name="akcia" value="CZP">
+            <input type="hidden" id="cis_pr" name="cis_pr" value="">
+            <input type="hidden" id="klub" name="klub" value="">
+            <input type="text" class="form-control ui-autocomplete-input" placeholder="Hľadaj číslo preukazu, meno, priezvisko, klub" name="hladany_text" id="hladany_text" autocomplete="off"><span role="status" aria-live="polite" class="ui-helper-hidden-accessible"></span>
+            <div class="input-group-btn">
+                <button class="btn btn-default" type="submit"><span class="glyphicon glyphicon-search"></span></button>
+            </div>
+        </div>
+ </div>
+<div class="col-sm-2 col-md-2 pull-left">
+            <input type="checkbox" id="aktivne" name="aktivne" value="1" checked="checked"> Aktívne 
+ </div> 
+<div class="col-sm-6 col-md-6 pull-left">
+
+<div class="col-sm-4 col-md-4 pull-left">
+      <div class="form-group" style="font-size: 12px;margin-bottom: 1px; line-height:1.4">
+        <label for="sutaz" style="font-size: 12px;margin-bottom: 1px; line-height:1.4">Veková ktg.</label>
+        <select class="form-control  input-sm" name="vekktg" id="vekktg">
+        	<option value="" selected="selected">- Všetky - 
+          </option><option value="D1">Deti I          </option><option value="D2">Deti II          </option><option value="J1">Junior I          </option><option value="J2">Junior II          </option><option value="ML">Mládež          </option><option value="DO21">Do 21          </option><option value="DO">Dospelí          </option><option value="S">Seniori          </option><option value="S1">Seniori 1          </option><option value="S2">Seniori 2          </option><option value="S3">Seniori 3          </option><option value="S4">Seniori 4          </option>
+        </select>      
+     </div>    
+     </div>    
+<div class="col-sm-4 col-md-4 pull-left">
+      <div class="form-group" style="font-size: 12px;margin-bottom: 1px; line-height:1.4">
+        <label for="sutaz" style="font-size: 12px;margin-bottom: 1px; line-height:1.4">Trieda ŠTT</label>
+        <select class="form-control  input-sm" name="vtstt" id="vtstt">
+      	  <option value="" selected="selected">- Všetky - 
+          </option><option value="E">E
+          </option><option value="D">D
+          </option><option value="C">C
+          </option><option value="B">B
+          </option><option value="A">A
+          </option><option value="S">S
+          </option><option value="P">P
+          </option>
+        </select>      
+     </div>    
+     </div>    
+<div class="col-sm-4 col-md-4 pull-left">
+      <div class="form-group" style="font-size: 12px;margin-bottom: 1px; line-height:1.4">
+        <label for="sutaz" style="font-size: 12px;margin-bottom: 1px; line-height:1.4">Trieda LAT</label>
+        <select class="form-control  input-sm" name="vtlat" id="vtlat">
+      	  <option value="" selected="selected">- Všetky - 
+          </option><option value="E">E
+          </option><option value="D">D
+          </option><option value="C">C
+          </option><option value="B">B
+          </option><option value="A">A
+          </option><option value="S">S
+          </option><option value="P">P
+          </option>
+        </select>      
+     </div>    
+     </div>    
+</div>
+    </form>
+  </div>
+</div>
+
+<div class="container">
+  
+<p>Vybratých 1 záznamov.</p><table class="table table-hover table-striped"><tbody></tbody><thead><tr><th class="titulka">Č.pr</th><th class="titulka">Partner</th><th class="titulka">Partnerka</th><th class="titulka">Klub</th><th class="titulka">Vek.ktg</th><th class="titulka">ŠTT</th><th class="titulka">LAT</th><th class="titulka">Stav</th></tr></thead><tbody><tr><td><a href="javascript: detail_paru('95397')">95397</a></td><td>Tanečný Adam</td><td>Tanečná Eva</td><td>TK ELLEGANCE Košice</td><td>Dospelí</td><td>D</td><td>D</td><td>Aktívny</td></tr></tbody></table>
+  <!-- Modal -->
+  <div class="modal fade" id="myModal" tabindex="-1" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true">
+  </div><!-- /.modal -->
+
+</div>  
+
+
+
+
+<hr>
+<div class="footer">
+<p>© KSIS 2026</p>
+</div>
+
+<ul class="ui-autocomplete ui-front ui-menu ui-widget ui-widget-content ui-corner-all" id="ui-id-2" tabindex="0" style="display: none;"></ul></body></html>

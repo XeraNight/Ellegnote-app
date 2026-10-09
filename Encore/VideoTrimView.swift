@@ -1,6 +1,7 @@
 import SwiftUI
 import AVFoundation
 import AVKit
+import OSLog
 
 // MARK: - VideoTrimView
 struct VideoTrimView: View {
@@ -382,7 +383,7 @@ struct VideoTrimView: View {
                 do {
                     try await session.export(to: outputURL, as: .mp4)
                 } catch {
-                    print("Export failed: \(error)")
+                    Logger.camera.error("Video trim export failed: \(error.localizedDescription, privacy: .public)")
                 }
             } else {
                 await withCheckedContinuation { continuation in

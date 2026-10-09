@@ -1,5 +1,6 @@
 import SwiftUI
 import Supabase
+import OSLog
 
 // MARK: - Owner Admin Console (God-Mode Management for App Owner)
 struct OwnerAdminConsoleView: View {
@@ -145,7 +146,7 @@ struct OwnerAdminConsoleView: View {
                     .font(.system(size: 11, weight: .bold))
                     .foregroundColor(Color.gold400)
                 
-                TextField("napr. jakubkali69420@gmail.com", text: $directEmail)
+                TextField("napr. meno@domena.sk", text: $directEmail)
                     .font(.system(size: 14))
                     .foregroundColor(.white)
                     .padding(12)
@@ -497,7 +498,7 @@ struct OwnerAdminConsoleView: View {
                     )
                 }
             } catch {
-                print("Admin search error: \(error)")
+                Logger.general.error("Admin search failed: \(error.localizedDescription, privacy: .public)")
             }
         }
     }

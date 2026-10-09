@@ -125,6 +125,7 @@ struct RoutineCanvasView: View {
     @State private var isCanvasLocked = false
     
     @State private var showDuelSheet = false
+    @State private var showGuestCoachKeys = false
     
     var isPresentedInTab: Bool = false
     var onBack: (() -> Void)? = nil
@@ -503,6 +504,9 @@ struct RoutineCanvasView: View {
         .sheet(isPresented: $showQRExport) {
             QRExportSheet(routine: routine)
         }
+        .sheet(isPresented: $showGuestCoachKeys) {
+            GuestCoachKeysSheet(routine: routine)
+        }
         .disableSwipeBack()
         .task(id: toastCount) {
             // Each new message restarts the 3 s timer instead of being cut short by an older one.
@@ -554,7 +558,7 @@ struct RoutineCanvasView: View {
             realtimeManager.onNodeUpdated = { updatedNode, senderName in
                 if let node = routine.canvasNodes.first(where: { $0.id == updatedNode.id }) {
                     node.notes = updatedNode.notes
-                    node.sharedVideoPath = updatedNode.sharedVideoPath
+                    node.replaceSharedVideoPath(updatedNode.sharedVideoPath)
                     try? modelContext.save()
                     showToastNotification(message: "\(senderName) upravil detaily \(node.figureName)")
                 }
@@ -733,6 +737,9 @@ struct RoutineCanvasView: View {
             }
             Button { showRoutineVideoVault = true } label: {
                 Label("Videá a fotky zostavy", systemImage: "photo.stack.fill")
+            }
+            Button { showGuestCoachKeys = true } label: {
+                Label("Hosťujúci tréner", systemImage: "key.fill")
             }
         } label: {
             GlassCircleLabel(icon: "ellipsis")

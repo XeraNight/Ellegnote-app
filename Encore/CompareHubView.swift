@@ -95,9 +95,7 @@ struct CompareHubView: View {
             .fullScreenCover(isPresented: $showDirectComparison) {
                 DualVideoComparisonView(
                     pathA: $pathA,
-                    pathB: $pathB,
-                    titleA: "Moje video (A)",
-                    titleB: "Vzor / Idol (B)"
+                    pathB: $pathB
                 )
             }
             .sheet(isPresented: Binding(
@@ -106,7 +104,7 @@ struct CompareHubView: View {
             )) {
                 if let slot = activeSlotForPicker {
                     UniversalMediaPickerSheet(
-                        slotTitle: slot == 1 ? "Moje video / fotka (A)" : "Vzor / Idol (B)",
+                        slotTitle: slot == 1 ? DualSlot.a.rawValue : DualSlot.b.rawValue,
                         currentPath: slot == 1 ? pathA : pathB,
                         onSelectMedia: { path in
                             if slot == 1 {

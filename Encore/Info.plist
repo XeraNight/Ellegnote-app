@@ -52,7 +52,7 @@
 	<key>NSCameraUsageDescription</key>
 	<string>Encore potrebuje prístup ku kamere na nahrávanie tréningových videí figúr a skenovanie QR kódov zostáv.</string>
 	<key>NSFaceIDUsageDescription</key>
-	<string>Potrebné na rýchle a bezpečné prihlásenie do aplikácie Encore pomocou Face ID.</string>
+	<string>Encore používa Face ID na odomknutie aplikácie a na potvrdenie citlivých krokov, napríklad zmazania účtu.</string>
 	<key>NSCalendarsFullAccessUsageDescription</key>
 	<string>Encore odstráni z kalendára iba tréningy a súťaže, ktoré sám vytvoril, keď o to požiadaš. Ostatné udalosti nečíta ani nemení.</string>
 	<key>NSCalendarsWriteOnlyAccessUsageDescription</key>
@@ -67,8 +67,6 @@
 	<string>Encore využíva rozpoznávanie reči na okamžitý automatický prepis hovorených pokynov trénera do textu.</string>
 	<key>NSSupportsLiveActivities</key>
 	<true/>
-	<key>NSSupportsLiveActivitiesFrequentUpdates</key>
-	<true/>
 	<key>SUPABASE_ANON_KEY</key>
 	<string>eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml1a2Jsd2x0dHZyY2RjbG1seXh1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQyMTc5MjYsImV4cCI6MjA5OTc5MzkyNn0.Xq8BKQliVLT7rS2xHn8n_I84tD_rwPSz15AdHp1hcNo</string>
 	<key>SUPABASE_URL</key>
@@ -81,7 +79,6 @@
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>audio</string>
-		<string>remote-notification</string>
 	</array>
 	<key>UILaunchScreen</key>
 	<dict>

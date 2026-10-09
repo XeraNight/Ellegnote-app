@@ -100,6 +100,15 @@ private nonisolated struct DeviceData: Encodable, Sendable {
         let dance: String?
     }
 
+    struct LessonPriorityCopy: Encodable, Sendable {
+        let dance: String
+        let text: String
+        let rank: Int
+        let createdAt: Date
+        let doneAt: Date?
+        let replacedAt: Date?
+    }
+
     struct Competition: Encodable, Sendable {
         let name: String
         let city: String
@@ -154,6 +163,7 @@ private nonisolated struct DeviceData: Encodable, Sendable {
     let notes: [Note]
     let weeklyTrainings: [WeeklyTraining]
     let trainingDiary: [TrainingDay]
+    let lessonPriorities: [LessonPriorityCopy]
     let plannedCompetitions: [Competition]
     let danceNotes: [DanceNotes]
     let figureLibrary: [Figure]
@@ -206,6 +216,13 @@ private extension DeviceData {
             .sorted { $0.day > $1.day }
             .map {
                 TrainingDay(day: $0.day, title: $0.title, status: $0.statusRaw, reflection: $0.reflectionNote, feeling: $0.feelingRaw, dance: $0.danceName)
+            }
+
+        lessonPriorities = fetch(LessonPriority.self)
+            .sorted { ($0.createdAt, $1.rank) > ($1.createdAt, $0.rank) }
+            .map {
+                LessonPriorityCopy(dance: $0.danceName, text: $0.text, rank: $0.rank,
+                                   createdAt: $0.createdAt, doneAt: $0.doneAt, replacedAt: $0.replacedAt)
             }
 
         plannedCompetitions = fetch(PlannedCompetition.self)

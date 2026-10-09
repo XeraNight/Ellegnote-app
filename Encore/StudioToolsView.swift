@@ -1,280 +1,116 @@
 import SwiftUI
 
-// MARK: - Studio & Coach Tools Hub View
-// S4-2: Separated from ProfileView to reduce cognitive overload and
-// elevate specialized coach/studio tools into a dedicated, premium view.
+// MARK: - Nástroje (opened from Profile)
+/// Practice tools for every dancer, plus the student roster for coaches. Home style (BRAND_GUIDELINES §1A).
 struct StudioToolsView: View {
-    @Environment(\.dismiss) private var dismiss
+    @ObservedObject private var profileStore = UserProfileStore.shared
+    @ObservedObject private var subscriptionManager = SubscriptionManager.shared
+    @ObservedObject private var airPlayManager = StudioAirPlayManager.shared
+
     @State private var showCoachRoster = false
-    @State private var showFinalSimulator = false
     @State private var showMusicSpeedTrainer = false
     @State private var showSeminarSplitter = false
-    @State private var showCompetitionOrganizer = false
     @State private var showDanceMirror = false
     @State private var showDanceMetronome = false
-    @State private var triggerMirrorAnim = false
+
+    private var showsCoachTools: Bool { profileStore.isCoach || subscriptionManager.isAppOwner }
 
     var body: some View {
         ZStack {
             EllegancePageBackground()
-            
+
             ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
-                    
-                    // Header Banner
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text("TRÉNERSKÉ & SÚŤAŽNÉ ŠTÚDIO")
-                            .font(.system(size: 11, weight: .black))
-                            .foregroundColor(.gold400)
-                            .tracking(1.5)
-                        
-                        Text("Profesionálne Nástroje")
-                            .font(.system(size: 26, weight: .bold, design: .serif))
-                            .foregroundColor(.white)
-                        
-                        Text("Špecializované moduly pre trénerov, súťažné páry a tanečné kempy.")
-                            .font(.system(size: 13))
-                            .foregroundColor(.white.opacity(0.65))
-                    }
-                    .padding(.horizontal, 20)
-                    .padding(.top, 16)
-                    
-                    // -1. Trénerský Roster Zverencov (Studio Tier)
-                    StudioToolCard(
-                        icon: "person.3.sequence.fill",
-                        iconColor: Color.gold400,
-                        title: "Trénerský Roster Zverencov",
-                        subtitle: "Prehľad párov a zverencov, kontrola zostáv a priraďovanie figúr z trénerskej knižnice.",
-                        badge: "Zverenci & Zostavy"
-                    ) {
-                        showCoachRoster = true
-                    }
-                    .padding(.horizontal, 20)
-                    
-                    // 0. Clean Dance Mirror (Čisté Tanečné Zrkadlo s animovanou ikonou bez pozadia)
-                    StudioToolCard(
-                        customIconView: AnyView(
-                            AnimatedMirrorIconView(size: 32, triggerExternal: triggerMirrorAnim)
-                        ),
-                        iconColor: Color.gold400,
-                        title: "Čisté Tanečné Zrkadlo",
-                        subtitle: "Čistá predná kamera bez akéhokoľvek rušivého UI na rýchlu kontrolu líčenia, účesu a rámu pred parketom.",
-                        badge: "Zrkadlo"
-                    ) {
-                        triggerMirrorAnim = true
-                        HapticFeedback.light()
-                        AnalyticsManager.shared.mirrorOpened(source: "studio_tools")
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
-                            showDanceMirror = true
-                            triggerMirrorAnim = false
+                VStack(alignment: .leading, spacing: 22) {
+                    header
+
+                    if showsCoachTools {
+                        HomeRowGroup(title: "TRÉNER") {
+                            toolRow(icon: "person.3.sequence.fill", title: "Moji zverenci",
+                                    subtitle: "Zostavy žiakov, poznámky trénera a priradenie figúr") { showCoachRoster = true }
                         }
+                        .transition(.opacity)
                     }
-                    .padding(.horizontal, 20)
-                    .onHover { isHovered in
-                        if isHovered {
-                            triggerMirrorAnim = true
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                                triggerMirrorAnim = false
-                            }
+
+                    HomeRowGroup(title: "TRÉNING") {
+                        toolRow(icon: "person.crop.rectangle.fill", title: "Zrkadlo",
+                                subtitle: "Predná kamera na celú obrazovku, aj s prisvietením") { showDanceMirror = true }
+                        HomeRowDivider()
+                        toolRow(icon: "metronome.fill", title: "Metronóm a tempo",
+                                subtitle: "Klik pre všetkých 10 tancov, hrá aj popri hudbe") { showDanceMetronome = true }
+                        HomeRowDivider()
+                        toolRow(icon: "music.note", title: "Hudba pomalšie a rýchlejšie",
+                                subtitle: "Tvoja skladba od 70 do 130 % bez zmeny tóniny") { showMusicSpeedTrainer = true }
+                        HomeRowDivider()
+                        toolRow(icon: "scissors", title: "Strih lekcie na figúry",
+                                subtitle: "Dlhé video z lekcie rozdelíš na jednotlivé figúry") { showSeminarSplitter = true }
+                    }
+
+                    HomeRowGroup(title: "SEMINÁR") {
+                        NavigationLink {
+                            GuestRoutinesListView()
+                        } label: {
+                            HomeRow(icon: "key.fill", title: "Požičané zostavy",
+                                    subtitle: "Zostavy, ktoré ti tanečníci požičali kľúčom")
                         }
+                        .buttonStyle(.pressable(scale: 0.98))
                     }
-                    
-                    // 0.1 Dance Metronome & BPM Trainer
-                    StudioToolCard(
-                        icon: "metronome.fill",
-                        iconColor: Color.amberGold,
-                        title: "Tanečný Metronóm & BPM Tréner",
-                        subtitle: "Presný rytmický klik pre všetkých 10 tancov WDSF/WDC, ktorý hrá aj v tichom režime a popri hudbe.",
-                        badge: "Rytmus & BPM"
-                    ) {
-                        showDanceMetronome = true
-                    }
-                    .padding(.horizontal, 20)
-                    
-                    // 1. Competition Final Simulator
-                    StudioToolCard(
-                        icon: "trophy.fill",
-                        iconColor: Color.gold400,
-                        title: "Súťažný simulátor finále",
-                        subtitle: "5 tancov v plnom tempe s odpočítavaním a prestávkami medzi tancami pre nácvik kondície.",
-                        badge: "5 tancov"
-                    ) {
-                        showFinalSimulator = true
-                    }
-                    .padding(.horizontal, 20)
-                    
-                    // 2. Competition Rounds Organizer
-                    StudioToolCard(
-                        icon: "number.square.fill",
-                        iconColor: Color.themeAccent,
-                        title: "Súťažný organizér kôl",
-                        subtitle: "Zoznam štartovných čísel, heatov a kôl pre hladký priebeh súťažného dňa.",
-                        badge: "Heaty & Čísla"
-                    ) {
-                        showCompetitionOrganizer = true
-                    }
-                    .padding(.horizontal, 20)
-                    
-                    // 3. Music Speed & Pitch Trainer
-                    StudioToolCard(
-                        icon: "music.note.list",
-                        iconColor: LuxuryTheme.latinCrimson,
-                        title: "Music Speed & Pitch Trainer",
-                        subtitle: "Zmena tempa skladby od 70% do 130% bez zmeny tóniny (pitch preservation).",
-                        badge: "70% – 130%"
-                    ) {
-                        showMusicSpeedTrainer = true
-                    }
-                    .padding(.horizontal, 20)
-                    
-                    // 4. Workshop & Seminar Splitter
-                    StudioToolCard(
-                        icon: "scissors",
-                        iconColor: LuxuryTheme.syncEmerald,
-                        title: "Camp & Seminar Splitter",
-                        subtitle: "Inteligentný strihač celých lekcií na jednotlivé figúry s automatickým pomenovaním.",
-                        badge: "Workshopy"
-                    ) {
-                        showSeminarSplitter = true
-                    }
-                    .padding(.horizontal, 20)
-                    
-                    // 5. AirPlay & Studio TV Hub
-                    VStack(alignment: .leading, spacing: 10) {
-                        HStack(spacing: 12) {
-                            Image(systemName: "tv.fill")
-                                .font(.system(size: 18))
-                                .foregroundColor(Color.gold400)
-                                .frame(width: 32, height: 32)
-                                .background(LuxuryTheme.gold500.opacity(0.12))
-                                .clipShape(Circle())
-                            
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text("Studio AirPlay & TV Mód")
-                                    .font(.system(size: 15, weight: .bold))
-                                    .foregroundColor(.white)
-                                Text(StudioAirPlayManager.shared.isExternalScreenConnected ? "Pripojené k TV obrazovke" : "Zrkadlenie na televízor v sále")
-                                    .font(.system(size: 12))
-                                    .foregroundColor(.white.opacity(0.60))
-                            }
-                            
-                            Spacer()
-                            
+
+                    HomeRowGroup(title: "SÁLA") {
+                        HStack(spacing: 0) {
+                            HomeRow(
+                                icon: "tv.fill",
+                                title: "Obrazovka v sále",
+                                subtitle: airPlayManager.isExternalScreenConnected
+                                    ? "Pripojené k televízoru"
+                                    : "Zostavu ukážeš na televízore cez AirPlay",
+                                showsChevron: false
+                            )
                             AirPlayRoutePickerRepresentable(tintColor: UIColor(Color.gold400))
-                                .frame(width: 36, height: 36)
+                                .frame(width: 44, height: 44)
+                                .padding(.trailing, 10)
+                                .accessibilityLabel("Vybrať obrazovku")
                         }
-                        .padding(16)
-                        .background(LuxuryTheme.obsidian800.opacity(0.75))
-                        .cornerRadius(18)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 18)
-                                .stroke(Color.gold400.opacity(0.20), lineWidth: 1)
-                        )
                     }
-                    .padding(.horizontal, 20)
-                    .padding(.bottom, 40)
                 }
+                .padding(.horizontal, 20)
+                .padding(.top, 8)
+                .padding(.bottom, 120)
             }
         }
-        .navigationTitle("Trénerské Štúdio")
+        .navigationTitle("Nástroje")
         .navigationBarTitleDisplayMode(.inline)
-        .toolbarBackground(LuxuryTheme.obsidian900, for: .navigationBar)
-        .toolbarBackground(.visible, for: .navigationBar)
-        .toolbarColorScheme(.dark, for: .navigationBar)
-        .sheet(isPresented: $showFinalSimulator) {
-            CompetitionFinalSimulatorView()
-        }
-        .sheet(isPresented: $showMusicSpeedTrainer) {
-            MusicSpeedTrainerSheet()
-        }
-        .sheet(isPresented: $showSeminarSplitter) {
-            SeminarSplitterView()
-        }
-        .sheet(isPresented: $showCompetitionOrganizer) {
-            CompetitionOrganizerView()
-        }
+        .animation(.spring(response: 0.35, dampingFraction: 0.85), value: showsCoachTools)
+        .sheet(isPresented: $showMusicSpeedTrainer) { MusicSpeedTrainerSheet() }
+        .sheet(isPresented: $showSeminarSplitter) { SeminarSplitterView() }
         .sheet(isPresented: $showCoachRoster) {
-            NavigationStack {
-                StudioCoachRosterView()
-            }
+            NavigationStack { StudioCoachRosterView() }
         }
-        .sheet(isPresented: $showDanceMetronome) {
-            DanceMetronomeView()
-        }
+        .sheet(isPresented: $showDanceMetronome) { DanceMetronomeView() }
         .fullScreenCover(isPresented: $showDanceMirror) {
             DanceMirrorView()
                 .ignoresSafeArea()
         }
     }
-}
 
-// MARK: - Reusable Studio Tool Card
-private struct StudioToolCard: View {
-    var icon: String = ""
-    var customIconView: AnyView? = nil
-    let iconColor: Color
-    let title: String
-    let subtitle: String
-    let badge: String
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            HStack(alignment: .top, spacing: 14) {
-                if let customIconView = customIconView {
-                    ZStack {
-                        RoundedRectangle(cornerRadius: 12, style: .continuous)
-                            .fill(iconColor.opacity(0.14))
-                            .frame(width: 44, height: 44)
-                        customIconView
-                    }
-                    .frame(width: 44, height: 44)
-                } else {
-                    Image(systemName: icon)
-                        .font(.system(size: 20, weight: .bold))
-                        .foregroundColor(iconColor)
-                        .frame(width: 44, height: 44)
-                        .background(iconColor.opacity(0.14))
-                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                }
-                
-                VStack(alignment: .leading, spacing: 5) {
-                    HStack {
-                        Text(title)
-                            .font(.system(size: 15, weight: .bold))
-                            .foregroundColor(.white)
-                        
-                        Spacer()
-                        
-                        Text(badge)
-                            .font(.system(size: 10, weight: .heavy))
-                            .foregroundColor(iconColor)
-                            .padding(.horizontal, 7)
-                            .padding(.vertical, 3)
-                            .background(iconColor.opacity(0.14))
-                            .clipShape(Capsule())
-                    }
-                    
-                    Text(subtitle)
-                        .font(.system(size: 12))
-                        .foregroundColor(.white.opacity(0.60))
-                        .lineLimit(2)
-                        .multilineTextAlignment(.leading)
-                }
-                
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 12, weight: .bold))
-                    .foregroundColor(.white.opacity(0.30))
-                    .padding(.top, 4)
-            }
-            .padding(16)
-            .background(Color.obsidian800.opacity(0.75))
-            .cornerRadius(18)
-            .overlay(
-                RoundedRectangle(cornerRadius: 18)
-                    .stroke(Color.gold400.opacity(0.18), lineWidth: 1)
-            )
+    private var header: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text("NÁSTROJE")
+                .font(.system(.caption, design: .rounded).weight(.black))
+                .foregroundColor(Color.gold400)
+                .tracking(1.4)
+            Text("Na tréning a súťaž")
+                .font(.system(.title, design: .rounded).weight(.bold))
+                .foregroundColor(.white)
+                .lineLimit(1)
+                .minimumScaleFactor(0.85)
+                .accessibilityAddTraits(.isHeader)
         }
-        .buttonStyle(.plain)
+    }
+
+    private func toolRow(icon: String, title: String, subtitle: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HomeRow(icon: icon, title: title, subtitle: subtitle)
+        }
+        .buttonStyle(.pressable(scale: 0.98))
     }
 }

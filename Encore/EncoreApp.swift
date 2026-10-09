@@ -28,7 +28,8 @@ struct EncoreApp: App {
             VideoMediaEntry.self,
             TrainingCadence.self,
             TrainingLogEntry.self,
-            PlannedCompetition.self
+            PlannedCompetition.self,
+            LessonPriority.self
         ])
         let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
         do {
@@ -67,7 +68,12 @@ struct EncoreApp: App {
                         Task { await AuthManager.shared.handleDeepLink(url) }
                         return
                     }
-                    // 3. Friend invites / profile links
+                    // 3. Guest coach key (encore://guest?k=…)
+                    if let token = GuestCoachLink.token(from: url.absoluteString) {
+                        GuestCoachService.shared.pendingToken = token
+                        return
+                    }
+                    // 4. Friend invites / profile links
                     Task { _ = FriendManager.shared.handleIncomingURL(url) }
                 }
                 .onContinueUserActivity(NSUserActivityTypeBrowsingWeb) { userActivity in

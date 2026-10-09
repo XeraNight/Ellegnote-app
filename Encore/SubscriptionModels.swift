@@ -22,14 +22,15 @@ public enum SubscriptionTier: String, CaseIterable, Codable, Sendable {
         }
     }
     
+    /// One line on the Profile card. Only what the plan really adds (same as `SubscriptionPaywallView.features`).
     public var shortDescription: String {
         switch self {
         case .free:
-            return "Základné tréningové plátno, 1 zostava na každý tanec, metronóm"
+            return "Poznámky, plátno, výsledky z KSIS, 1 zostava na tanec, 1 kľúč pre trénera, 1 GB na zdieľané videá"
         case .plus:
-            return "Neobmedzené zostavy na tanec, Apple Kalendár sync, Top 3 priority, hosťovský kľúč trénera, KSIS kalkulačka, Optima parket (Košice)"
+            return "Neobmedzené zostavy, Top 3 priority po lekcii, kľúče pre trénerov až na 30 dní, 10 GB na zdieľané videá"
         case .premium:
-            return "KSIS Radar súperov & priateľov s notifikáciami, biomechanická video analýza držania tela, Video Duel, trénerský denník"
+            return "Všetko z Plus, porovnanie so vzorom a korekcie, zápis lekcií pre trénerov, 50 GB na zdieľané videá"
         }
     }
     
@@ -57,6 +58,16 @@ public enum SubscriptionTier: String, CaseIterable, Codable, Sendable {
         }
     }
     
+    /// Space for videos shared with partner and coach. Must match `public.shared_video_quota_bytes`
+    /// on the server, which enforces it.
+    public var sharedVideoStorage: String {
+        switch self {
+        case .free: return "1 GB"
+        case .plus: return "10 GB"
+        case .premium: return "50 GB"
+        }
+    }
+
     public var iconName: String {
         switch self {
         case .free: return "sparkles"

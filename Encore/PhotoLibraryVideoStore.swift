@@ -31,12 +31,25 @@ nonisolated enum PhotoLibraryVideoStore {
 
     /// Moves the recorded file into the "Encore" album and returns the reference to store.
     static func save(videoAt url: URL) async throws -> String {
-        let created = OSAllocatedUnfairLock<String?>(initialState: nil)
-        try await PHPhotoLibrary.shared().performChanges {
+        try await createInEncoreAlbum { request in
             let options = PHAssetResourceCreationOptions()
             options.shouldMoveFile = true   // the temporary recording is consumed, nothing stays in the app
-            let request = PHAssetCreationRequest.forAsset()
             request.addResource(with: .video, fileURL: url, options: options)
+        }
+    }
+
+    /// Saves a still, such as a correction snapshot with its helper lines, into the "Encore" album.
+    static func save(imageData: Data) async throws {
+        _ = try await createInEncoreAlbum { request in
+            request.addResource(with: .photo, data: imageData, options: nil)
+        }
+    }
+
+    private static func createInEncoreAlbum(_ addResource: @escaping @Sendable (PHAssetCreationRequest) -> Void) async throws -> String {
+        let created = OSAllocatedUnfairLock<String?>(initialState: nil)
+        try await PHPhotoLibrary.shared().performChanges {
+            let request = PHAssetCreationRequest.forAsset()
+            addResource(request)
             guard let placeholder = request.placeholderForCreatedAsset else { return }
             created.withLock { $0 = placeholder.localIdentifier }
 

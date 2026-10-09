@@ -87,7 +87,8 @@ struct MainTabView: View {
         VideoMediaEntry.self,
         TrainingCadence.self,
         TrainingLogEntry.self,
-        PlannedCompetition.self
+        PlannedCompetition.self,
+        LessonPriority.self
     ])
     let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
     let container = try! ModelContainer(for: schema, configurations: [config])

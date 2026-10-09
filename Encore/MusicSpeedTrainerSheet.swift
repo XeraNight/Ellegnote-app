@@ -1,6 +1,7 @@
 import SwiftUI
 import AVFoundation
 import Combine
+import OSLog
 
 // MARK: - MusicSpeedTrainerSheet
 struct MusicSpeedTrainerSheet: View {
@@ -245,7 +246,7 @@ final class MusicSpeedTrainerEngine: ObservableObject, @unchecked Sendable {
                 }
             }
         } catch {
-            print("Failed to load audio file: \(error)")
+            Logger.audio.error("Loading audio file failed: \(error.localizedDescription, privacy: .public)")
         }
     }
     

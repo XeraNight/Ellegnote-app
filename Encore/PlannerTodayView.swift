@@ -52,6 +52,8 @@ struct PlannerTodayView: View {
 
             sessions
 
+            LessonPrioritiesSection()
+
             if let comp = nextCompetition {
                 competitionCard(comp)
             }

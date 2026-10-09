@@ -42,6 +42,45 @@ nonisolated struct DBCanvasNodeRow: Identifiable, Codable, Sendable {
     var coach_notes_at: String? = nil
 }
 
+/// What a routine upload sends, copied on the main actor so the upload can run elsewhere.
+nonisolated struct RoutineSnapshot: Sendable {
+    let id: UUID
+    let name: String
+    let danceName: String
+    let category: String
+    let createdAt: Date
+    let updatedAt: Date
+    let lastModifiedBy: String?
+    let nodes: [DBCanvasNodeRow]
+
+    @MainActor
+    init(_ routine: Routine) {
+        id = routine.id
+        name = routine.name
+        danceName = routine.danceName
+        category = routine.danceCategory
+        createdAt = routine.createdAt
+        updatedAt = routine.updatedAt
+        lastModifiedBy = routine.lastModifiedBy
+        let routineId = routine.id
+        nodes = routine.canvasNodes.map { node in
+            DBCanvasNodeRow(
+                id: node.id,
+                routine_id: routineId,
+                x: node.x,
+                y: node.y,
+                figure_name: node.figureName,
+                rhythm: node.rhythm,
+                notes: node.notes,
+                // Only a shared copy goes up; the original works on this iPhone only.
+                video_path: SharedVideoStore.serverValue(node.sharedVideoPath),
+                order_index: node.orderIndex,
+                transition_notes: node.transitionNotes
+            )
+        }
+    }
+}
+
 extension CanvasNode {
     /// A figure that arrived from the server (realtime or refresh).
     convenience init(row: DBCanvasNodeRow) {
@@ -59,7 +98,7 @@ extension CanvasNode {
         figureName = row.figure_name
         rhythm = row.rhythm
         notes = row.notes
-        sharedVideoPath = row.video_path
+        replaceSharedVideoPath(row.video_path)
         orderIndex = row.order_index
         transitionNotes = row.transition_notes
         applyCoachNotes(from: row)
@@ -67,6 +106,14 @@ extension CanvasNode {
             x = row.x
             y = row.y
         }
+    }
+
+    /// Sets the shared copy; the cached file of a replaced or withdrawn copy is dropped.
+    func replaceSharedVideoPath(_ newValue: String?) {
+        guard newValue != sharedVideoPath else { return }
+        let old = sharedVideoPath
+        sharedVideoPath = newValue
+        Task.detached(priority: .utility) { SharedVideoStore.evict(old) }
     }
 
     /// Copies the trainer's note from a server row.
@@ -347,86 +394,41 @@ final class SupabaseSyncManager: Sendable {
         }
     }
     
+    /// Waits a moment and merges quick edits into one upload.
     func syncRoutineOnBackground(_ routine: Routine) {
         guard isEnabled else { return }
-        
-        let routineId = routine.id
-        let name = routine.name
-        let danceName = routine.danceName
-        let category = routine.danceCategory
-        let createdAt = routine.createdAt
-        let updatedAt = routine.updatedAt
-        let lastModifiedBy = routine.lastModifiedBy
-        
-        // Map nodes to Codable rows
-        let nodesRows = routine.canvasNodes.map { node in
-            DBCanvasNodeRow(
-                id: node.id,
-                routine_id: routineId,
-                x: node.x,
-                y: node.y,
-                figure_name: node.figureName,
-                rhythm: node.rhythm,
-                notes: node.notes,
-                video_path: node.sharedVideoPath,
-                order_index: node.orderIndex,
-                transition_notes: node.transitionNotes
-            )
-        }
-        
+        let snapshot = RoutineSnapshot(routine)
         Task(priority: .background) {
-            await self.routineSyncDebouncer.schedule(routineId: routineId) {
-                await self.syncRoutine(
-                    routineId,
-                    name: name,
-                    danceName: danceName,
-                    category: category,
-                    createdAt: createdAt,
-                    updatedAt: updatedAt,
-                    lastModifiedBy: lastModifiedBy,
-                    nodes: nodesRows
-                )
+            await self.routineSyncDebouncer.schedule(routineId: snapshot.id) {
+                await self.push(snapshot)
             }
         }
     }
-    
+
     func syncRoutineImmediatelyOnBackground(_ routine: Routine) {
         guard isEnabled else { return }
-        
-        let routineId = routine.id
-        let name = routine.name
-        let danceName = routine.danceName
-        let category = routine.danceCategory
-        let createdAt = routine.createdAt
-        let updatedAt = routine.updatedAt
-        let lastModifiedBy = routine.lastModifiedBy
-        let nodesRows = routine.canvasNodes.map { node in
-            DBCanvasNodeRow(
-                id: node.id,
-                routine_id: routineId,
-                x: node.x,
-                y: node.y,
-                figure_name: node.figureName,
-                rhythm: node.rhythm,
-                notes: node.notes,
-                video_path: node.sharedVideoPath,
-                order_index: node.orderIndex,
-                transition_notes: node.transitionNotes
-            )
-        }
-        
-        Task(priority: .background) {
-            await self.syncRoutine(
-                routineId,
-                name: name,
-                danceName: danceName,
-                category: category,
-                createdAt: createdAt,
-                updatedAt: updatedAt,
-                lastModifiedBy: lastModifiedBy,
-                nodes: nodesRows
-            )
-        }
+        let snapshot = RoutineSnapshot(routine)
+        Task(priority: .background) { await self.push(snapshot) }
+    }
+
+    /// Uploads now and returns when done, for steps that need the routine on the server first
+    /// (sharing a figure video checks there that the figure is yours).
+    func syncRoutineNow(_ routine: Routine) async {
+        guard isEnabled else { return }
+        await push(RoutineSnapshot(routine))
+    }
+
+    private func push(_ snapshot: RoutineSnapshot) async {
+        await syncRoutine(
+            snapshot.id,
+            name: snapshot.name,
+            danceName: snapshot.danceName,
+            category: snapshot.category,
+            createdAt: snapshot.createdAt,
+            updatedAt: snapshot.updatedAt,
+            lastModifiedBy: snapshot.lastModifiedBy,
+            nodes: snapshot.nodes
+        )
     }
     
     // MARK: - File Storage Upload

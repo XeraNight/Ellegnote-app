@@ -2,6 +2,7 @@ import Foundation
 import UserNotifications
 import SwiftUI
 import Combine
+import OSLog
 
 // MARK: - Notification Manager
 // Správca lokálnych notifikácií, tréningových pripomenutí a upozornení o zmenách od partnera.
@@ -35,7 +36,7 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
             notificationsEnabled = granted
             return granted
         } catch {
-            print("[NotificationManager] Request failed: \(error)")
+            Logger.general.error("Notification permission request failed: \(error.localizedDescription, privacy: .public)")
             isAuthorized = false
             return false
         }
@@ -61,7 +62,7 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
 
         UNUserNotificationCenter.current().add(request) { error in
             if let error = error {
-                print("[NotificationManager] Failed to schedule reminder: \(error)")
+                Logger.general.error("Scheduling reminder failed: \(error.localizedDescription, privacy: .public)")
             }
         }
     }

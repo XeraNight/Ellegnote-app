@@ -395,7 +395,6 @@ struct LibraryFigureDetailSheet: View {
     @Environment(\.modelContext) private var modelContext
     @Bindable var figure: FigureLibraryItem
     @AppStorage("defaultPlaybackRate") private var defaultPlaybackRate = 1.0
-    @State private var cacheTrigger = false
     
     @State private var nameText = ""
     @State private var rhythmText = ""
@@ -618,9 +617,6 @@ struct LibraryFigureDetailSheet: View {
                 }
             }
             .navigationTitle(figure.name)
-            .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("MediaCacheDidUpdate"))) { _ in
-                cacheTrigger.toggle()
-            }
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(Color.themeBg, for: .navigationBar)
             .toolbarBackground(.visible, for: .navigationBar)

@@ -34,8 +34,8 @@ struct FriendsListView: View {
     
     @State private var connectionToRevoke: DancerConnection? = nil
     @State private var showRevokeConfirmation = false
-    @State private var selectedReportName: String? = nil
-    @State private var showReportConfirmation = false
+    @State private var showReportFallback = false
+    @Environment(\.openURL) private var openURL
     
     var body: some View {
         ZStack {
@@ -104,10 +104,10 @@ struct FriendsListView: View {
         } message: {
             Text("Používateľ stratí prístup k vašim spoločným choreografiám a poznámkam. Kedykoľvek sa môžete prepojiť znova.")
         }
-        .alert("Podnet bol prijatý", isPresented: $showReportConfirmation) {
+        .alert("Nahlásenie používateľa", isPresented: $showReportFallback) {
             Button("Rozumiem", role: .cancel) {}
         } message: {
-            Text("Ďakujeme za nahlásenie. Tím administrátorov Encore preverí obsah do 24 hodín v súlade s pravidlami komunity.")
+            Text("V iPhone nie je nastavená aplikácia Mail. Napíš nám na \(AppContact.supportEmail) meno a Dancer ID používateľa a čo sa stalo. Ozveme sa čo najskôr.")
         }
         .task {
             await connectionManager.fetchAllConnections()
@@ -494,8 +494,7 @@ struct FriendsListView: View {
                 }
                 
                 Button(role: .destructive) {
-                    selectedReportName = conn.otherUserName
-                    showReportConfirmation = true
+                    report(conn)
                 } label: {
                     Label("Nahlásiť používateľa", systemImage: "flag")
                 }
@@ -716,4 +715,28 @@ struct FriendsListView: View {
         FriendsListView()
     }
     .previewWithSampleData()
+}
+
+
+// MARK: - Reporting a user
+private extension FriendsListView {
+    /// Opens an e-mail to support with the reported person's name and Dancer ID filled in.
+    /// Nothing is "sent" silently: the user sees and sends the message, so the report is real.
+    func report(_ conn: DancerConnection) {
+        let body = """
+        Nahlasujem používateľa:
+        Meno: \(conn.otherUserName)
+        Dancer ID: \(conn.otherUserDancerCode)
+
+        Čo sa stalo:
+
+        """
+        guard let url = AppContact.mailURL(subject: "Nahlásenie používateľa", body: body) else {
+            showReportFallback = true
+            return
+        }
+        openURL(url) { accepted in
+            if !accepted { showReportFallback = true }
+        }
+    }
 }

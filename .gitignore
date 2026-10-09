@@ -75,3 +75,6 @@ fastlane/test_output
 .vercel
 .env*
 fixtures/*raw*.html
+
+# ── KSIS pages saved in Safari (real names): only anonymized copies in fixtures/ksis/ are committed ──
+Encore:ksis-samples/

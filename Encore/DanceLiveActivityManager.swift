@@ -1,6 +1,7 @@
 import Foundation
 import ActivityKit
 import Combine
+import OSLog
 
 // MARK: - Dance Live Activity Manager
 @MainActor
@@ -26,7 +27,7 @@ final class DanceLiveActivityManager: ObservableObject {
         firstFigure: String = "Základný nášľap"
     ) {
         guard isLiveActivityEnabled else {
-            print("Live Activities are disabled on this device.")
+            Logger.camera.notice("Live Activities are disabled on this device")
             return
         }
         
@@ -54,9 +55,9 @@ final class DanceLiveActivityManager: ObservableObject {
                 pushType: nil
             )
             self.currentActivity = activity
-            print("Successfully started Live Activity on Dynamic Island with id: \(activity.id)")
+            Logger.camera.info("Started Live Activity \(activity.id, privacy: .public)")
         } catch {
-            print("Failed to start Live Activity: \(error.localizedDescription)")
+            Logger.camera.error("Starting Live Activity failed: \(error.localizedDescription, privacy: .public)")
         }
     }
     

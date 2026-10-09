@@ -4,6 +4,7 @@ import Speech
 import SwiftData
 import Combine
 import UniformTypeIdentifiers
+import OSLog
 
 
 // MARK: - Figure screen
@@ -42,6 +43,15 @@ struct FigureDetailCard: View {
     @State private var showDuelComparison = false
     @State private var confirmDeleteVideo = false
 
+    // Sharing with partner and coach
+    @State private var shareStage: SharedVideoStore.Stage? = nil
+    @State private var confirmShare = false
+    @State private var confirmStopSharing = false
+    @State private var confirmSaveToPhotos = false
+    @State private var videoNotice: String? = nil
+    @State private var videoError: String? = nil
+    @State private var successCount = 0
+
     private var rotation: Int { ((node.videoRotation ?? 0) % 360 + 360) % 360 }
 
     /// Portrait frame when the picture is upright-tall after the user's rotation.
@@ -60,6 +70,7 @@ struct FigureDetailCard: View {
                         videoSection(width: geo.size.width - 32, screenHeight: geo.size.height)
                         notesSheet
                         coachNotesCard
+                        GuestNotesOnFigure(nodeId: node.id)
                     }
                     .padding(.horizontal, 16)
                     .padding(.top, 8)
@@ -117,19 +128,10 @@ struct FigureDetailCard: View {
         .fullScreenCover(isPresented: $showCamera) {
             DanceCameraView(ghostVideoPath: node.activeTargetVideoPath, savesToPhotos: true) { localPath in
                 node.videoPath = localPath
-                try? node.modelContext?.save()
                 showCamera = false
-
-                // Background Sync Video & Routine
-                if let routine = node.routine {
-                    routine.updatedAt = Date()
-                    routine.lastModifiedBy = userName
-                    try? routine.modelContext?.save()
-
-                    // The original stays in Fotky; sharing with partner and coach uploads its own copy.
-                    SupabaseSyncManager.shared.syncRoutineOnBackground(routine)
-                }
-                realtimeManager?.broadcastNodeUpdated(node: node, senderName: userName)
+                routineDidChange()
+                // A shared figure keeps being shared: partner and coach get the new take.
+                if node.sharedVideoPath != nil { Task { await shareVideo() } }
             }
             .ignoresSafeArea()
         }
@@ -137,15 +139,58 @@ struct FigureDetailCard: View {
             DualVideoComparisonView(
                 pathA: $node.videoPath,
                 pathB: $node.activeTargetVideoPath,
-                titleA: "\(node.figureName) (Moje)",
-                titleB: "\(node.figureName) (Vzor)"
+                figureName: node.figureName,
+                onSaveCorrection: addCorrection
             )
         }
         .confirmationDialog("Odstrániť video?", isPresented: $confirmDeleteVideo, titleVisibility: .visible) {
-            Button("Odstrániť video", role: .destructive) { deleteVideo() }
+            Button("Odstrániť video", role: .destructive) { Task { await deleteVideo() } }
         } message: {
-            Text("Video sa zmaže z tejto figúry aj z telefónu.")
+            Text(deleteVideoMessage)
         }
+        .modifier(sharingDialogs)
+    }
+
+    // MARK: - Sharing dialogs
+    /// Kept apart from `body` so the compiler can type-check the long modifier chain.
+    private var sharingDialogs: SharingDialogs { SharingDialogs(card: self) }
+
+    fileprivate struct SharingDialogs: ViewModifier {
+        let card: FigureDetailCard
+
+        func body(content: Content) -> some View {
+            card.applySharingDialogs(to: content)
+        }
+    }
+
+    fileprivate func applySharingDialogs<V: View>(to content: V) -> some View {
+        content
+            .confirmationDialog("Zdieľať video s partnerom a trénerom?", isPresented: $confirmShare, titleVisibility: .visible) {
+                Button("Zdieľať") { Task { await shareVideo() } }
+            } message: {
+                Text("Uvidia ho v tejto figúre ako zmenšenú kópiu (720p). Tvoj originál ostáva vo Fotkách. Zdieľané videá zaberajú miesto z tvojho plánu, preto zruš zdieľanie, keď video už netreba.")
+            }
+            .confirmationDialog("Zrušiť zdieľanie?", isPresented: $confirmStopSharing, titleVisibility: .visible) {
+                Button("Zrušiť zdieľanie", role: .destructive) { Task { await stopSharing() } }
+            } message: {
+                Text("Kópia sa zmaže zo servera aj z Encore u partnera a trénera. Tvoj originál vo Fotkách ostane. Kto si video uložil do svojich Fotiek, tomu ostane.")
+            }
+            .confirmationDialog("Uložiť video do tvojich Fotiek?", isPresented: $confirmSaveToPhotos, titleVisibility: .visible) {
+                Button("Uložiť do Fotiek") { Task { await saveSharedCopyToPhotos() } }
+            } message: {
+                Text("Uložíš si vlastnú kópiu do albumu Encore. Ostane ti, aj keď partner zdieľanie zruší, a pozrieš si ju aj bez internetu.")
+            }
+            .alert("Video", isPresented: Binding(get: { videoError != nil }, set: { if !$0 { videoError = nil } })) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text(videoError ?? "")
+            }
+            .task(id: videoNotice) {
+                guard videoNotice != nil else { return }
+                try? await Task.sleep(for: .seconds(3))
+                withAnimation(.easeOut(duration: 0.25)) { videoNotice = nil }
+            }
+            .sensoryFeedback(.success, trigger: successCount)
     }
 
     // MARK: - Header
@@ -222,8 +267,10 @@ struct FigureDetailCard: View {
             .frame(height: height)
             .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
             .overlay(alignment: .topTrailing) {
-                if node.videoPath != nil { videoMenu }
+                if node.displayVideoPath != nil { videoMenu }
             }
+            .overlay(alignment: .topLeading) { shareBadge }
+            .animation(.spring(response: 0.35, dampingFraction: 0.8), value: shareBadgeText)
 
             if node.displayVideoPath != nil {
                 resizeHandle(currentHeight: height, maxHeight: maxHeight)
@@ -281,13 +328,67 @@ struct FigureDetailCard: View {
 
     private var videoMenu: some View {
         Menu {
-            Button { showCamera = true } label: { Label("Natočiť znova", systemImage: "arrow.triangle.2.circlepath") }
-            Button(role: .destructive) { confirmDeleteVideo = true } label: { Label("Odstrániť video", systemImage: "trash") }
+            if node.videoPath != nil {
+                Button { showCamera = true } label: { Label("Natočiť znova", systemImage: "arrow.triangle.2.circlepath") }
+                if node.sharedVideoPath == nil {
+                    Button { confirmShare = true } label: { Label("Zdieľať s partnerom a trénerom", systemImage: "person.2.fill") }
+                } else {
+                    Button { confirmStopSharing = true } label: { Label("Zrušiť zdieľanie", systemImage: "person.2.slash") }
+                }
+                Button(role: .destructive) { confirmDeleteVideo = true } label: { Label("Odstrániť video", systemImage: "trash") }
+            } else if node.sharedVideoPath != nil {
+                Button { confirmSaveToPhotos = true } label: { Label("Uložiť do mojich Fotiek", systemImage: "square.and.arrow.down") }
+            }
         } label: {
             GlassCircleLabel(icon: "ellipsis", size: 36)
         }
+        .disabled(shareStage != nil)
         .accessibilityLabel("Možnosti videa")
         .padding(10)
+    }
+
+    /// "Zdieľané", the progress of a running share, or a short confirmation.
+    @ViewBuilder
+    private var shareBadge: some View {
+        if let text = shareBadgeText {
+            HStack(spacing: 6) {
+                if shareStage != nil {
+                    ProgressView().controlSize(.mini).tint(.white)
+                } else {
+                    Image(systemName: node.videoPath == nil ? "person.2.fill" : "checkmark.circle.fill")
+                        .foregroundStyle(Color.gold400)
+                }
+                Text(text)
+                    .contentTransition(.opacity)
+            }
+            .font(.caption.weight(.semibold))
+            .foregroundStyle(.white)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .glassEffect(.regular, in: .capsule)
+            .padding(10)
+            .transition(.scale(scale: 0.85).combined(with: .opacity))
+            .accessibilityElement(children: .combine)
+        }
+    }
+
+    private var shareBadgeText: String? {
+        switch shareStage {
+        case .compressing: return "Pripravujem video…"
+        case .uploading: return "Nahrávam…"
+        case nil: break
+        }
+        if let videoNotice { return videoNotice }
+        guard node.sharedVideoPath != nil else { return nil }
+        return node.videoPath == nil ? "Zdieľané s tebou" : "Zdieľané"
+    }
+
+    private var deleteVideoMessage: String {
+        var parts = [node.videoPath.map(PhotoLibraryVideoStore.isReference) == true
+            ? "Video sa odstráni z figúry. Vo Fotkách ti ostane."
+            : "Video sa zmaže z tejto figúry aj z telefónu."]
+        if node.sharedVideoPath != nil { parts.append("Zruší sa aj zdieľanie s partnerom a trénerom.") }
+        return parts.joined(separator: " ")
     }
 
     /// Drag to make the video taller or shorter; the notes follow.
@@ -422,13 +523,93 @@ struct FigureDetailCard: View {
         }
     }
 
-    private func deleteVideo() {
+    /// A shared copy is withdrawn first; if that fails nothing is deleted, so the user can retry.
+    private func deleteVideo() async {
         guard let videoPath = node.videoPath else { return }
+        if let shared = node.sharedVideoPath {
+            do {
+                try await SharedVideoStore.stopSharing(shared)
+            } catch {
+                videoError = error.localizedDescription
+                return
+            }
+            node.replaceSharedVideoPath(nil)
+        }
         tearDownPlayer()
-        MediaStorageManager.removeFile(named: videoPath)
+        MediaStorageManager.removeFile(named: videoPath)   // a Fotky video stays in Fotky
         node.videoPath = nil
-        try? node.modelContext?.save()
+        routineDidChange()
+    }
 
+    // MARK: - Sharing
+    private func shareVideo() async {
+        guard let original = node.videoPath, shareStage == nil else { return }
+        withAnimation { shareStage = .compressing }
+        defer { withAnimation { shareStage = nil } }
+
+        // The server checks that the figure is in your routine, so a brand new figure goes up first.
+        if let routine = node.routine { await SupabaseSyncManager.shared.syncRoutineNow(routine) }
+        do {
+            let result = try await SharedVideoStore.share(originalPath: original, nodeId: node.id) { stage in
+                withAnimation { shareStage = stage }
+            }
+            node.replaceSharedVideoPath(result.videoPath)
+            routineDidChange()
+            videoNotice = "Zdieľané · \(result.usage.text)"
+            successCount += 1
+        } catch {
+            videoError = error.localizedDescription
+        }
+    }
+
+    private func stopSharing() async {
+        guard let shared = node.sharedVideoPath else { return }
+        do {
+            try await SharedVideoStore.stopSharing(shared)
+            node.replaceSharedVideoPath(nil)
+            routineDidChange()
+            videoNotice = "Zdieľanie zrušené"
+            successCount += 1
+        } catch {
+            videoError = error.localizedDescription
+        }
+    }
+
+    /// The viewer keeps an own copy in Fotky; the shared copy itself stays as it is.
+    private func saveSharedCopyToPhotos() async {
+        guard let shared = node.sharedVideoPath else { return }
+        guard await PhotoLibraryVideoStore.requestAccess() else {
+            videoError = "Povoľ Encore prístup k Fotkám v Nastaveniach iPhonu."
+            return
+        }
+        guard let cached = await SharedVideoStore.localURL(for: shared) else {
+            videoError = "Video sa nepodarilo stiahnuť. Skontroluj pripojenie."
+            return
+        }
+        let copy = FileManager.default.temporaryDirectory.appendingPathComponent("\(UUID().uuidString).mp4")
+        do {
+            try FileManager.default.copyItem(at: cached, to: copy)
+            _ = try await PhotoLibraryVideoStore.save(videoAt: copy)
+            videoNotice = "Uložené do Fotiek"
+            successCount += 1
+        } catch {
+            try? FileManager.default.removeItem(at: copy)
+            videoError = "Video sa nepodarilo uložiť do Fotiek."
+        }
+    }
+
+    /// Saves, syncs the routine and updates the partner's open canvas.
+    /// A correction from the comparison becomes one more line in the notes, synced like any edit.
+    private func addCorrection(_ correction: FigureCorrection) {
+        persistNotes()   // keep anything typed but not saved yet
+        let updated = RichNote.appending(correction.noteLine, to: node)
+        node.notes = updated.plain
+        node.notesRichData = updated.rich
+        routineDidChange()
+    }
+
+    private func routineDidChange() {
+        try? node.modelContext?.save()
         if let routine = node.routine {
             routine.updatedAt = Date()
             routine.lastModifiedBy = userName
@@ -740,7 +921,7 @@ class SpeechRecognizerHelper: ObservableObject {
             do {
                 try await AudioSessionCoordinator.shared.activate(.speech)
             } catch {
-                print("[Speech] AudioSessionCoordinator activate failed: \(error)")
+                Logger.audio.error("Speech audio session activation failed: \(error.localizedDescription, privacy: .public)")
                 return
             }
 
@@ -884,7 +1065,7 @@ struct VideoRecorderView: UIViewControllerRepresentable {
                     let filename = try MediaStorageManager.moveIntoDocuments(from: videoURL, fileExtension: "mp4")
                     parent.onRecordComplete(filename)
                 } catch {
-                    print("[Camera] Failed to move recorded video: \(error)")
+                    Logger.camera.error("Moving recorded video failed: \(error.localizedDescription, privacy: .public)")
                     parent.dismiss()
                 }
             } else {

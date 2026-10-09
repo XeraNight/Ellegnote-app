@@ -144,6 +144,94 @@ final class PlannedCompetition {
     }
 }
 
+// MARK: - Top 3 after a lesson
+/// One of the three main corrections a coach gave for one dance. Shown on Home and in Plán until the
+/// dancer ticks it off. A new Top 3 for the same dance replaces the open ones of the old.
+@Model
+final class LessonPriority {
+    @Attribute(.unique) var id: UUID
+    var danceName: String = ""
+    var text: String = ""
+    /// 1…3, in the order the coach gave them.
+    var rank: Int = 1
+    /// Priorities saved together share this moment; that is how one Top 3 is recognised.
+    var createdAt: Date = Date()
+    var doneAt: Date? = nil
+    /// Set when a newer Top 3 for the same dance replaced this one before it was done.
+    var replacedAt: Date? = nil
+    /// The training it came from, when it was written in the reflection.
+    var logEntryId: UUID? = nil
+
+    init(id: UUID = UUID(), danceName: String, text: String, rank: Int, createdAt: Date, logEntryId: UUID? = nil) {
+        self.id = id
+        self.danceName = danceName
+        self.text = text
+        self.rank = rank
+        self.createdAt = createdAt
+        self.logEntryId = logEntryId
+    }
+
+    var isOpen: Bool { doneAt == nil && replacedAt == nil }
+}
+
+/// One Top 3 as the screens show it: a dance and its priorities in the coach's order.
+struct LessonPrioritySet: Identifiable {
+    let danceName: String
+    let createdAt: Date
+    let items: [LessonPriority]
+
+    var id: String { "\(danceName)|\(createdAt.timeIntervalSinceReferenceDate)" }
+    var openCount: Int { items.filter(\.isOpen).count }
+}
+
+enum LessonPriorities {
+    static let maxCount = 3
+
+    /// Top 3s with something still to do, newest first. Ticked items stay visible in their set.
+    static func activeSets(_ all: [LessonPriority]) -> [LessonPrioritySet] {
+        let live = all.filter { $0.replacedAt == nil }
+        let grouped = Dictionary(grouping: live) { "\($0.danceName)|\($0.createdAt.timeIntervalSinceReferenceDate)" }
+        return grouped.values
+            .compactMap { items -> LessonPrioritySet? in
+                guard let first = items.first, items.contains(where: \.isOpen) else { return nil }
+                return LessonPrioritySet(danceName: first.danceName, createdAt: first.createdAt,
+                                         items: items.sorted { $0.rank < $1.rank })
+            }
+            .sorted { $0.createdAt > $1.createdAt }
+    }
+
+    /// The open texts for a dance, so the editor starts from what is there.
+    static func openTexts(for danceName: String, in all: [LessonPriority]) -> [String] {
+        all.filter { $0.danceName == danceName && $0.isOpen }
+            .sorted { $0.rank < $1.rank }
+            .map(\.text)
+    }
+
+    /// Saves a new Top 3 for a dance. Empty lines are skipped, at most three are kept, and the open
+    /// priorities of that dance are replaced. Returns what was saved (empty when every line was empty).
+    @discardableResult
+    static func save(_ texts: [String], danceName: String, logEntryId: UUID? = nil,
+                     now: Date = Date(), in context: ModelContext) -> [LessonPriority] {
+        let cleaned = texts
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+            .prefix(maxCount)
+        guard !cleaned.isEmpty else { return [] }
+
+        let open = (try? context.fetch(FetchDescriptor<LessonPriority>(
+            predicate: #Predicate { $0.danceName == danceName && $0.doneAt == nil && $0.replacedAt == nil }
+        ))) ?? []
+        for old in open { old.replacedAt = now }
+
+        let saved = cleaned.enumerated().map { index, text in
+            LessonPriority(danceName: danceName, text: text, rank: index + 1, createdAt: now, logEntryId: logEntryId)
+        }
+        saved.forEach(context.insert)
+        try? context.save()
+        return saved
+    }
+}
+
 // MARK: - Date helpers (ISO weekdays, Slovak labels)
 enum PlannerCalendar {
     static let calendar: Calendar = {

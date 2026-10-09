@@ -4,7 +4,7 @@ import SwiftUI
 public enum RadialHubAction: String, CaseIterable, Identifiable {
     case newRoutine
     case mirror
-    case organizer
+    case metronome
     case speedTrainer
     
     public var id: String { rawValue }
@@ -13,8 +13,8 @@ public enum RadialHubAction: String, CaseIterable, Identifiable {
         switch self {
         case .newRoutine:    return "Nová zostava"
         case .mirror:        return "Zrkadlo"
-        case .organizer:     return "Organizér kôl"
-        case .speedTrainer:  return "Speed Trainer"
+        case .metronome:     return "Metronóm"
+        case .speedTrainer:  return "Hudba pomalšie"
         }
     }
     
@@ -22,8 +22,8 @@ public enum RadialHubAction: String, CaseIterable, Identifiable {
         switch self {
         case .newRoutine:    return "Nová zostava"
         case .mirror:        return "Zrkadlo"
-        case .organizer:     return "Organizér"
-        case .speedTrainer:  return "Tempo"
+        case .metronome:     return "Metronóm"
+        case .speedTrainer:  return "Hudba"
         }
     }
     
@@ -31,8 +31,8 @@ public enum RadialHubAction: String, CaseIterable, Identifiable {
         switch self {
         case .newRoutine:    return "plus.circle.fill"
         case .mirror:        return "sparkles.rectangle.stack.fill"
-        case .organizer:     return "trophy.fill"
-        case .speedTrainer:  return "metronome.fill"
+        case .metronome:     return "metronome.fill"
+        case .speedTrainer:  return "music.note"
         }
     }
     
@@ -40,7 +40,7 @@ public enum RadialHubAction: String, CaseIterable, Identifiable {
         switch self {
         case .newRoutine:    return Color.gold400
         case .mirror:        return Color.silkIvory
-        case .organizer:     return Color.amberGold
+        case .metronome:     return Color.amberGold
         case .speedTrainer:  return Color.standardBlue
         }
     }
@@ -51,7 +51,7 @@ public enum RadialHubAction: String, CaseIterable, Identifiable {
         switch self {
         case .newRoutine:    return CGSize(width: -86, height: -82)
         case .mirror:        return CGSize(width: 86,  height: -82)
-        case .organizer:     return CGSize(width: -86, height: 82)
+        case .metronome:     return CGSize(width: -86, height: 82)
         case .speedTrainer:  return CGSize(width: 86,  height: 82)
         }
     }
@@ -607,7 +607,7 @@ public struct EncoreRadialHubView: View {
         // Quadrant mapping:
         // Top-Left: -180° to -90° -> newRoutine
         // Top-Right: -90° to 0°   -> mirror
-        // Bottom-Left: 90° to 180° -> organizer
+        // Bottom-Left: 90° to 180° -> metronome
         // Bottom-Right: 0° to 90°  -> speedTrainer
         if distance >= 34 && distance <= 220 {
             if dx < 0 && dy < 0 {
@@ -615,7 +615,7 @@ public struct EncoreRadialHubView: View {
             } else if dx >= 0 && dy < 0 {
                 return .mirror
             } else if dx < 0 && dy >= 0 {
-                return .organizer
+                return .metronome
             } else {
                 return .speedTrainer
             }

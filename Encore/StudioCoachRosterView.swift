@@ -5,93 +5,83 @@ import Foundation
 struct IdentifiableRoutineItem: Identifiable, Hashable {
     let student: DancerConnection
     let routine: DBRoutineRow
-    
+
     var id: UUID { routine.id }
-    
+
     static func == (lhs: IdentifiableRoutineItem, rhs: IdentifiableRoutineItem) -> Bool {
         lhs.id == rhs.id
     }
-    
+
     func hash(into hasher: inout Hasher) {
         hasher.combine(id)
     }
 }
 
-// MARK: - Coach Roster & Students Management View (Studio Tier)
+// MARK: - Moji zverenci
+/// The coach's students: their routines and, per student, what the last lesson was about (Premium).
+/// "Trainer" is a role from the connection, not from the plan (BRAND_GUIDELINES §1A).
 struct StudioCoachRosterView: View {
     @ObservedObject private var connectionManager = ConnectionManager.shared
     @ObservedObject private var studioManager = StudioManager.shared
     @ObservedObject private var subscriptionManager = SubscriptionManager.shared
-    
-    @State private var searchQuery: String = ""
-    @State private var showAddStudentSheet: Bool = false
-    @State private var selectedStudent: DancerConnection? = nil
-    @State private var selectedRoutineItem: IdentifiableRoutineItem? = nil
-    
+
+    @State private var searchQuery = ""
+    @State private var showAddStudentSheet = false
+    @State private var selectedRoutineItem: IdentifiableRoutineItem?
+    @State private var lessonStudent: DancerConnection?
+    @State private var showPaywall = false
+
+    private var canWriteLessons: Bool { subscriptionManager.currentTier >= .premium }
+
     private var filteredStudents: [DancerConnection] {
-        let query = searchQuery.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        if query.isEmpty {
-            return connectionManager.activeStudents
-        }
-        return connectionManager.activeStudents.filter { s in
-            s.otherUserName.lowercased().contains(query) ||
-            s.otherUserClub.lowercased().contains(query) ||
-            s.otherUserDancerCode.lowercased().contains(query)
+        let query = searchQuery.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !query.isEmpty else { return connectionManager.activeStudents }
+        return connectionManager.activeStudents.filter {
+            $0.otherUserName.localizedCaseInsensitiveContains(query)
+                || $0.otherUserClub.localizedCaseInsensitiveContains(query)
+                || $0.otherUserDancerCode.localizedCaseInsensitiveContains(query)
         }
     }
-    
+
     var body: some View {
         ZStack {
             EllegancePageBackground()
-            
-            VStack(spacing: 0) {
-                // Search bar & Add Action
-                topBarSection
-                    .padding(.horizontal, 20)
-                    .padding(.top, 12)
-                    .padding(.bottom, 14)
-                
-                // Student List / Empty State
-                if filteredStudents.isEmpty {
-                    emptyRosterView
-                } else {
-                    ScrollView {
-                        LazyVStack(spacing: 16) {
-                            ForEach(filteredStudents) { student in
-                                studentCardView(for: student)
-                            }
+
+            if connectionManager.activeStudents.isEmpty {
+                emptyRoster
+            } else {
+                ScrollView {
+                    LazyVStack(alignment: .leading, spacing: 16) {
+                        searchField
+                        ForEach(filteredStudents) { student in
+                            studentCard(student)
                         }
-                        .padding(.horizontal, 20)
-                        .padding(.top, 4)
-                        .padding(.bottom, 40)
                     }
-                    .refreshable {
-                        await refreshAll()
-                    }
+                    .padding(.horizontal, 20)
+                    .padding(.top, 8)
+                    .padding(.bottom, 40)
                 }
+                .scrollDismissesKeyboard(.interactively)
+                .refreshable { await refreshAll() }
             }
         }
-        .navigationTitle("Trénerský Roster")
+        .navigationTitle("Moji zverenci")
         .navigationBarTitleDisplayMode(.inline)
-        .toolbarBackground(.hidden, for: .navigationBar)
-        .toolbarColorScheme(.dark, for: .navigationBar)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Button {
                     showAddStudentSheet = true
                 } label: {
-                    HStack(spacing: 4) {
-                        Image(systemName: "person.badge.plus")
-                        Text("Pridať")
-                    }
-                    .font(.system(size: 13, weight: .bold))
-                    .foregroundColor(LuxuryTheme.gold400)
+                    Label("Pridať", systemImage: "person.badge.plus")
+                        .foregroundColor(Color.gold400)
                 }
             }
         }
-        .sheet(isPresented: $showAddStudentSheet) {
-            AddConnectionSheetView()
+        .sheet(isPresented: $showAddStudentSheet) { AddConnectionSheetView() }
+        .sheet(item: $lessonStudent) { student in
+            CoachLessonSheet(student: student)
         }
+        .sheet(isPresented: $showPaywall) { SubscriptionPaywallView(initialTier: .premium) }
         .navigationDestination(item: $selectedRoutineItem) { item in
             StudentRoutineDetailView(
                 studentId: item.student.otherUserId,
@@ -99,207 +89,288 @@ struct StudioCoachRosterView: View {
                 routine: item.routine
             )
         }
-        .task {
-            await refreshAll()
-        }
+        .task { await refreshAll() }
+        .preferredColorScheme(.dark)
     }
-    
-    // MARK: - Top Bar Section
-    private var topBarSection: some View {
-        HStack(spacing: 12) {
-            HStack(spacing: 10) {
-                Image(systemName: "magnifyingglass")
-                    .foregroundColor(.white.opacity(0.4))
-                TextField("Hľadať zverenca, klub alebo Dancer ID...", text: $searchQuery)
-                    .font(.system(size: 13))
-                    .foregroundColor(.white)
-            }
-            .padding(10)
-            .background(LuxuryTheme.obsidian800)
-            .cornerRadius(12)
-            .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.white.opacity(0.12), lineWidth: 1))
+
+    private var searchField: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "magnifyingglass")
+                .foregroundColor(Color.gold400)
+            TextField("", text: $searchQuery, prompt: Text("Meno, klub alebo Dancer ID").foregroundColor(.white.opacity(0.4)))
+                .foregroundColor(.white)
+                .autocorrectionDisabled()
         }
+        .padding(.horizontal, 14)
+        .frame(minHeight: 46)
+        .homeCard(cornerRadius: 14)
     }
-    
-    // MARK: - Student Card View
-    private func studentCardView(for student: DancerConnection) -> some View {
+
+    // MARK: Student
+    private func studentCard(_ student: DancerConnection) -> some View {
         let routines = studioManager.studentRoutines[student.otherUserId] ?? []
-        
+        let lastLesson = studioManager.lastLessons[student.otherUserId]
+
         return VStack(alignment: .leading, spacing: 12) {
-            // Student Identity Header
             HStack(spacing: 12) {
-                ZStack {
-                    Circle()
-                        .fill(
-                            LinearGradient(
-                                colors: [LuxuryTheme.gold500, LuxuryTheme.gold300],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
-                        .frame(width: 44, height: 44)
-                    
-                    Text(student.otherUserName.prefix(2).uppercased())
-                        .font(.system(size: 15, weight: .black))
-                        .foregroundColor(LuxuryTheme.obsidian900)
-                }
-                
+                Text(student.otherUserName.prefix(2).uppercased())
+                    .font(.system(.subheadline, design: .rounded).weight(.black))
+                    .foregroundColor(Color.obsidian900)
+                    .frame(width: 44, height: 44)
+                    .background(LinearGradient(colors: [Color.gold500, Color.gold300], startPoint: .topLeading, endPoint: .bottomTrailing), in: Circle())
+                    .accessibilityHidden(true)
+
                 VStack(alignment: .leading, spacing: 3) {
                     Text(student.otherUserName)
-                        .font(.system(size: 16, weight: .bold))
+                        .font(.headline)
                         .foregroundColor(.white)
-                    
-                    HStack(spacing: 6) {
-                        if !student.otherUserClub.isEmpty {
-                            Text(student.otherUserClub)
-                                .font(.system(size: 12))
-                                .foregroundColor(.white.opacity(0.65))
-                        }
-                        
-                        // Dancer ID Pill
-                        if !student.otherUserDancerCode.isEmpty {
-                            Text(student.otherUserDancerCode)
-                                .font(.system(size: 10, weight: .bold, design: .monospaced))
-                                .foregroundColor(LuxuryTheme.gold300)
-                                .padding(.horizontal, 6)
-                                .padding(.vertical, 2)
-                                .background(LuxuryTheme.obsidian900)
-                                .cornerRadius(5)
-                                .overlay(RoundedRectangle(cornerRadius: 5).stroke(LuxuryTheme.gold500.opacity(0.3), lineWidth: 1))
-                        }
-                    }
+                    Text([student.otherUserClub, student.otherUserDancerCode].filter { !$0.isEmpty }.joined(separator: " · "))
+                        .font(.caption)
+                        .foregroundColor(.white.opacity(0.6))
                 }
-                
                 Spacer()
-                
-                VStack(alignment: .trailing, spacing: 2) {
-                    Text("\(routines.count)")
-                        .font(.system(size: 16, weight: .black, design: .rounded))
-                        .foregroundColor(LuxuryTheme.gold400)
-                    Text("zostáv")
-                        .font(.system(size: 10, weight: .semibold))
-                        .foregroundColor(.white.opacity(0.5))
-                }
+                Text(slovakRoutineCount(routines.count))
+                    .font(.caption.weight(.bold))
+                    .foregroundColor(Color.gold300)
             }
-            
-            Divider().background(Color.white.opacity(0.1))
-            
-            // Routines list
+
+            lastLessonRow(student, lesson: lastLesson)
+
             if routines.isEmpty {
-                HStack(spacing: 6) {
-                    Image(systemName: "info.circle")
-                        .font(.system(size: 12))
-                        .foregroundColor(.white.opacity(0.4))
-                    Text("Zverenec zatiaľ nevytvoril žiadne zostavy.")
-                        .font(.system(size: 12))
-                        .foregroundColor(.white.opacity(0.5))
-                }
-                .padding(.vertical, 4)
+                Text("Zatiaľ nemá žiadnu zostavu.")
+                    .font(.footnote)
+                    .foregroundColor(.white.opacity(0.5))
             } else {
-                VStack(spacing: 8) {
+                VStack(spacing: 0) {
                     ForEach(routines, id: \.id) { routine in
                         Button {
                             selectedRoutineItem = IdentifiableRoutineItem(student: student, routine: routine)
                         } label: {
                             HStack(spacing: 10) {
                                 Image(systemName: "figure.dance")
-                                    .font(.system(size: 14))
-                                    .foregroundColor(LuxuryTheme.gold400)
-                                    .frame(width: 28, height: 28)
-                                    .background(LuxuryTheme.gold500.opacity(0.12))
-                                    .clipShape(RoundedRectangle(cornerRadius: 8))
-                                
+                                    .foregroundColor(Color.gold400)
+                                    .frame(width: 28)
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text(routine.name)
-                                        .font(.system(size: 14, weight: .bold))
+                                        .font(.subheadline.weight(.semibold))
                                         .foregroundColor(.white)
-                                    
-                                    HStack(spacing: 6) {
-                                        Text(routine.dance_name)
-                                            .font(.system(size: 11, weight: .semibold))
-                                            .foregroundColor(LuxuryTheme.gold300)
-                                        
-                                        if let modBy = routine.last_modified_by, !modBy.isEmpty {
-                                            Text("• \(modBy)")
-                                                .font(.system(size: 10))
-                                                .foregroundColor(.white.opacity(0.55))
-                                        }
-                                    }
+                                    Text([routine.dance_name, routine.last_modified_by ?? ""].filter { !$0.isEmpty }.joined(separator: " · "))
+                                        .font(.caption)
+                                        .foregroundColor(.white.opacity(0.55))
                                 }
-                                
                                 Spacer()
-                                
                                 Image(systemName: "chevron.right")
-                                    .font(.system(size: 11, weight: .bold))
+                                    .font(.caption.weight(.bold))
                                     .foregroundColor(.white.opacity(0.35))
                             }
-                            .padding(10)
-                            .background(LuxuryTheme.obsidian900.opacity(0.55))
-                            .cornerRadius(10)
+                            .padding(.vertical, 10)
+                            .contentShape(Rectangle())
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(.pressable(scale: 0.98))
+                        if routine.id != routines.last?.id { HomeRowDivider() }
                     }
                 }
             }
         }
         .padding(16)
-        .background(LuxuryTheme.obsidian800)
-        .cornerRadius(18)
-        .overlay(RoundedRectangle(cornerRadius: 18).stroke(LuxuryTheme.gold500.opacity(0.25), lineWidth: 1))
+        .homeCard(cornerRadius: 20)
     }
-    
-    // MARK: - Empty Roster View
-    private var emptyRosterView: some View {
-        VStack(spacing: 16) {
-            Spacer()
-            ZStack {
-                Circle()
-                    .fill(LuxuryTheme.gold500.opacity(0.15))
-                    .frame(width: 72, height: 72)
-                Image(systemName: "person.3.sequence.fill")
-                    .font(.system(size: 30))
-                    .foregroundColor(LuxuryTheme.gold400)
+
+    private func lastLessonRow(_ student: DancerConnection, lesson: CoachLesson?) -> some View {
+        Button {
+            if canWriteLessons { lessonStudent = student } else { showPaywall = true }
+        } label: {
+            HStack(alignment: .top, spacing: 10) {
+                Image(systemName: canWriteLessons ? "clock.arrow.circlepath" : "lock.fill")
+                    .foregroundColor(Color.gold400)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(lesson.map { "NAPOSLEDY · \($0.dayText.uppercased())" } ?? "ČO STE ROBILI NAPOSLEDY")
+                        .font(.system(.caption2, design: .rounded).weight(.black))
+                        .tracking(1)
+                        .foregroundColor(Color.gold400)
+                    Text(lesson?.summary ?? (canWriteLessons ? "Po lekcii si zapíš, čo ste robili. Nabudúce to uvidíš tu." : "Zápis lekcií je v Premium."))
+                        .font(.footnote)
+                        .foregroundColor(.white.opacity(lesson == nil ? 0.6 : 0.9))
+                        .lineLimit(3)
+                        .multilineTextAlignment(.leading)
+                }
+                Spacer(minLength: 0)
+                Image(systemName: "plus.circle.fill")
+                    .foregroundColor(Color.gold400)
             }
-            
-            Text("Žiadni zverenci v rostri")
-                .font(.system(size: 18, weight: .bold))
+            .padding(12)
+            .background(Color.gold500.opacity(0.08), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        }
+        .buttonStyle(.pressable(scale: 0.98))
+        .accessibilityHint("Zapísať lekciu a pozrieť predošlé")
+    }
+
+    private var emptyRoster: some View {
+        VStack(spacing: 14) {
+            Image(systemName: "person.3.sequence.fill")
+                .font(.system(size: 34))
+                .foregroundColor(Color.gold400)
+                .frame(width: 76, height: 76)
+                .glassEffect(.regular, in: .circle)
+            Text("Zatiaľ žiadni zverenci")
+                .font(.headline)
                 .foregroundColor(.white)
-            
-            Text("Pridajte svojich zverencov zadaním ich Dancer ID. Budete mať okamžitý prístup k ich zostavám a môžete im priraďovať figúry.")
-                .font(.system(size: 13))
+            Text("Pridaj zverenca cez jeho Dancer ID. Uvidíš jeho zostavy a môžeš mu pridávať figúry a poznámky.")
+                .font(.subheadline)
                 .foregroundColor(.white.opacity(0.65))
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 36)
-            
-            Button {
+            PrimarySheetButton(title: "Pridať zverenca", isLoading: false, isEnabled: true) {
                 showAddStudentSheet = true
-            } label: {
-                HStack(spacing: 6) {
-                    Image(systemName: "person.badge.plus")
-                    Text("Pripojiť prvého zverenca")
-                }
-                .font(.system(size: 14, weight: .bold))
-                .foregroundColor(LuxuryTheme.obsidian900)
-                .padding(.horizontal, 20)
-                .padding(.vertical, 12)
-                .background(LuxuryTheme.gold400)
-                .cornerRadius(12)
             }
-            .padding(.top, 8)
-            Spacer()
+            .padding(.horizontal, 48)
         }
     }
-    
+
+    private func slovakRoutineCount(_ count: Int) -> String {
+        switch count {
+        case 1: return "1 zostava"
+        case 2...4: return "\(count) zostavy"
+        default: return "\(count) zostáv"
+        }
+    }
+
     private func refreshAll() async {
         await connectionManager.fetchAllConnections()
+        await studioManager.fetchLastLessons()
         for student in connectionManager.activeStudents {
             _ = await studioManager.fetchStudentRoutines(studentUserId: student.otherUserId)
         }
     }
 }
 
-// MARK: - Xcode Canvas Preview
-#Preview("StudioCoachRosterView - Trénerský Roster") {
+// MARK: - Lesson log for one student
+/// Write what the lesson was about; earlier lessons below. Only the coach sees them.
+struct CoachLessonSheet: View {
+    let student: DancerConnection
+
+    @Environment(\.dismiss) private var dismiss
+    @ObservedObject private var studioManager = StudioManager.shared
+
+    @State private var date = Date()
+    @State private var summary = ""
+    @State private var history: [CoachLesson] = []
+    @State private var isSaving = false
+    @State private var errorText: String?
+    @State private var successTick = 0
+
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                EllegancePageBackground()
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 20) {
+                        VStack(alignment: .leading, spacing: 12) {
+                            HomeSectionHeader(title: "DNEŠNÁ LEKCIA", systemImage: "square.and.pencil")
+                            DatePicker("Dátum", selection: $date, in: ...Date(), displayedComponents: .date)
+                                .environment(\.locale, Locale(identifier: "sk"))
+                                .tint(Color.gold400)
+                                .foregroundColor(.white)
+                            TextField("", text: $summary,
+                                      prompt: Text("Napríklad: waltz natural turn, hlava doľava; tango promenáda").foregroundColor(.white.opacity(0.4)),
+                                      axis: .vertical)
+                                .lineLimit(3...8)
+                                .foregroundColor(.white)
+                                .padding(12)
+                                .background(Color.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                            PrimarySheetButton(title: "Uložiť lekciu", isLoading: isSaving,
+                                               isEnabled: !summary.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+                                               action: save)
+                            Text("Vidíš to len ty, \(student.otherUserName) nie.")
+                                .font(.caption)
+                                .foregroundColor(.white.opacity(0.55))
+                        }
+                        .padding(16)
+                        .homeCard(cornerRadius: 20)
+
+                        if !history.isEmpty {
+                            VStack(alignment: .leading, spacing: 10) {
+                                HomeSectionHeader(title: "PREDOŠLÉ LEKCIE", systemImage: "clock.arrow.circlepath", count: history.count)
+                                ForEach(history) { lesson in
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text(lesson.dayText)
+                                            .font(.caption.weight(.bold))
+                                            .foregroundColor(Color.gold300)
+                                        Text(lesson.summary)
+                                            .font(.subheadline)
+                                            .foregroundColor(.white.opacity(0.9))
+                                    }
+                                    .padding(12)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .homeCard(cornerRadius: 14)
+                                    .contextMenu {
+                                        Button(role: .destructive) {
+                                            delete(lesson)
+                                        } label: {
+                                            Label("Odstrániť", systemImage: "trash")
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    .padding(20)
+                }
+                .scrollDismissesKeyboard(.interactively)
+            }
+            .navigationTitle(student.otherUserName)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Zavrieť") { dismiss() }
+                        .foregroundColor(Color.gold400)
+                }
+            }
+            .alert("Nepodarilo sa", isPresented: Binding(get: { errorText != nil }, set: { if !$0 { errorText = nil } })) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text(errorText ?? "")
+            }
+            .sensoryFeedback(.success, trigger: successTick)
+            .task { await loadHistory() }
+        }
+        .preferredColorScheme(.dark)
+    }
+
+    private func loadHistory() async {
+        history = (try? await studioManager.lessons(for: student.otherUserId)) ?? []
+    }
+
+    private func save() {
+        let text = summary.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty else { return }
+        isSaving = true
+        Task {
+            defer { isSaving = false }
+            do {
+                try await studioManager.addLesson(studentId: student.otherUserId, date: date, summary: text)
+                summary = ""
+                successTick += 1
+                await loadHistory()
+            } catch {
+                errorText = "Lekciu sa nepodarilo uložiť. Zápis lekcií je v Premium a zverenec musí byť prepojený."
+            }
+        }
+    }
+
+    private func delete(_ lesson: CoachLesson) {
+        Task {
+            do {
+                try await studioManager.deleteLesson(lesson)
+                await loadHistory()
+            } catch {
+                errorText = "Lekciu sa nepodarilo odstrániť."
+            }
+        }
+    }
+}
+
+#Preview("Moji zverenci") {
     NavigationStack {
         StudioCoachRosterView()
     }

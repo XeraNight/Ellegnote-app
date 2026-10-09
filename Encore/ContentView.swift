@@ -26,7 +26,7 @@ struct ContentView: View {
     // Sheets opened from the hub or the palette
     @State private var showNewRoutineCategorySheet = false
     @State private var showDanceMirrorModal = false
-    @State private var showCompetitionOrganizerSheet = false
+    @State private var showMetronomeSheet = false
     @State private var showMusicSpeedTrainerSheet = false
     @State private var showCompareModeSheet = false
     @State private var showGlobalLibrarySheet = false
@@ -35,7 +35,8 @@ struct ContentView: View {
     @State private var compareSlotAPath: String?
     @State private var compareSlotBPath: String?
 
-    // Routine import (QR / pasted code)
+    // Routine import (QR / pasted code) and guest coach keys
+    @ObservedObject private var guestService = GuestCoachService.shared
     @State private var showQRScanner = false
     @State private var scanErrorMessage: String?
     @State private var showScanError = false
@@ -98,6 +99,8 @@ struct ContentView: View {
                                     onOpenAll: { showNotesInbox = true },
                                     onOpenNote: { noteToEdit = $0 }
                                 )
+
+                                LessonPrioritiesSection(showsWhenEmpty: false)
 
                                 if let recent = routines.first {
                                     HomeRecentRoutineCard(routine: recent) {
@@ -198,13 +201,21 @@ struct ContentView: View {
                 DanceMirrorView()
                     .ignoresSafeArea()
             }
-            .sheet(isPresented: $showCompetitionOrganizerSheet) {
-                CompetitionOrganizerView()
+            .sheet(isPresented: $showMetronomeSheet) {
+                DanceMetronomeView()
             }
             .sheet(isPresented: $showMusicSpeedTrainerSheet) {
                 MusicSpeedTrainerSheet()
             }
             .qrScanner(isPresented: $showQRScanner, onScan: handleScannedCode)
+            .sheet(isPresented: Binding(
+                get: { guestService.pendingToken != nil },
+                set: { if !$0 { guestService.pendingToken = nil } }
+            )) {
+                if let token = guestService.pendingToken {
+                    GuestKeyRedeemView(token: token)
+                }
+            }
             .sheet(isPresented: $showManualCodeSheet) {
                 manualCodeImportSheet
             }
@@ -277,8 +288,8 @@ struct ContentView: View {
         case .mirror:
             showDanceMirrorModal = true
             AnalyticsManager.shared.mirrorOpened(source: "radial_hub")
-        case .organizer:
-            showCompetitionOrganizerSheet = true
+        case .metronome:
+            showMetronomeSheet = true
         case .speedTrainer:
             showMusicSpeedTrainerSheet = true
         }
@@ -286,6 +297,10 @@ struct ContentView: View {
     
     // MARK: - Routine import
     private func handleScannedCode(_ rawCode: String) {
+        if let token = GuestCoachLink.token(from: rawCode) {
+            guestService.pendingToken = token
+            return
+        }
         do {
             scannedRoutineName = try RoutineShareImporter.importRoutine(fromCode: rawCode, into: modelContext)
             showScanSuccess = true

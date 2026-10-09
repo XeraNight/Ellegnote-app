@@ -2,90 +2,59 @@ import Foundation
 import SwiftUI
 import Combine
 import OSLog
-
-// MARK: - App Feature Enum
-enum AppFeature: String, CaseIterable {
-    case canvasRealtime       = "canvas_realtime"
-    case cloudSync            = "cloud_sync"
-    case postureAnalysis      = "posture_analysis"
-    case ghostOverlay         = "ghost_overlay"
-    case dualVideoComparison  = "dual_video_comparison"
-    case musicSpeedTrainer    = "music_speed_trainer"
-    case danceMetronome       = "dance_metronome"
-    case inAppFeedback        = "in_app_feedback"
-}
+import Supabase
 
 // MARK: - Remote Config Payload
+/// One row of `public.app_config` (migration 20261009_app_config.sql), readable by everyone.
 struct RemoteConfigPayload: Codable {
     let min_version: String?
-    let current_version: String?
     let maintenance_mode: Bool?
     let maintenance_message: String?
-    let features: [String: Bool]?
-    let announcement: String?
     let app_store_url: String?
 }
 
 // MARK: - Remote Config & Emergency Precautions Manager
+/// Force update and maintenance notice, set in Supabase → Table Editor → `app_config`.
 @MainActor
 final class RemoteConfigManager: ObservableObject {
     static let shared = RemoteConfigManager()
-    
-    // Remote config endpoint on your Next.js backend
-    private let configURL = URL(string: "https://encore-app.vercel.app/api/app-config")
+
     private let cacheKey = "encore_remote_config_cache"
-    
+
     @Published var isMaintenanceMode: Bool = false
-    @Published var maintenanceMessage: String = "Prebieha plánovaná údržba. Vaše lokálne tréningy fungujú bez obmedzení."
-    @Published var announcement: String? = nil
+    @Published var maintenanceMessage: String = "Prebieha plánovaná údržba. Tvoje tréningy v telefóne fungujú bez obmedzení."
     @Published var needsForceUpdate: Bool = false
     @Published var appStoreURL: URL? = nil
-    @Published private var features: [String: Bool] = [:]
     /// Launch and every return to the foreground both ask; once every 15 minutes is enough.
     private var lastSyncAttempt: Date?
     private let minimumSyncInterval: TimeInterval = 15 * 60
-    
+
     private init() {
         loadCachedConfig()
     }
-    
-    // MARK: - Feature Flag Check (Kill-Switch)
-    /// Checks if a feature is enabled. Defaults to true if remote config is unavailable.
-    func isFeatureEnabled(_ feature: AppFeature) -> Bool {
-        if let remoteValue = features[feature.rawValue] {
-            return remoteValue
-        }
-        return true // Safe default
-    }
-    
+
     // MARK: - Fetch Config on App Launch or Scene Foreground
     func syncConfig() async {
-        guard let url = configURL else { return }
         if let lastSyncAttempt, Date().timeIntervalSince(lastSyncAttempt) < minimumSyncInterval { return }
         lastSyncAttempt = Date()
-        
+
         do {
-            var request = URLRequest(url: url)
-            request.timeoutInterval = 6.0
-            request.cachePolicy = .reloadIgnoringLocalCacheData
-            
-            let (data, response) = try await URLSession.shared.data(for: request)
-            guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
-                let status = (response as? HTTPURLResponse)?.statusCode ?? -1
-                Logger.general.notice("RemoteConfig: HTTP \(status, privacy: .public), using cache or defaults")
-                return
-            }
-            
+            let data = try await SupabaseConfig.client
+                .from("app_config")
+                .select("min_version, maintenance_mode, maintenance_message, app_store_url")
+                .single()
+                .execute()
+                .data
             let decoded = try JSONDecoder().decode(RemoteConfigPayload.self, from: data)
             applyConfig(decoded)
-            
+
             // Cache successful payload
             UserDefaults.standard.set(data, forKey: cacheKey)
         } catch {
             Logger.general.notice("RemoteConfig sync failed, using cache or defaults: \(error.localizedDescription, privacy: .public)")
         }
     }
-    
+
     // MARK: - Apply Decoded Config
     private func applyConfig(_ payload: RemoteConfigPayload) {
         if let maintenance = payload.maintenance_mode {
@@ -93,10 +62,6 @@ final class RemoteConfigManager: ObservableObject {
         }
         if let message = payload.maintenance_message, !message.isEmpty {
             self.maintenanceMessage = message
-        }
-        self.announcement = payload.announcement
-        if let features = payload.features {
-            self.features = features
         }
         if let storeStr = payload.app_store_url, let storeURL = URL(string: storeStr) {
             self.appStoreURL = storeURL

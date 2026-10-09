@@ -4,6 +4,7 @@ import Combine
 import PassKit
 import Supabase
 import Auth
+import OSLog
 
 // MARK: - Apple Wallet Pass Manager & PassKit Bridge
 @MainActor
@@ -95,7 +96,7 @@ final class AppleWalletPassManager: NSObject, ObservableObject {
                 throw URLError(.badServerResponse)
             }
         } catch {
-            print("Apple Wallet Pass fetch error: \(error.localizedDescription)")
+            Logger.general.error("Wallet pass fetch failed: \(error.localizedDescription, privacy: .public)")
             self.errorMessage = "Digitálny lístok vyžaduje Apple PassKit podpisový certifikát."
             self.alertTitle = "Apple Peňaženka – Stav Nastavenia"
             self.alertMessage = "Pridanie preukazu do systémovej Apple Peňaženky vyžaduje podpísaný .pkpass súbor s Apple Developer certifikátom. Tvoja Encore karta funguje s plnou platnosťou priamo v aplikácii cez osobný QR kód."

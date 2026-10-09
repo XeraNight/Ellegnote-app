@@ -4,7 +4,7 @@ import StoreKit
 
 // MARK: - Profile tab ("Profil")
 /// Who I am and my dancing world, grouped by purpose (BRAND_GUIDELINES §1A):
-/// header → account → dance world (connections, competitions, studio) → membership → card →
+/// header → account → dance world (connections, competitions, tools) → membership → card →
 /// library → settings. Each destination is its own screen.
 struct ProfileView: View {
     @Query private var routines: [Routine]
@@ -170,11 +170,7 @@ struct ProfileView: View {
         .accessibilityElement(children: .combine)
     }
 
-    // MARK: Dance world: friends, competitions, studio
-    private var showsStudio: Bool {
-        profileStore.isCoach || subscriptionManager.currentTier == .premium || subscriptionManager.isAppOwner
-    }
-
+    // MARK: Dance world: connections, competitions, tools
     private var connectionsSubtitle: String {
         let parts = [
             connectionManager.activePartners.count > 0
@@ -187,12 +183,13 @@ struct ProfileView: View {
         return parts.isEmpty ? "Pridaj partnera alebo trénera cez Dancer ID" : parts.joined(separator: " · ")
     }
 
+    /// Only numbers KSIS shows; nothing about how far the next class is.
     private var competitionsSubtitle: String {
         guard let couple = competitionManager.activeCouple else {
-            return "Prepoj pár s KSIS a sleduj body a postupy"
+            return "Prepoj pár s KSIS: trieda, body a výsledky"
         }
-        let progress = competitionManager.computeAdvancement(for: couple.coupleId)
-        return "\(couple.disciplineTitle) · \(progress.currentPoints)/\(progress.requiredPoints) b. · \(progress.currentFinals)/\(progress.requiredFinals) finále"
+        let line = couple.standingsLine
+        return line.isEmpty ? couple.title : line
     }
 
     private var danceWorldSection: some View {
@@ -214,16 +211,20 @@ struct ProfileView: View {
             }
             .buttonStyle(.pressable(scale: 0.98))
 
-            if showsStudio {
-                HomeRowDivider()
-                NavigationLink { StudioToolsView() } label: {
-                    HomeRow(icon: "sparkles.rectangle.stack.fill", title: "Trénerské štúdio", subtitle: "Žiaci, priradenie figúr a súťažné nástroje")
-                }
-                .buttonStyle(.pressable(scale: 0.98))
-                .transition(.opacity)
+            HomeRowDivider()
+
+            // For everyone; the student roster inside shows only for coaches.
+            NavigationLink { StudioToolsView() } label: {
+                HomeRow(
+                    icon: "wrench.and.screwdriver.fill",
+                    title: "Nástroje",
+                    subtitle: profileStore.isCoach
+                        ? "Zverenci, zrkadlo, metronóm a hudba pomalšie"
+                        : "Zrkadlo, metronóm a hudba pomalšie"
+                )
             }
+            .buttonStyle(.pressable(scale: 0.98))
         }
-        .animation(.spring(response: 0.35, dampingFraction: 0.85), value: showsStudio)
     }
 
     // MARK: Membership

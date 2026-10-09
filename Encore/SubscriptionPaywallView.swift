@@ -1,347 +1,257 @@
 import SwiftUI
 import StoreKit
 
-// MARK: - Subscription Paywall View (StoreKit 2 Luxury Modal)
+// MARK: - Plans (Plus, Premium)
+/// The paywall promises only what works today (App Review 2.3.1 and 3.1.2, docs/V1_PAYWALL_FEATURES_PLAN.md).
+/// A feature gets a row here when it is finished, never before. Prices come from the App Store.
 public struct SubscriptionPaywallView: View {
     @ObservedObject private var subscriptionManager = SubscriptionManager.shared
     @Environment(\.dismiss) private var dismiss
-    
-    @State private var isAnnual: Bool = true
-    @State private var selectedTier: SubscriptionTier = .plus
-    @State private var errorMessage: String? = nil
-    @State private var showLegalSheet: Bool = false
-    
+
+    @State private var isAnnual = true
+    @State private var selectedTier: SubscriptionTier
+    @State private var errorMessage: String?
+    @State private var showLegalSheet = false
+    @State private var choiceTaps = 0
+
     public init(initialTier: SubscriptionTier = .plus) {
         _selectedTier = State(initialValue: initialTier == .free ? .plus : initialTier)
     }
-    
+
+    struct Feature: Identifiable {
+        let icon: String
+        let title: String
+        let detail: String
+        var id: String { title }
+    }
+
+    /// What each plan adds. Keep in step with the code that gates it.
+    static func features(for tier: SubscriptionTier) -> [Feature] {
+        switch tier {
+        case .free:
+            return []
+        case .plus:
+            return [
+                Feature(icon: "square.stack.3d.up.fill", title: "Neobmedzené zostavy",
+                        detail: "Viac zostáv na každý tanec. Free má jednu."),
+                Feature(icon: "target", title: "Top 3 priority po lekcii",
+                        detail: "Tri hlavné korekcie trénera pre každý tanec. Máš ich na Domove, kým ich nezvládneš."),
+                Feature(icon: "key.fill", title: "Kľúče pre hosťujúcich trénerov",
+                        detail: "Požičaj zostavu viacerým trénerom naraz a až na 30 dní. Free má jeden kľúč na 7 dní."),
+                Feature(icon: "icloud.and.arrow.up.fill", title: "10 GB na zdieľané videá",
+                        detail: "Pre partnera a trénera. Free má 1 GB."),
+            ]
+        case .premium:
+            return [
+                Feature(icon: "checkmark.seal.fill", title: "Všetko z Plus", detail: "Zostavy, Top 3 priority, kľúče pre trénerov a ďalšie."),
+                Feature(icon: "square.on.square", title: "Porovnanie so vzorom",
+                        detail: "Vzor priesvitne cez tvoje video, olovnica, sklon ramien a korekcie uložené k figúre."),
+                Feature(icon: "clock.arrow.circlepath", title: "Pre trénerov: čo sme robili naposledy",
+                        detail: "Pri každom zverencovi zápis z poslednej lekcie. Vidíš ho len ty."),
+                Feature(icon: "icloud.and.arrow.up.fill", title: "50 GB na zdieľané videá",
+                        detail: "Pre partnera a trénera."),
+            ]
+        }
+    }
+
     public var body: some View {
         NavigationStack {
             ZStack {
                 EllegancePageBackground()
-                
+
                 ScrollView(showsIndicators: false) {
-                    VStack(spacing: 24) {
-                        // 1. Luxury Header Hero
-                        headerSection
-                        
-                        // 2. Billing Period Selector (Monthly vs Annual with -30% discount)
-                        billingPeriodPicker
-                        
-                        // 3. Tiers Comparison Cards
-                        tierCardsSection
-                        
-                        // 4. Feature Highlights for Selected Tier
-                        featuresListSection
-                        
-                        // 5. Action Button (Subscribe or Manage)
-                        purchaseButtonSection
-                        
-                        // 6. Restore Purchases & Legal Disclaimers (Required by Apple Review)
-                        appleComplianceFooter
+                    VStack(spacing: 22) {
+                        header
+                        billingPicker
+                        HStack(spacing: 12) {
+                            tierCard(.plus)
+                            tierCard(.premium)
+                        }
+                        featuresCard
+                        purchaseSection
+                        footer
                     }
                     .padding(.horizontal, 20)
-                    .padding(.top, 16)
+                    .padding(.top, 8)
                     .padding(.bottom, 40)
                 }
             }
-            .navigationTitle("Členstvo Encore")
+            .navigationTitle("Členstvo")
             .navigationBarTitleDisplayMode(.inline)
-            .toolbarBackground(.hidden, for: .navigationBar)
-            .toolbarColorScheme(.dark, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        dismiss()
-                    } label: {
+                    Button { dismiss() } label: {
                         Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 20))
-                            .foregroundColor(.white.opacity(0.6))
+                            .font(.title3)
+                            .foregroundStyle(.white.opacity(0.6))
                     }
+                    .accessibilityLabel("Zavrieť")
                 }
             }
-            .sheet(isPresented: $showLegalSheet) {
-                LegalComplianceView()
-            }
+            .sheet(isPresented: $showLegalSheet) { LegalComplianceView() }
+            .sensoryFeedback(.selection, trigger: choiceTaps)
             .task {
                 AnalyticsManager.shared.paywallViewed(source: "paywall_modal", initialTier: selectedTier.rawValue)
                 await subscriptionManager.loadProducts()
             }
         }
+        .preferredColorScheme(.dark)
     }
-    
-    // MARK: - 1. Header Hero
-    private var headerSection: some View {
-        VStack(spacing: 12) {
-            ZStack {
-                Circle()
-                    .fill(
-                        RadialGradient(
-                            colors: [LuxuryTheme.gold500.opacity(0.35), Color.clear],
-                            center: .center,
-                            startRadius: 0,
-                            endRadius: 50
-                        )
-                    )
-                    .frame(width: 90, height: 90)
-                
-                Image(systemName: "crown.fill")
-                    .font(.system(size: 42, weight: .semibold))
-                    .foregroundStyle(
-                        LinearGradient(
-                            colors: [LuxuryTheme.gold300, LuxuryTheme.gold500],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-                    .shadow(color: LuxuryTheme.gold500.opacity(0.5), radius: 12, x: 0, y: 4)
-            }
-            
-            Text("Posuňte svoj tanec na vrchol")
-                .font(.system(size: 24, weight: .heavy))
+
+    // MARK: Header
+    private var header: some View {
+        VStack(spacing: 10) {
+            Image(systemName: selectedTier.iconName)
+                .font(.system(size: 40, weight: .semibold))
+                .foregroundStyle(LinearGradient(colors: [Color.gold300, Color.gold500], startPoint: .topLeading, endPoint: .bottomTrailing))
+                .contentTransition(.symbolEffect(.replace))
+                .shadow(color: Color.gold500.opacity(0.45), radius: 12, y: 4)
+            Text("Viac času na tanec")
+                .font(.system(.title2, design: .rounded).weight(.heavy))
                 .foregroundColor(.white)
-                .multilineTextAlignment(.center)
-            
-            Text("Vyberte si úroveň, ktorá zodpovedá vašim športovým cieľom — od tanečného páru až po trénerské štúdio.")
-                .font(.system(size: 14, weight: .regular))
+            Text("Free ti ostane navždy: poznámky, plátno, výsledky z KSIS, zdieľanie s partnerom a kľúč pre hosťujúceho trénera. Plus a Premium pridávajú pohodlie a analýzu.")
+                .font(.subheadline)
                 .foregroundColor(.white.opacity(0.7))
                 .multilineTextAlignment(.center)
-                .padding(.horizontal, 10)
+                .fixedSize(horizontal: false, vertical: true)
         }
     }
-    
-    // MARK: - 2. Billing Period Picker
-    private var billingPeriodPicker: some View {
-        HStack(spacing: 0) {
-            Button {
-                withAnimation(.spring(response: 0.3)) { isAnnual = false }
-            } label: {
-                Text("Mesačne")
-                    .font(.system(size: 14, weight: .bold))
-                    .foregroundColor(!isAnnual ? LuxuryTheme.obsidian900 : .white.opacity(0.7))
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 10)
-                    .background(!isAnnual ? LuxuryTheme.gold400 : Color.clear)
-                    .cornerRadius(10)
-            }
-            
-            Button {
-                withAnimation(.spring(response: 0.3)) { isAnnual = true }
-            } label: {
-                HStack(spacing: 6) {
-                    Text("Ročne")
-                        .font(.system(size: 14, weight: .bold))
-                    
-                    Text("UŠETRÍTE 30%")
-                        .font(.system(size: 9, weight: .black))
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 2)
-                        .background(LuxuryTheme.obsidian900.opacity(0.6))
-                        .foregroundColor(LuxuryTheme.gold300)
-                        .cornerRadius(6)
-                }
-                .foregroundColor(isAnnual ? LuxuryTheme.obsidian900 : .white.opacity(0.7))
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 10)
-                .background(isAnnual ? LuxuryTheme.gold400 : Color.clear)
-                .cornerRadius(10)
-            }
+
+    // MARK: Billing
+    private var billingPicker: some View {
+        HStack(spacing: 4) {
+            billingOption("Mesačne", annual: false)
+            billingOption(savingsText.map { "Ročne · \($0)" } ?? "Ročne", annual: true)
         }
         .padding(4)
-        .background(Color.white.opacity(0.08))
-        .cornerRadius(14)
-        .overlay(
-            RoundedRectangle(cornerRadius: 14)
-                .stroke(LuxuryTheme.gold500.opacity(0.3), lineWidth: 1)
-        )
+        .homeCard(cornerRadius: 16)
     }
-    
-    // MARK: - 3. Tier Cards Section
-    private var tierCardsSection: some View {
-        HStack(spacing: 12) {
-            tierCard(tier: .plus)
-            tierCard(tier: .premium)
-        }
-    }
-    
-    private func tierCard(tier: SubscriptionTier) -> some View {
-        let isSelected = selectedTier == tier
-        let price = isAnnual ? tier.annualPriceFormatted : tier.monthlyPriceFormatted
-        let period = isAnnual ? "/ rok" : "/ mesiac"
-        
+
+    private func billingOption(_ title: String, annual: Bool) -> some View {
+        let isOn = isAnnual == annual
         return Button {
-            withAnimation(.spring(response: 0.3)) {
-                selectedTier = tier
-            }
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) { isAnnual = annual }
+            choiceTaps += 1
         } label: {
-            VStack(alignment: .leading, spacing: 8) {
+            Text(title)
+                .font(.subheadline.weight(.bold))
+                .foregroundColor(isOn ? Color.obsidian900 : .white.opacity(0.75))
+                .frame(maxWidth: .infinity, minHeight: 40)
+                .background(isOn ? AnyShapeStyle(Color.gold400) : AnyShapeStyle(Color.clear), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        }
+        .buttonStyle(.pressable)
+        .accessibilityAddTraits(isOn ? .isSelected : [])
+    }
+
+    // MARK: Tiers
+    private func tierCard(_ tier: SubscriptionTier) -> some View {
+        let isSelected = selectedTier == tier
+        return Button {
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) { selectedTier = tier }
+            choiceTaps += 1
+        } label: {
+            VStack(alignment: .leading, spacing: 6) {
                 HStack {
                     Image(systemName: tier.iconName)
-                        .font(.system(size: 16, weight: .bold))
-                        .foregroundColor(isSelected ? LuxuryTheme.gold400 : .white.opacity(0.6))
-                    
+                        .foregroundColor(isSelected ? Color.gold400 : .white.opacity(0.6))
                     Spacer()
-                    
-                    if isSelected {
-                        Image(systemName: "checkmark.circle.fill")
-                            .font(.system(size: 16))
-                            .foregroundColor(LuxuryTheme.gold400)
+                    if subscriptionManager.currentTier == tier {
+                        Text("TVOJ PLÁN")
+                            .font(.system(.caption2, design: .rounded).weight(.black))
+                            .foregroundColor(Color.obsidian900)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(Color.gold400, in: Capsule())
                     }
                 }
-                
                 Text(tier.rawValue)
-                    .font(.system(size: 18, weight: .heavy))
+                    .font(.system(.title3, design: .rounded).weight(.heavy))
                     .foregroundColor(.white)
-                
-                HStack(alignment: .lastTextBaseline, spacing: 2) {
-                    Text(price)
-                        .font(.system(size: 20, weight: .black))
-                        .foregroundColor(LuxuryTheme.gold300)
-                    Text(period)
-                        .font(.system(size: 10, weight: .medium))
-                        .foregroundColor(.white.opacity(0.6))
-                }
-                
-                Text(tier == .plus ? "Pre súťažné páry" : "Ultimátny Pro & Radar")
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundColor(.white.opacity(0.65))
+                Text(price(for: tier, annual: isAnnual))
+                    .font(.system(.headline, design: .rounded).weight(.black))
+                    .foregroundColor(Color.gold300)
+                    .contentTransition(.numericText())
+                Text(isAnnual ? (monthlyEquivalent(for: tier).map { "ročne · \($0) mesačne" } ?? "ročne") : "mesačne")
+                    .font(.caption2)
+                    .foregroundColor(.white.opacity(0.6))
             }
             .padding(14)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(isSelected ? LuxuryTheme.obsidian800 : Color.white.opacity(0.04))
-            .cornerRadius(16)
+            .homeCard(cornerRadius: 18)
             .overlay(
-                RoundedRectangle(cornerRadius: 16)
-                    .stroke(isSelected ? LuxuryTheme.gold400 : Color.white.opacity(0.12), lineWidth: isSelected ? 1.8 : 1)
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .stroke(isSelected ? Color.gold400 : Color.clear, lineWidth: 1.8)
             )
-            .shadow(color: isSelected ? LuxuryTheme.gold500.opacity(0.2) : .clear, radius: 10, x: 0, y: 4)
+            .shadow(color: isSelected ? Color.gold500.opacity(0.2) : .clear, radius: 10, y: 4)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.pressable(scale: 0.97))
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
-    
-    // MARK: - 4. Features List Section
-    private var featuresListSection: some View {
+
+    private var featuresCard: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text(selectedTier == .plus ? "VÝHODY ENCORE PLUS:" : "VÝHODY ENCORE PREMIUM:")
-                .font(.system(size: 11, weight: .black))
-                .foregroundColor(LuxuryTheme.gold400)
-                .tracking(1.2)
-            
-            if selectedTier == .plus {
-                featureRow(icon: "folder.fill.badge.plus", title: "Neobmedzené choreografie", subtitle: "Viacero verzií pre každý tanec (Free má limit 1 zostava na tanec)")
-                featureRow(icon: "calendar.badge.clock", title: "Súťažný & Tréningový Kalendár", subtitle: "Plánovanie súťaží a samostatných tréningov so sync do Apple Kalendára")
-                featureRow(icon: "target", title: "Top 3 priority po lekcii", subtitle: "Zaznamenanie kľúčových korekcií od trénera pre každý tanec")
-                featureRow(icon: "key.fill", title: "7-dňový kľúč pre externého trénera", subtitle: "Hosťujúci tréner pridá poznámky bez videnia komentárov iných trénerov")
-                featureRow(icon: "trophy.fill", title: "KSIS kalkulačka postupov", subtitle: "Výpočet bodov a finálových umiestnení do vyšších výkonnostných tried (B, A, S)")
-                featureRow(icon: "paintbrush.fill", title: "Prispôsobenie & Parket Optima (Košice)", subtitle: "Exkluzívne ikony appky, luxusné motívy Wallet karty a parket z Košíc")
-            } else {
-                featureRow(icon: "checkmark.seal.fill", title: "Všetko z balíka Plus", subtitle: "Kompletné neobmedzené zostavy, kalendár, priority a KSIS kalkulačka")
-                featureRow(icon: "antenna.radiowaves.left.and.right", title: "KSIS Radar súperov & priateľov", subtitle: "Sledovanie iných párov a okamžité push notifikácie o ich výsledkoch")
-                featureRow(icon: "waveform.path", title: "Biomechanická video analýza", subtitle: "Detekcia tanečného rámu a sklonu ramien priamo vo videách")
-                featureRow(icon: "play.rectangle.on.rectangle.fill", title: "Video Duel (Porovnávač dvoch videí)", subtitle: "Synchrónne prehrávanie vlastného tanca vedľa vzoru so slow-motion")
-                featureRow(icon: "person.3.sequence.fill", title: "Trénerský manažment a denník", subtitle: "Roster párov s poznámkou 'Čo sme robili naposledy' a Zero-Delete ochranou")
+            HomeSectionHeader(title: "ČO DOSTANEŠ S \(selectedTier.rawValue.uppercased())", systemImage: "sparkles")
+            ForEach(Self.features(for: selectedTier)) { feature in
+                HStack(alignment: .top, spacing: 12) {
+                    Image(systemName: feature.icon)
+                        .font(.subheadline.weight(.bold))
+                        .foregroundColor(Color.gold400)
+                        .frame(width: 34, height: 34)
+                        .background(Color.gold500.opacity(0.16), in: Circle())
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(feature.title)
+                            .font(.subheadline.weight(.bold))
+                            .foregroundColor(.white)
+                        Text(feature.detail)
+                            .font(.footnote)
+                            .foregroundColor(.white.opacity(0.65))
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    Spacer(minLength: 0)
+                }
+                .transition(.opacity)
             }
         }
-        .padding(18)
-        .background(LuxuryTheme.obsidian800.opacity(0.85))
-        .cornerRadius(18)
-        .overlay(
-            RoundedRectangle(cornerRadius: 18)
-                .stroke(LuxuryTheme.gold500.opacity(0.25), lineWidth: 1)
-        )
+        .padding(16)
+        .homeCard(cornerRadius: 20)
+        .animation(.spring(response: 0.35, dampingFraction: 0.85), value: selectedTier)
     }
-    
-    private func featureRow(icon: String, title: String, subtitle: String) -> some View {
-        HStack(alignment: .top, spacing: 12) {
-            ZStack {
-                Circle()
-                    .fill(LuxuryTheme.gold500.opacity(0.18))
-                    .frame(width: 32, height: 32)
-                Image(systemName: icon)
-                    .font(.system(size: 13, weight: .bold))
-                    .foregroundColor(LuxuryTheme.gold400)
-            }
-            
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title)
-                    .font(.system(size: 14, weight: .bold))
-                    .foregroundColor(.white)
-                Text(subtitle)
-                    .font(.system(size: 12, weight: .regular))
-                    .foregroundColor(.white.opacity(0.65))
-            }
-            
-            Spacer()
-        }
-    }
-    
-    // MARK: - 5. Purchase Button Section
-    private var purchaseButtonSection: some View {
+
+    // MARK: Purchase
+    @ViewBuilder
+    private var purchaseSection: some View {
         VStack(spacing: 10) {
             if subscriptionManager.isAppOwner {
-                HStack(spacing: 8) {
-                    Image(systemName: "crown.fill")
-                        .foregroundColor(LuxuryTheme.gold300)
-                    Text("Prihlásený ako Majiteľ aplikácie (God Mode aktívny)")
-                        .font(.system(size: 13, weight: .bold))
-                        .foregroundColor(LuxuryTheme.gold300)
-                }
-                .padding(12)
-                .frame(maxWidth: .infinity)
-                .background(LuxuryTheme.gold500.opacity(0.15))
-                .cornerRadius(12)
-                .overlay(RoundedRectangle(cornerRadius: 12).stroke(LuxuryTheme.gold500.opacity(0.4), lineWidth: 1))
+                Label("Si majiteľ appky, máš všetko.", systemImage: "crown.fill")
+                    .font(.subheadline.weight(.bold))
+                    .foregroundColor(Color.gold300)
+                    .frame(maxWidth: .infinity, minHeight: 50)
+                    .homeCard(cornerRadius: 16)
             } else if subscriptionManager.currentTier == selectedTier {
-                HStack(spacing: 8) {
-                    Image(systemName: "checkmark.circle.fill")
-                        .foregroundColor(.green)
-                    Text("Tento plán máte aktuálne aktívny")
-                        .font(.system(size: 14, weight: .bold))
-                        .foregroundColor(.white)
-                }
-                .padding(14)
-                .frame(maxWidth: .infinity)
-                .background(Color.green.opacity(0.15))
-                .cornerRadius(14)
-                .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.green.opacity(0.4), lineWidth: 1))
+                Label("Tento plán už máš", systemImage: "checkmark.circle.fill")
+                    .font(.subheadline.weight(.bold))
+                    .foregroundColor(Color.syncEmerald)
+                    .frame(maxWidth: .infinity, minHeight: 50)
+                    .homeCard(cornerRadius: 16)
             } else {
-                Button {
-                    executePurchase()
-                } label: {
-                    HStack(spacing: 8) {
-                        if subscriptionManager.isPurchasing {
-                            ProgressView().tint(LuxuryTheme.obsidian900)
-                        }
-                        Text(subscriptionManager.isPurchasing ? "Prebieha nákup..." : "Aktivovať \(selectedTier.rawValue)")
-                    }
-                    .font(.system(size: 16, weight: .heavy))
-                    .foregroundColor(LuxuryTheme.obsidian900)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 16)
-                    .background(
-                        LinearGradient(
-                            colors: [LuxuryTheme.gold500, LuxuryTheme.gold400],
-                            startPoint: .leading,
-                            endPoint: .trailing
-                        )
-                    )
-                    .cornerRadius(16)
-                    .shadow(color: LuxuryTheme.gold500.opacity(0.4), radius: 12, x: 0, y: 4)
-                }
-                .disabled(subscriptionManager.isPurchasing)
+                PrimarySheetButton(
+                    title: "Pokračovať s \(selectedTier.rawValue)",
+                    isLoading: subscriptionManager.isPurchasing,
+                    isEnabled: true,
+                    action: purchase
+                )
             }
-            
-            if let err = errorMessage {
-                Text(err)
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundColor(Color.latinCrimson)
+
+            if let errorMessage {
+                Text(errorMessage)
+                    .font(.footnote.weight(.medium))
+                    .foregroundColor(Color.latinRed)
                     .multilineTextAlignment(.center)
             }
         }
     }
-    
-    // MARK: - 6. Apple Compliance Footer (Restore & Legal Links)
-    private var appleComplianceFooter: some View {
+
+    private var footer: some View {
         VStack(spacing: 12) {
             Button {
                 Task {
@@ -349,78 +259,82 @@ public struct SubscriptionPaywallView: View {
                     await subscriptionManager.restorePurchases()
                 }
             } label: {
-                Text("Obnoviť predchádzajúce nákupy")
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundColor(LuxuryTheme.gold300)
+                Text("Obnoviť nákupy")
+                    .font(.footnote.weight(.semibold))
+                    .foregroundColor(Color.gold300)
+                    .frame(minHeight: 44)
             }
-            
-            Text("Predplatné sa automaticky obnovuje, pokiaľ nie je zrušené aspoň 24 hodín pred koncom aktuálneho fakturačného obdobia. Spravovať predplatné a automatické obnovenie môžete kedykoľvek vo svojom Apple ID účte v Nastaveniach.")
-                .font(.system(size: 10, weight: .regular))
-                .foregroundColor(.white.opacity(0.45))
+
+            Text("Predplatné sa obnovuje automaticky, kým ho nezrušíš aspoň 24 hodín pred koncom obdobia. Spravuješ ho v Nastaveniach iPhonu pod svojím Apple ID.")
+                .font(.caption2)
+                .foregroundColor(.white.opacity(0.5))
                 .multilineTextAlignment(.center)
-                .padding(.horizontal, 10)
-            
+
             HStack(spacing: 16) {
-                Button {
-                    showLegalSheet = true
-                } label: {
-                    Text("Podmienky používania (EULA)")
-                        .font(.system(size: 11, weight: .medium))
-                        .foregroundColor(.white.opacity(0.6))
-                        .underline()
-                }
-                
-                Text("•").foregroundColor(.white.opacity(0.3))
-                
-                Button {
-                    showLegalSheet = true
-                } label: {
-                    Text("Ochrana súkromia")
-                        .font(.system(size: 11, weight: .medium))
-                        .foregroundColor(.white.opacity(0.6))
-                        .underline()
-                }
+                Button("Podmienky používania") { showLegalSheet = true }
+                Text("·").foregroundColor(.white.opacity(0.3))
+                Button("Ochrana súkromia") { showLegalSheet = true }
             }
+            .font(.caption.weight(.medium))
+            .foregroundColor(.white.opacity(0.65))
         }
-        .padding(.top, 8)
     }
-    
-    // MARK: - Purchase Action
-    private func executePurchase() {
-        errorMessage = nil
-        let targetId: String
-        switch (selectedTier, isAnnual) {
-        case (.plus, true): targetId = SubscriptionManager.ProductID.plusAnnual
-        case (.plus, false): targetId = SubscriptionManager.ProductID.plusMonthly
-        case (.premium, true): targetId = SubscriptionManager.ProductID.premiumAnnual
-        case (.premium, false): targetId = SubscriptionManager.ProductID.premiumMonthly
-        default: targetId = SubscriptionManager.ProductID.plusMonthly
+
+    // MARK: Prices from the App Store
+    private func product(for tier: SubscriptionTier, annual: Bool) -> Product? {
+        let id: String
+        switch (tier, annual) {
+        case (.plus, true): id = SubscriptionManager.ProductID.plusAnnual
+        case (.plus, false): id = SubscriptionManager.ProductID.plusMonthly
+        case (.premium, true): id = SubscriptionManager.ProductID.premiumAnnual
+        case (.premium, false): id = SubscriptionManager.ProductID.premiumMonthly
+        case (.free, _): return nil
         }
-        
-        guard let product = subscriptionManager.availableProducts.first(where: { $0.id == targetId }) else {
-            // Product not yet loaded or running in simulator without StoreKit configuration
-            errorMessage = "Produkt sa pripravuje v App Store Connect. V prípade otázok kontaktujte podporu."
+        return subscriptionManager.availableProducts.first { $0.id == id }
+    }
+
+    private func price(for tier: SubscriptionTier, annual: Bool) -> String {
+        product(for: tier, annual: annual)?.displayPrice
+            ?? (annual ? tier.annualPriceFormatted : tier.monthlyPriceFormatted)
+    }
+
+    /// "4,17 €" for the annual price spread over twelve months; nil until the App Store answers.
+    private func monthlyEquivalent(for tier: SubscriptionTier) -> String? {
+        guard let annual = product(for: tier, annual: true) else { return nil }
+        return (annual.price / 12).formatted(annual.priceFormatStyle)
+    }
+
+    /// "−30 %" for the selected plan; nil until the App Store answers.
+    private var savingsText: String? {
+        guard let monthly = product(for: selectedTier, annual: false), let annual = product(for: selectedTier, annual: true),
+              monthly.price > 0 else { return nil }
+        let full = NSDecimalNumber(decimal: monthly.price * 12).doubleValue
+        let saving = 1 - NSDecimalNumber(decimal: annual.price).doubleValue / full
+        guard saving > 0.01 else { return nil }
+        return "−\(Int((saving * 100).rounded())) %"
+    }
+
+    private func purchase() {
+        errorMessage = nil
+        guard let product = product(for: selectedTier, annual: isAnnual) else {
+            errorMessage = "Predplatné sa práve nedá načítať z App Store. Skús to o chvíľu."
             return
         }
-        
         AnalyticsManager.shared.subscriptionUpgradeInitiated(tier: selectedTier.rawValue, isAnnual: isAnnual)
-        
         Task {
             do {
-                let success = try await subscriptionManager.purchase(product: product)
-                if success {
+                if try await subscriptionManager.purchase(product: product) {
                     AnalyticsManager.shared.subscriptionPurchased(tier: selectedTier.rawValue, isAnnual: isAnnual)
                     dismiss()
                 }
             } catch {
-                errorMessage = "Nákup nebolo možné dokončiť: \(error.localizedDescription)"
+                errorMessage = "Nákup sa nepodaril: \(error.localizedDescription)"
             }
         }
     }
 }
 
-// MARK: - Xcode Canvas Preview
-#Preview("SubscriptionPaywallView - Plus & Premium") {
+#Preview("Členstvo") {
     SubscriptionPaywallView(initialTier: .premium)
         .previewWithSampleData()
 }

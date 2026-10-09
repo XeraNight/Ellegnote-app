@@ -11,7 +11,6 @@ struct DanceDetailView: View {
     @State private var showCreateRoutineSheet = false
     @State private var showPaywallSheet = false
     @State private var newRoutineName = ""
-    @State private var cacheTrigger = false
     @AppStorage("profileName") private var userName = "Tanečník"
     
     @State private var showAddCustomFigure = false
@@ -273,9 +272,6 @@ struct DanceDetailView: View {
             }
         }
         .navigationTitle(dance.name)
-        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("MediaCacheDidUpdate"))) { _ in
-            cacheTrigger.toggle()
-        }
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
                 Button("Upraviť") {

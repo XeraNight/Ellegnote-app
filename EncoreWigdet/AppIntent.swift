@@ -9,18 +9,9 @@ import WidgetKit
 import AppIntents
 import ActivityKit
 
-struct ConfigurationAppIntent: WidgetConfigurationIntent {
-    static var title: LocalizedStringResource { "Configuration" }
-    static var description: IntentDescription { "This is an example widget." }
-
-    // An example configurable parameter.
-    @Parameter(title: "Favorite Emoji", default: "😃")
-    var favoriteEmoji: String
-}
-
 struct StopRecordingIntent: LiveActivityIntent {
-    static var title: LocalizedStringResource = "Stop Recording"
-    static var description = IntentDescription("Stops the active dance camera recording.")
+    static var title: LocalizedStringResource = "Zastaviť nahrávanie"
+    static var description = IntentDescription("Zastaví nahrávanie tanečnej kamery.")
 
     func perform() async throws -> some IntentResult {
         let notificationName = "com.encore.stopRecording" as CFString
@@ -41,8 +32,8 @@ struct StopRecordingIntent: LiveActivityIntent {
 }
 
 struct BookmarkRecordingIntent: LiveActivityIntent {
-    static var title: LocalizedStringResource = "Bookmark Moment"
-    static var description = IntentDescription("Bookmarks a key dance moment during recording into Instant Notes.")
+    static var title: LocalizedStringResource = "Označiť moment"
+    static var description = IntentDescription("Označí dôležitý moment nahrávky do poznámok.")
 
     func perform() async throws -> some IntentResult {
         let notificationName = "com.encore.bookmark" as CFString

@@ -3,109 +3,121 @@ import AVFoundation
 import UIKit
 import Combine
 
-// MARK: - Dance Mirror View (Čisté Tanečné Zrkadlo)
-// A 100% distraction-free front-camera mirror designed for dancers and competitors.
-// Displays ONLY the pristine front camera video feed and a single Liquid Glass "Späť" button.
-// Does NOT touch AVAudioSession / microphone, so background studio music keeps playing uninterrupted.
-
+// MARK: - Zrkadlo (Nástroje)
+/// Full-screen front camera for checking hold, posture, hair and make-up. Optional fill light: a warm
+/// frame around the picture plus full screen brightness, for dark halls. No microphone, so music keeps playing.
 public struct DanceMirrorView: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @StateObject private var cameraManager = DanceMirrorCameraManager()
-    
+
+    @State private var isLightOn = false
+    @State private var brightnessBeforeLight: CGFloat?
+    @State private var showsHint = true
+    @State private var zoomTaps = 0
+
     public init() {}
-    
+
     public var body: some View {
-        ZStack(alignment: .topLeading) {
-            // Background
+        ZStack {
             Color.black.ignoresSafeArea()
-            
-            // 1. Fullscreen Pristine Front Camera Feed
+
             if cameraManager.isCameraAvailable {
                 GeometryReader { geo in
                     DanceMirrorPreviewRepresentable(session: cameraManager.session)
                         .ignoresSafeArea()
                         .onTapGesture(count: 2) {
-                            HapticFeedback.light()
+                            zoomTaps += 1
                             cameraManager.toggleZoom()
                         }
                         .onTapGesture(count: 1) { location in
                             guard geo.size.width > 0 && geo.size.height > 0 else { return }
-                            let normalizedX = max(0, min(1, location.x / geo.size.width))
-                            let normalizedY = max(0, min(1, location.y / geo.size.height))
-                            cameraManager.focusAndExpose(at: CGPoint(x: normalizedX, y: normalizedY))
+                            cameraManager.focusAndExpose(at: CGPoint(
+                                x: max(0, min(1, location.x / geo.size.width)),
+                                y: max(0, min(1, location.y / geo.size.height))
+                            ))
                         }
                 }
+                .ignoresSafeArea()
             } else {
-                // Simulator / No Camera Fallback
-                VStack(spacing: 16) {
+                VStack(spacing: 12) {
                     Image(systemName: "camera.fill")
-                        .font(.system(size: 52))
-                        .foregroundColor(LuxuryTheme.gold400.opacity(0.8))
-                    
-                    Text("Tanečné Zrkadlo")
-                        .font(.system(size: 22, weight: .bold, design: .serif))
+                        .font(.largeTitle)
+                        .foregroundColor(Color.gold400)
+                    Text("Zrkadlo")
+                        .font(.system(.title2, design: .rounded).weight(.bold))
                         .foregroundColor(.white)
-                    
-                    Text("Predná kamera je k dispozícii na reálnom zariadení iPhone.\nV simulátore nie je k dispozícii hardvér kamery.")
-                        .font(.system(size: 13))
-                        .foregroundColor(.white.opacity(0.65))
+                    Text("Predná kamera nie je dostupná. Povoľ Encore prístup ku kamere v Nastaveniach iPhonu.")
+                        .font(.subheadline)
+                        .foregroundColor(.white.opacity(0.7))
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, 36)
                 }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
-            
-            // 2. Single Liquid Glass "Späť" Button
+
+            // Fill light: a soft warm frame that lights the face from the screen.
+            if isLightOn {
+                RoundedRectangle(cornerRadius: 48, style: .continuous)
+                    .strokeBorder(Color(red: 1.0, green: 0.95, blue: 0.86), lineWidth: 64)
+                    .ignoresSafeArea()
+                    .allowsHitTesting(false)
+                    .transition(.opacity)
+            }
+
             VStack {
                 HStack {
-                    Button(action: {
-                        HapticFeedback.light()
-                        dismiss()
-                    }) {
-                        HStack(spacing: 8) {
-                            Image(systemName: "chevron.left")
-                                .font(.system(size: 14, weight: .bold))
-                            Text("Späť")
-                                .font(.system(size: 14, weight: .semibold, design: .rounded))
-                        }
-                        .foregroundColor(.white)
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 10)
-                        .background(
-                            Capsule()
-                                .fill(Color.black.opacity(0.35))
-                                .background(.ultraThinMaterial, in: Capsule())
-                        )
-                        .overlay(
-                            Capsule()
-                                .stroke(
-                                    LinearGradient(
-                                        colors: [Color.white.opacity(0.45), Color.white.opacity(0.12)],
-                                        startPoint: .topLeading,
-                                        endPoint: .bottomTrailing
-                                    ),
-                                    lineWidth: 1
-                                )
-                        )
-                        .shadow(color: Color.black.opacity(0.40), radius: 12, x: 0, y: 5)
-                    }
-                    .buttonStyle(.plain)
-                    .padding(.leading, 20)
-                    .padding(.top, 54) // Safely below notch and Dynamic Island
-                    
+                    LiquidGlassCircleButton(icon: "xmark", label: "Zavrieť") { dismiss() }
                     Spacer()
+                    LiquidGlassCircleButton(
+                        icon: isLightOn ? "sun.max.fill" : "sun.max",
+                        label: isLightOn ? "Vypnúť svetlo" : "Zapnúť svetlo",
+                        isActive: isLightOn
+                    ) { setLight(!isLightOn) }
                 }
-                
+                .padding(.horizontal, 20)
+                .padding(.top, 8)
+
                 Spacer()
+
+                if showsHint && cameraManager.isCameraAvailable {
+                    Text("Ťukni pre zaostrenie · dvakrát pre priblíženie")
+                        .font(.footnote.weight(.semibold))
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 8)
+                        .glassEffect(.regular, in: .capsule)
+                        .padding(.bottom, 28)
+                        .transition(.opacity)
+                }
             }
         }
         .statusBarHidden(true)
-        .onAppear {
-            cameraManager.start()
+        .animation(reduceMotion ? nil : .easeInOut(duration: 0.25), value: isLightOn)
+        .animation(.easeOut(duration: 0.4), value: showsHint)
+        .sensoryFeedback(.selection, trigger: isLightOn)
+        .sensoryFeedback(.impact(weight: .light), trigger: zoomTaps)
+        .task {
+            try? await Task.sleep(for: .seconds(3))
+            showsHint = false
         }
+        .onAppear { cameraManager.start() }
         .onDisappear {
+            setLight(false)
             cameraManager.stop()
         }
+    }
+
+    /// Full brightness while the light is on; the previous brightness comes back afterwards.
+    private func setLight(_ on: Bool) {
+        guard let screen = (UIApplication.shared.connectedScenes.first as? UIWindowScene)?.screen else { return }
+        if on, !isLightOn {
+            brightnessBeforeLight = screen.brightness
+            screen.brightness = 1.0
+        } else if !on, isLightOn, let previous = brightnessBeforeLight {
+            screen.brightness = previous
+            brightnessBeforeLight = nil
+        }
+        isLightOn = on
     }
 }
 
@@ -161,14 +173,14 @@ final class DanceMirrorCameraManager: NSObject, ObservableObject, @unchecked Sen
         sessionQueue.async { [weak self] in
             guard let self = self else { return }
             self.session.beginConfiguration()
-            self.session.sessionPreset = .high
-            
+
             // Acquire front camera device
             if let frontCamera = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .front),
                let input = try? AVCaptureDeviceInput(device: frontCamera),
                self.session.canAddInput(input) {
                 self.session.addInput(input)
                 self.videoInput = input
+                self.configureForBestPicture(frontCamera)
                 DispatchQueue.main.async {
                     self.isCameraAvailable = true
                 }
@@ -182,6 +194,32 @@ final class DanceMirrorCameraManager: NSObject, ObservableObject, @unchecked Sen
         }
     }
     
+    /// The sharpest live picture the front camera offers: 4K when supported (otherwise 1080p),
+    /// 60 frames per second when possible, automatic HDR and low-light boost.
+    private func configureForBestPicture(_ device: AVCaptureDevice) {
+        if session.canSetSessionPreset(.hd4K3840x2160) {
+            session.sessionPreset = .hd4K3840x2160
+        } else if session.canSetSessionPreset(.hd1920x1080) {
+            session.sessionPreset = .hd1920x1080
+        } else {
+            session.sessionPreset = .high
+        }
+
+        guard (try? device.lockForConfiguration()) != nil else { return }
+        defer { device.unlockForConfiguration() }
+        if device.activeFormat.isVideoHDRSupported {
+            device.automaticallyAdjustsVideoHDREnabled = true
+        }
+        if device.isLowLightBoostSupported {
+            device.automaticallyEnablesLowLightBoostWhenAvailable = true
+        }
+        if device.activeFormat.videoSupportedFrameRateRanges.contains(where: { $0.maxFrameRate >= 60 }) {
+            let frame = CMTime(value: 1, timescale: 60)
+            device.activeVideoMinFrameDuration = frame
+            device.activeVideoMaxFrameDuration = frame
+        }
+    }
+
     func start() {
         sessionQueue.async { [weak self] in
             guard let self = self else { return }

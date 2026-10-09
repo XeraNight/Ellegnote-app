@@ -240,6 +240,11 @@ struct ProfileSettingsView: View {
     // MARK: Help
     private var helpSection: some View {
         HomeRowGroup(title: "POMOC A PRÁVNE") {
+            NavigationLink { VideoGuideView() } label: {
+                HomeRow(icon: "play.rectangle.on.rectangle.fill", title: "Ako fungujú videá", subtitle: "Fotky, zdieľanie s partnerom a miesto v pláne.")
+            }
+            .buttonStyle(.pressable(scale: 0.98))
+            HomeRowDivider()
             Button(action: openFeedbackEmail) {
                 HomeRow(icon: "envelope.badge.fill", title: "Spätná väzba a nahlásenie chyby")
             }
@@ -360,14 +365,11 @@ struct ProfileSettingsView: View {
         let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?"
         let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "?"
         let ios = UIDevice.current.systemVersion
-        var components = URLComponents()
-        components.scheme = "mailto"
-        components.path = "support@encore.dance"
-        components.queryItems = [
-            URLQueryItem(name: "subject", value: "Encore – spätná väzba (\(version) [\(build)] / iOS \(ios))"),
-            URLQueryItem(name: "body", value: "\n\n---\nEncore \(version) (\(build)), iOS \(ios)")
-        ]
-        if let url = components.url { UIApplication.shared.open(url) }
+        let url = AppContact.mailURL(
+            subject: "Encore – spätná väzba (\(version) [\(build)] / iOS \(ios))",
+            body: "\n\n---\nEncore \(version) (\(build)), iOS \(ios)"
+        )
+        if let url { UIApplication.shared.open(url) }
     }
 
     /// Server data plus this iPhone's data in one JSON file, then the share sheet (save to Files, AirDrop, mail).

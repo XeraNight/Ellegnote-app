@@ -2,6 +2,7 @@ import SwiftUI
 import AVFoundation
 import PhotosUI
 import SwiftData
+import OSLog
 
 // MARK: - Seminar Split Clip Model
 struct SeminarClipItem: Identifiable {
@@ -414,7 +415,7 @@ struct SeminarSplitterView: View {
                 do {
                     try await session.export(to: outputURL, as: .mp4)
                 } catch {
-                    print("Seminar clip export failed: \(error)")
+                    Logger.camera.error("Seminar clip export failed: \(error.localizedDescription, privacy: .public)")
                 }
             } else {
                 await withCheckedContinuation { continuation in
@@ -458,7 +459,7 @@ struct SeminarSplitterView: View {
                         self.clipEndTime = min(self.totalDuration, self.clipStartTime + 30.0)
                         self.figureNameInput = "Ďalšia figúra zo seminára"
                     } catch {
-                        print("Failed to save clip: \(error)")
+                        Logger.camera.error("Saving seminar clip failed: \(error.localizedDescription, privacy: .public)")
                     }
                 }
             }
