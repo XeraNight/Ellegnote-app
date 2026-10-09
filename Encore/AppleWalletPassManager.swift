@@ -21,7 +21,11 @@ final class AppleWalletPassManager: NSObject, ObservableObject {
     @Published var fallbackURL: URL? = nil
     
     private let passTypeIdentifier = "pass.com.jakub.encore"
-    
+
+    /// Off until the Developer account signs passes (docs/V1_LAUNCH_CHECKLIST.md). Until then the button
+    /// would only show an error, which App Review rejects (2.1), so the card hides it.
+    static let canIssuePasses = false
+
     private override init() {
         super.init()
         checkWalletStatus()

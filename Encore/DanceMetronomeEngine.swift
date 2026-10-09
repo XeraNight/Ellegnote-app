@@ -24,18 +24,26 @@ public enum DanceMetronomePreset: String, CaseIterable, Identifiable {
     
     public var shortCode: String {
         switch self {
-        case .off: return "Off"
+        case .off: return "Vypnuté"
         case .waltz: return "Waltz"
         case .tango: return "Tango"
-        case .vienneseWaltz: return "V.Valčík"
+        case .vienneseWaltz: return "V. valčík"
         case .slowfox: return "Slowfox"
         case .quickstep: return "Quickstep"
         case .samba: return "Samba"
-        case .chacha: return "Cha-Cha"
+        case .chacha: return "Cha-cha"
         case .rumba: return "Rumba"
-        case .pasoDoble: return "Paso"
+        case .pasoDoble: return "Paso doble"
         case .jive: return "Jive"
-        case .custom: return "Custom"
+        case .custom: return "Vlastné"
+        }
+    }
+
+    /// The name on a dance chip: full, as dancers say it.
+    public var chipName: String {
+        switch self {
+        case .vienneseWaltz: return "Viedenský valčík"
+        default: return shortCode
         }
     }
     

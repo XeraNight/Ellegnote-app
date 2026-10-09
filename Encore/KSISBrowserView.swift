@@ -25,6 +25,7 @@ struct KSISBrowserView: View {
     @State private var isSaving = false
     @State private var notice: String?
     @State private var isPanelExpanded = true
+    @State private var panelContentHeight: CGFloat = 0
     @State private var readGeneration = 0
     @State private var lastAdvancedRound: String?
     @State private var successTick = 0
@@ -49,9 +50,11 @@ struct KSISBrowserView: View {
                 panel
                     .padding(.horizontal, 10)
                     .padding(.bottom, 8)
+                    // The page can scroll its last rows up above the panel.
+                    .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { web.setBottomInset($0) }
             }
         }
-        .background(Color.obsidian900.ignoresSafeArea())
+        .background(EllegancePageBackground())
         .sensoryFeedback(.success, trigger: successTick)
         .sensoryFeedback(.impact(weight: .heavy), trigger: advanceTick)
         .preferredColorScheme(.dark)
@@ -113,6 +116,7 @@ struct KSISBrowserView: View {
             .accessibilityHint(isPanelExpanded ? "Zbaliť panel" : "Rozbaliť panel")
 
             if isPanelExpanded {
+                // As tall as its content (a hint is two lines), scrolling only past ~40 % of the screen.
                 ScrollView {
                     VStack(alignment: .leading, spacing: 12) {
                         panelContent
@@ -124,17 +128,19 @@ struct KSISBrowserView: View {
                         }
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
+                    .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { panelContentHeight = $0 }
                 }
-                .frame(maxHeight: 300)
+                .frame(height: min(panelContentHeight, 320))
                 .scrollBounceBehavior(.basedOnSize)
                 .transition(.opacity.combined(with: .move(edge: .bottom)))
             }
         }
         .padding(16)
-        .background(Color.obsidian800.opacity(0.97), in: RoundedRectangle(cornerRadius: 24, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 24, style: .continuous).stroke(Color.gold500.opacity(0.35), lineWidth: 1))
-        .shadow(color: .black.opacity(0.45), radius: 18, y: 6)
+        .glassEffect(.regular.tint(Color.encoreBurgundy.opacity(0.82)), in: RoundedRectangle(cornerRadius: 26, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 26, style: .continuous).stroke(Color.gold400.opacity(0.28), lineWidth: 1))
+        .shadow(color: .black.opacity(0.35), radius: 16, y: 6)
         .animation(.spring(response: 0.35, dampingFraction: 0.85), value: notice)
+        .animation(.spring(response: 0.35, dampingFraction: 0.85), value: panelContentHeight)
     }
 
     private var panelTitle: String {
@@ -351,7 +357,7 @@ struct KSISBrowserView: View {
             Text(competition.category)
                 .font(.subheadline.weight(.bold))
                 .foregroundColor(.white)
-            Text([competition.eventName, competition.date.flatMap(Self.displayDate)].compactMap { $0 }.joined(separator: " · "))
+            Text([competition.eventName, competition.date.flatMap { Self.displayDate($0) }].compactMap { $0 }.joined(separator: " · "))
                 .font(.caption)
                 .foregroundColor(.white.opacity(0.6))
         }
@@ -490,8 +496,10 @@ struct KSISBrowserView: View {
         return formatter
     }()
 
-    static func displayDate(_ iso: String) -> String? {
-        isoDay.date(from: iso)?.formatted(.dateTime.day().month(.wide).year().locale(Locale(identifier: "sk")))
+    /// "12. septembra 2026", or "12. 9. 2026" where space is short.
+    static func displayDate(_ iso: String, numeric: Bool = false) -> String? {
+        let style = Date.FormatStyle.dateTime.day().month(numeric ? .defaultDigits : .wide).year()
+        return isoDay.date(from: iso)?.formatted(style.locale(Locale(identifier: "sk")))
     }
 
     /// Couples list search: a number goes to "Č.pr", anything else to the name search.
@@ -556,6 +564,18 @@ final class KSISWebController: ObservableObject {
     func load(_ url: URL) { webView?.load(URLRequest(url: url)) }
     func reload() { webView?.reload() }
     func goBack() { webView?.goBack() }
+
+    /// Room under the page for the panel that floats over it.
+    func setBottomInset(_ height: CGFloat) {
+        guard let scrollView = webView?.scrollView, abs(scrollView.contentInset.bottom - height) > 1 else { return }
+        scrollView.contentInset.bottom = height
+        scrollView.verticalScrollIndicatorInsets.bottom = height
+    }
+
+    /// KSIS's couple detail is a desktop pop-up with 8-point text; only that page is shown larger.
+    static func pageZoom(for url: URL) -> CGFloat {
+        url.path.hasSuffix("detail_paru.php") ? 1.5 : 1
+    }
 }
 
 struct KSISWebView: UIViewRepresentable {
@@ -609,6 +629,7 @@ struct KSISWebView: UIViewRepresentable {
                 webView.load(navigationAction.request)
                 return .cancel
             }
+            webView.pageZoom = KSISWebController.pageZoom(for: url)
             return .allow
         }
 

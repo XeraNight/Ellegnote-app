@@ -1,197 +1,143 @@
 import SwiftUI
-import SwiftData
 
-// MARK: - Compare Hub View (Reference vs My Performance)
+// MARK: - Porovnanie: choose the two videos
+/// Picks "Ja" and "Vzor" before the comparison opens (BRAND_GUIDELINES §1A).
 struct CompareHubView: View {
     @Binding var pathA: String?
     @Binding var pathB: String?
     @Binding var isPresented: Bool
-    
-    @Query(sort: \VideoMediaEntry.createdAt, order: .reverse) private var allVideos: [VideoMediaEntry]
-    @Query(sort: \InstantNote.createdAt, order: .reverse) private var allNotes: [InstantNote]
-    @Query(sort: \Dance.name) private var allDances: [Dance]
-    
-    @State private var showDirectComparison: Bool = false
-    @State private var activeSlotForPicker: Int? = nil // 1 for A, 2 for B
-    
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var showDirectComparison = false
+    @State private var pickerSlot: DualSlot?
+
+    private var hasAny: Bool { pathA != nil || pathB != nil }
+
     var body: some View {
         ZStack {
             EllegancePageBackground()
-            
-            GeometryReader { geo in
-                let autoSidePadding = max(geo.size.width * 0.08, 20)
-                
-                ScrollView {
-                    VStack(spacing: 20) {
-                        
-                        // Header description
-                        VStack(spacing: 6) {
-                            Text("⚔️ Dual Porovnávač")
-                                .font(.system(size: 22, weight: .bold, design: .serif))
-                                .foregroundColor(.white)
-                            
-                            Text("Porovnanie referenčného vzoru (Idol) s vašim vlastným tancom so synchronizovaným posunom času a zrkadlením.")
-                                .font(.system(size: 12))
-                                .foregroundColor(Color.white.opacity(0.6))
-                                .multilineTextAlignment(.center)
-                        }
-                        .padding(.top, 16)
-                        
-                        // Slots Selection (A vs B)
-                        HStack(spacing: 12) {
-                            // Slot A (My Take)
-                            compareSlotCard(
-                                slotNumber: 1,
-                                title: "MOJE VIDEO (A)",
-                                path: pathA,
-                                roleName: "Vlastný pokus",
-                                accentColor: Color.latinCrimson,
-                                onSelect: { activeSlotForPicker = 1 },
-                                onClear: { pathA = nil }
-                            )
-                            
-                            // Slot B (Reference Idol)
-                            compareSlotCard(
-                                slotNumber: 2,
-                                title: "VZOR / IDOL (B)",
-                                path: pathB,
-                                roleName: "Referencia",
-                                accentColor: Color.syncEmerald,
-                                onSelect: { activeSlotForPicker = 2 },
-                                onClear: { pathB = nil }
-                            )
-                        }
-                        
-                        // Launch Dual Player Button
-                        Button {
+
+            ScrollView {
+                VStack(alignment: .leading, spacing: 20) {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Porovnanie")
+                            .font(.system(.title2, design: .rounded).weight(.bold))
+                            .foregroundColor(.white)
+                            .accessibilityAddTraits(.isHeader)
+                        Text("Pusti si svoje video vedľa vzoru, nájdi ten istý moment a uvidíš, čo robíš inak.")
+                            .font(.subheadline)
+                            .foregroundColor(.white.opacity(0.7))
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+
+                    HStack(alignment: .top, spacing: 12) {
+                        slotCard(.a, title: "JA", path: pathA) { pathA = nil }
+                        slotCard(.b, title: "VZOR", path: pathB) { pathB = nil }
+                    }
+
+                    VStack(spacing: 8) {
+                        PrimarySheetButton(title: "Spustiť porovnanie", isLoading: false, isEnabled: hasAny) {
                             showDirectComparison = true
-                        } label: {
-                            HStack(spacing: 8) {
-                                Image(systemName: "play.fill")
-                                Text("Spustiť porovnávanie")
-                            }
-                            .font(.system(size: 15, weight: .bold))
-                            .foregroundColor(Color.obsidian900)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 14)
-                            .background(
-                                LinearGradient(colors: [Color.gold500, Color.gold400], startPoint: .leading, endPoint: .trailing)
-                            )
-                            .clipShape(Capsule())
-                            .shadow(color: Color.gold500.opacity(0.35), radius: 10)
+                        }
+                        if !hasAny {
+                            Text("Vyber aspoň jedno video.")
+                                .font(.footnote)
+                                .foregroundColor(.white.opacity(0.6))
                         }
                     }
-                    .padding(.horizontal, autoSidePadding)
-                    .padding(.bottom, 30)
                 }
-            }
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Zavrieť") { isPresented = false }
-                        .foregroundColor(Color.gold400)
-                }
-            }
-            .fullScreenCover(isPresented: $showDirectComparison) {
-                DualVideoComparisonView(
-                    pathA: $pathA,
-                    pathB: $pathB
-                )
-            }
-            .sheet(isPresented: Binding(
-                get: { activeSlotForPicker != nil },
-                set: { if !$0 { activeSlotForPicker = nil } }
-            )) {
-                if let slot = activeSlotForPicker {
-                    UniversalMediaPickerSheet(
-                        slotTitle: slot == 1 ? DualSlot.a.rawValue : DualSlot.b.rawValue,
-                        currentPath: slot == 1 ? pathA : pathB,
-                        onSelectMedia: { path in
-                            if slot == 1 {
-                                pathA = path
-                            } else {
-                                pathB = path
-                            }
-                            activeSlotForPicker = nil
-                        },
-                        onClearMedia: {
-                            if slot == 1 {
-                                pathA = nil
-                            } else {
-                                pathB = nil
-                            }
-                            activeSlotForPicker = nil
-                        }
-                    )
-                }
+                .padding(.horizontal, 20)
+                .padding(.top, 8)
+                .padding(.bottom, 32)
+                .animation(reduceMotion ? nil : .spring(response: 0.35, dampingFraction: 0.85), value: pathA)
+                .animation(reduceMotion ? nil : .spring(response: 0.35, dampingFraction: 0.85), value: pathB)
             }
         }
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .cancellationAction) {
+                Button("Zavrieť") { isPresented = false }
+                    .foregroundColor(Color.gold400)
+            }
+        }
+        .sensoryFeedback(.selection, trigger: pathA)
+        .sensoryFeedback(.selection, trigger: pathB)
+        .fullScreenCover(isPresented: $showDirectComparison) {
+            DualVideoComparisonView(pathA: $pathA, pathB: $pathB)
+        }
+        .sheet(item: $pickerSlot) { slot in
+            UniversalMediaPickerSheet(
+                slotTitle: slot.rawValue,
+                currentPath: slot == .a ? pathA : pathB,
+                onSelectMedia: { path in
+                    if slot == .a { pathA = path } else { pathB = path }
+                    pickerSlot = nil
+                },
+                onClearMedia: {
+                    if slot == .a { pathA = nil } else { pathB = nil }
+                    pickerSlot = nil
+                }
+            )
+        }
     }
-    
-    private func compareSlotCard(slotNumber: Int, title: String, path: String?, roleName: String, accentColor: Color, onSelect: @escaping () -> Void, onClear: @escaping () -> Void) -> some View {
-        VStack(spacing: 10) {
+
+    // MARK: Slot
+    private func slotCard(_ slot: DualSlot, title: String, path: String?, onClear: @escaping () -> Void) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
             Text(title)
-                .font(.system(size: 11, weight: .black))
-                .foregroundColor(accentColor)
-            
-            if let path = path {
-                if MediaResolver.isImagePath(path: path), let img = MediaResolver.resolveImage(path: path) {
-                    Image(uiImage: img)
-                        .resizable()
-                        .scaledToFill()
-                        .frame(height: 120)
-                        .clipped()
-                        .cornerRadius(12)
-                } else if MediaResolver.isImagePath(path: path) {
-                    MediaThumbnailView(path: path, placeholderIcon: "photo", cornerRadius: 12)
-                        .frame(height: 120)
-                } else {
-                    LoopingVideoPlayer(videoPath: path, rate: 1.0)
-                        .frame(height: 120)
-                        .cornerRadius(12)
-                }
-                
-                HStack(spacing: 8) {
-                    Button(action: onSelect) {
-                        Text("Zmeniť")
-                            .font(.system(size: 11, weight: .bold))
-                            .foregroundColor(Color.gold400)
+                .font(.system(.caption, design: .rounded).weight(.black))
+                .tracking(1.4)
+                .foregroundColor(Color.gold400)
+
+            Button { pickerSlot = slot } label: {
+                Group {
+                    if let path {
+                        MediaThumbnailView(path: path, placeholderIcon: "film", cornerRadius: 14)
+                            .transition(.scale(scale: 0.96).combined(with: .opacity))
+                    } else {
+                        VStack(spacing: 8) {
+                            Image(systemName: "plus")
+                                .font(.title3.weight(.bold))
+                                .foregroundColor(Color.gold400)
+                            Text(slot == .a ? "Moje video" : "Video vzoru")
+                                .font(.footnote.weight(.semibold))
+                                .foregroundColor(.white.opacity(0.85))
+                        }
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .background(Color.white.opacity(0.04), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                .strokeBorder(Color.gold400.opacity(0.35), style: StrokeStyle(lineWidth: 1, dash: [5, 4]))
+                        )
                     }
-                    
-                    Text("•")
-                        .foregroundColor(Color.white.opacity(0.3))
-                    
+                }
+                .aspectRatio(3 / 4, contentMode: .fit)
+                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            }
+            .buttonStyle(.pressable)
+            .accessibilityLabel(path == nil ? "Vybrať: \(slot.rawValue)" : "Zmeniť: \(slot.rawValue)")
+
+            if path != nil {
+                HStack {
+                    Button("Zmeniť") { pickerSlot = slot }
+                        .font(.footnote.weight(.bold))
+                        .foregroundColor(Color.gold400)
+                    Spacer()
+                    // Only empties the slot; the video stays where it is.
                     Button(action: onClear) {
-                        Text("Odobrať")
-                            .font(.system(size: 11, weight: .bold))
-                            .foregroundColor(Color.latinCrimson)
+                        Image(systemName: "xmark")
+                            .font(.footnote.weight(.bold))
+                            .foregroundColor(.white.opacity(0.6))
+                            .frame(width: 32, height: 32)
                     }
+                    .accessibilityLabel("Odobrať z porovnania")
                 }
-            } else {
-                Button(action: onSelect) {
-                    VStack(spacing: 8) {
-                        Image(systemName: "plus.circle.fill")
-                            .font(.system(size: 24))
-                            .foregroundColor(accentColor)
-                        
-                        Text("Zvoliť video / foto")
-                            .font(.system(size: 12, weight: .bold))
-                            .foregroundColor(.white)
-                        
-                        Text(roleName)
-                            .font(.system(size: 10))
-                            .foregroundColor(Color.white.opacity(0.5))
-                    }
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 120)
-                    .background(Color.themeCard.opacity(0.7))
-                    .cornerRadius(12)
-                    .overlay(RoundedRectangle(cornerRadius: 12).stroke(accentColor.opacity(0.35), lineWidth: 1))
-                }
-                .buttonStyle(.plain)
+                .buttonStyle(.pressable)
+                .frame(minHeight: 32)
             }
         }
         .padding(12)
-        .luxurySmokedCard(cornerRadius: 16, accentColor: accentColor)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .homeCard(cornerRadius: 18)
     }
 }

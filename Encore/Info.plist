@@ -5,7 +5,7 @@
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
 	<key>CFBundleDevelopmentRegion</key>
-	<string>$(DEVELOPMENT_LANGUAGE)</string>
+	<string>sk</string>
 	<key>CFBundleDisplayName</key>
 	<string>Encore</string>
 	<key>CFBundleExecutable</key>

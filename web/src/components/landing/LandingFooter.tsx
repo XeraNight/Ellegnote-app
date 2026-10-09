@@ -4,7 +4,7 @@ import Image from 'next/image'
 
 export default function LandingFooter() {
   return (
-    <footer className="border-t border-[#FFE088]/20 bg-[#050505] text-zinc-400 py-16 text-xs relative z-10 font-sans">
+    <footer className="border-t border-[#FFE088]/20 bg-[#100204] text-zinc-400 py-16 text-xs relative z-10 font-sans">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
         
         {/* Top Footer Row */}

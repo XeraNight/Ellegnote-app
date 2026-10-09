@@ -126,7 +126,7 @@ struct EncoreMemberCardView: View {
                             RoundedRectangle(cornerRadius: 14, style: .continuous)
                                 .stroke(Color.gold500.opacity(0.4), lineWidth: 1)
                         )
-                    } else {
+                    } else if AppleWalletPassManager.canIssuePasses {
                         Button {
                             HapticFeedback.medium()
                             Task {
@@ -160,69 +160,24 @@ struct EncoreMemberCardView: View {
                         .disabled(walletManager.isLoadingPass)
                     }
                     
-                    // Flip, Proximity Gesture / AirDrop & QR Refresh Controls
                     HStack(spacing: 8) {
-                        Button {
+                        cardAction(isFlipped ? "Predná strana" : "Otočiť", icon: "arrow.triangle.2.circlepath") {
                             toggleFlip()
-                        } label: {
-                            HStack(spacing: 4) {
-                                Image(systemName: "arrow.triangle.2.circlepath")
-                                    .font(.system(size: 11, weight: .bold))
-                                Text(isFlipped ? "Predná" : "Zadná")
-                                    .font(.system(size: 11, weight: .bold))
-                            }
-                            .foregroundColor(Color.gold300)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 10)
-                            .background(Color.obsidian800)
-                            .cornerRadius(12)
-                            .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.gold500.opacity(0.3), lineWidth: 1))
                         }
-                        .buttonStyle(.plain)
-                        
-                        Button {
+                        cardAction("Poslať", icon: "square.and.arrow.up") {
                             shareViaProximityAirDrop()
-                        } label: {
-                            HStack(spacing: 4) {
-                                Image(systemName: "wave.3.forward.circle.fill")
-                                    .font(.system(size: 12, weight: .bold))
-                                Text("Priblížiť / AirDrop")
-                                    .font(.system(size: 11, weight: .bold))
-                            }
-                            .foregroundColor(Color.gold300)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 10)
-                            .background(Color.obsidian800)
-                            .cornerRadius(12)
-                            .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.gold500.opacity(0.3), lineWidth: 1))
                         }
-                        .buttonStyle(.plain)
-                        
-                        Button {
-                            Task {
-                                await FriendManager.shared.refreshInviteToken()
-                            }
-                        } label: {
-                            HStack(spacing: 4) {
-                                if FriendManager.shared.isRefreshingToken {
-                                    ProgressView().tint(Color.gold300).scaleEffect(0.7)
-                                } else {
-                                    Image(systemName: "arrow.clockwise")
-                                        .font(.system(size: 11, weight: .bold))
-                                }
-                                Text("Obnoviť QR")
-                                    .font(.system(size: 11, weight: .bold))
-                            }
-                            .foregroundColor(Color.gold300)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 10)
-                            .background(Color.obsidian800)
-                            .cornerRadius(12)
-                            .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.gold500.opacity(0.3), lineWidth: 1))
+                        cardAction("Nový QR", icon: "arrow.clockwise", isBusy: friendManager.isRefreshingToken) {
+                            Task { await FriendManager.shared.refreshInviteToken() }
                         }
-                        .buttonStyle(.plain)
-                        .disabled(FriendManager.shared.isRefreshingToken)
                     }
+
+                    Text("Partner alebo tréner naskenuje QR kód a pošle ti žiadosť o prepojenie. Kód platí 7 dní, nový zneplatní ten starý.")
+                        .font(.footnote)
+                        .foregroundColor(.white.opacity(0.65))
+                        .fixedSize(horizontal: false, vertical: true)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.top, 4)
                 }
                 .frame(maxWidth: 360)
             }
@@ -249,6 +204,31 @@ struct EncoreMemberCardView: View {
         }
     }
     
+    private func cardAction(_ title: String, icon: String, isBusy: Bool = false, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            VStack(spacing: 5) {
+                Group {
+                    if isBusy {
+                        ProgressView().tint(Color.gold400)
+                    } else {
+                        Image(systemName: icon)
+                            .font(.subheadline.weight(.bold))
+                    }
+                }
+                .frame(height: 20)
+                Text(title)
+                    .font(.caption.weight(.semibold))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+            }
+            .foregroundColor(Color.gold300)
+            .frame(maxWidth: .infinity, minHeight: 58)
+            .homeCard(cornerRadius: 14)
+        }
+        .buttonStyle(.pressable)
+        .disabled(isBusy)
+    }
+
     // MARK: - Toggle 3D Flip
     private func toggleFlip() {
         withAnimation(.spring(response: 0.65, dampingFraction: 0.82)) {
@@ -275,7 +255,7 @@ struct EncoreMemberCardView: View {
                             .foregroundColor(Color(red: 0.96, green: 0.85, blue: 0.50))
                             .shadow(color: Color.black.opacity(0.85), radius: 2)
                         
-                        Text("PREMIUM DANCE PASS")
+                        Text("ČLENSKÁ KARTA")
                             .font(.system(size: 7.5, weight: .bold))
                             .tracking(0.8)
                             .foregroundColor(Color.white.opacity(0.65))
@@ -511,11 +491,13 @@ struct EncoreMemberCardView: View {
                     
                     Spacer()
                     
-                    HStack(spacing: 5) {
-                        Circle().fill(Color(red: 0.95, green: 0.82, blue: 0.45)).frame(width: 5, height: 5)
-                        Text(walletManager.isPassInWallet ? "V APPLE PEŇAŽENKE" : "WALLET READY")
-                            .font(.system(size: 8, weight: .heavy))
-                            .foregroundColor(Color(red: 0.95, green: 0.82, blue: 0.45))
+                    if walletManager.isPassInWallet {
+                        HStack(spacing: 5) {
+                            Circle().fill(Color(red: 0.95, green: 0.82, blue: 0.45)).frame(width: 5, height: 5)
+                            Text("V APPLE PEŇAŽENKE")
+                                .font(.system(size: 8, weight: .heavy))
+                                .foregroundColor(Color(red: 0.95, green: 0.82, blue: 0.45))
+                        }
                     }
                 }
             }

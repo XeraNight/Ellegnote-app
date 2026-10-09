@@ -53,19 +53,18 @@ struct MainTabView: View {
             navAppearance.configureWithTransparentBackground()
             navAppearance.backgroundColor = .clear
             navAppearance.shadowColor = .clear
-            let baseFont = UIFont.systemFont(ofSize: 17, weight: .bold)
-            let titleFont: UIFont
-            if let serifDesc = baseFont.fontDescriptor.withDesign(.serif) {
-                titleFont = UIFont(descriptor: serifDesc, size: 17)
-            } else {
-                titleFont = baseFont
+            // Titles in SF Rounded like the Home headers (§1A), not serif.
+            func rounded(_ size: CGFloat, _ weight: UIFont.Weight) -> UIFont {
+                let base = UIFont.systemFont(ofSize: size, weight: weight)
+                return base.fontDescriptor.withDesign(.rounded).map { UIFont(descriptor: $0, size: size) } ?? base
             }
             navAppearance.titleTextAttributes = [
-                .foregroundColor: UIColor(Color.gold500),
-                .font: titleFont
+                .foregroundColor: UIColor.white,
+                .font: rounded(17, .bold)
             ]
             navAppearance.largeTitleTextAttributes = [
-                .foregroundColor: UIColor(Color.gold500)
+                .foregroundColor: UIColor.white,
+                .font: rounded(32, .heavy)
             ]
             UINavigationBar.appearance().standardAppearance = navAppearance
             UINavigationBar.appearance().scrollEdgeAppearance = navAppearance

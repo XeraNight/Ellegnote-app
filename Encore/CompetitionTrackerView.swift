@@ -42,7 +42,7 @@ struct CompetitionTrackerView: View {
                 }
                 .padding(.horizontal, 20)
                 .padding(.top, 8)
-                .padding(.bottom, 40)
+                .padding(.bottom, 120)   // clear of the tab bar
                 .animation(.spring(response: 0.4, dampingFraction: 0.85), value: manager.couples.map(\.id))
             }
             .scrollDismissesKeyboard(.interactively)
@@ -216,17 +216,19 @@ struct CompetitionTrackerView: View {
                 .font(.system(size: 34, weight: .heavy, design: .rounded))
                 .foregroundColor(.white)
                 .contentTransition(.numericText())
-            HStack(spacing: 10) {
-                Label("\(standing.points.map(String.init) ?? "–") b", systemImage: "star.fill")
-                Label("\(standing.finals.map(String.init) ?? "–") F", systemImage: "rosette")
+            VStack(alignment: .leading, spacing: 4) {
+                Label(standing.points.map { slovakCount($0, one: "bod", few: "body", many: "bodov") } ?? "– bodov",
+                      systemImage: "star.fill")
+                Label("\(standing.finals.map(String.init) ?? "–") finále", systemImage: "rosette")
             }
             .font(.caption.weight(.bold))
             .foregroundColor(.white.opacity(0.8))
             .labelStyle(.titleAndIcon)
-            if let change = standing.lastChange.flatMap(KSISBrowserView.displayDate) {
+            if let change = standing.lastChange.flatMap({ KSISBrowserView.displayDate($0, numeric: true) }) {
                 Text("Zmena \(change)")
                     .font(.caption2)
-                    .foregroundColor(.white.opacity(0.45))
+                    .foregroundColor(.white.opacity(0.6))
+                    .lineLimit(1)
             }
         }
         .padding(12)

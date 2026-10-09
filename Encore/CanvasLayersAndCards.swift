@@ -163,7 +163,7 @@ struct BallroomMarkingsView: View {
             // Ľavá dlhá stena: Jasný zlatý badge (LOD ▲ smer nahor)
             wallBadge(
                 title: "DLHÁ STENA",
-                subTitle: "LEFT LONG SIDE • LOD ▲",
+                subTitle: "SMER TANCA",
                 icon: "arrow.up",
                 isVertical: true
             )
@@ -172,7 +172,7 @@ struct BallroomMarkingsView: View {
             // Pravá dlhá stena: Jasný zlatý badge (LOD ▼ smer nadol)
             wallBadge(
                 title: "DLHÁ STENA",
-                subTitle: "RIGHT LONG SIDE • LOD ▼",
+                subTitle: "SMER TANCA",
                 icon: "arrow.down",
                 isVertical: true
             )
@@ -208,7 +208,7 @@ struct BallroomMarkingsView: View {
             // Horná krátka stena: Zlatý badge (LOD ▶ smer doprava)
             wallBadge(
                 title: "KRÁTKA STENA",
-                subTitle: "TOP SHORT SIDE • LOD ▶",
+                subTitle: "SMER TANCA",
                 icon: "arrow.right",
                 isVertical: false
             )
@@ -217,7 +217,7 @@ struct BallroomMarkingsView: View {
             // Dolná krátka stena: Zlatý badge (LOD ◀ smer doľava)
             wallBadge(
                 title: "KRÁTKA STENA",
-                subTitle: "BOTTOM SHORT SIDE • LOD ◀",
+                subTitle: "SMER TANCA",
                 icon: "arrow.left",
                 isVertical: false
             )
@@ -302,30 +302,14 @@ struct BallroomMarkingsView: View {
             }
             .stroke(Color.gold400.opacity(0.20), lineWidth: 1)
             
-            // Core insignia
-            VStack(spacing: 3) {
-                Image(systemName: "sparkles")
-                    .font(.system(size: 18, weight: .bold))
-                    .foregroundColor(Color.gold300)
-                
-                Text("STRED PARKETU")
-                    .font(.system(size: 13, weight: .black, design: .serif))
-                    .foregroundColor(Color.gold300)
-                    .tracking(2.2)
-                
-                Text("BALLROOM CENTER • LÍNIE TANCA")
-                    .font(.system(size: 7.5, weight: .bold))
-                    .foregroundColor(Color.gold400.opacity(0.90))
-                    .tracking(1.2)
-            }
-            .padding(12)
-            .background(
-                Circle()
-                    .fill(Color.obsidian900.opacity(0.88))
-                    .overlay(Circle().stroke(Color.gold400.opacity(0.50), lineWidth: 1))
-            )
-            .shadow(color: Color.black.opacity(0.50), radius: 8)
+            // A quiet floor marking: figures placed in the middle cover it, as on a real floor.
+            Text("STRED")
+                .font(.system(size: 12, weight: .black, design: .rounded))
+                .tracking(2.2)
+                .foregroundColor(Color.gold400.opacity(0.55))
+                .offset(y: 16)
         }
+        .accessibilityHidden(true)
     }
 }
 

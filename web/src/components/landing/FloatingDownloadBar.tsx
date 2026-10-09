@@ -19,7 +19,7 @@ export default function FloatingDownloadBar() {
 
   return (
     <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-50 w-full max-w-sm px-4 animate-scale-up pointer-events-auto md:hidden">
-      <div className="p-2 rounded-full bg-[#121216]/95 border border-[#FFE088]/30 shadow-[0_15px_40px_rgba(0,0,0,0.9),0_0_25px_rgba(212,175,55,0.20)] backdrop-blur-2xl flex items-center justify-between gap-3">
+      <div className="p-2 rounded-full bg-[#1E0409]/95 border border-[#FFE088]/30 shadow-[0_15px_40px_rgba(0,0,0,0.9),0_0_25px_rgba(212,175,55,0.20)] backdrop-blur-2xl flex items-center justify-between gap-3">
         
         {/* Left: Mini App Icon & Tag */}
         <div className="flex items-center gap-2.5 pl-2.5">

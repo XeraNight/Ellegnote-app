@@ -83,13 +83,19 @@ struct RoutineCanvasView: View {
         max(fitScale(for: viewport) * 0.72, 0.2)
     }
 
+    /// Room taken by the top bar (title, live status) and by the floating controls with "+ Figúra".
+    /// A fitted floor sits between them, so no wall label hides under a button.
+    private static let reservedTop: CGFloat = 150
+    private static let reservedBottom: CGFloat = 215
+    private static var fitShiftY: CGFloat { (reservedTop - reservedBottom) / 2 }
+
     /// Scale at which the whole floor just fits the screen (used by the "fit" buttons).
     private func fitScale(for viewport: CGSize) -> CGFloat {
         let fallback = Self.fallbackViewportSize
         let w = viewport.width > 0 ? viewport.width : fallback.width
         let h = viewport.height > 0 ? viewport.height : fallback.height
         let availableW = max(w - 24, 280)
-        let availableH = max(h - 200, 320)
+        let availableH = max(h - Self.reservedTop - Self.reservedBottom, 320)
         let fit = min(availableW / contentWidth, availableH / contentHeight)
         return max(fit, 0.35)
     }
@@ -838,14 +844,15 @@ struct RoutineCanvasView: View {
         guard viewport.width > 0, viewport.height > 0 else { return }
         let targetScale = fitScale(for: viewport)
         
+        let centred = CGSize(width: 0, height: Self.fitShiftY)
         if animated {
             withAnimation(.spring(response: 0.38, dampingFraction: 0.75)) {
                 scale = targetScale
-                translation = .zero
+                translation = centred
             }
         } else {
             scale = targetScale
-            translation = .zero
+            translation = centred
         }
     }
     
@@ -868,7 +875,7 @@ struct RoutineCanvasView: View {
         let boundsWidth  = max(maxX - minX + 60, contentWidth)
         let boundsHeight = max(maxY - minY + 60, contentHeight)
         let availableWidth  = max(viewportSize.width  - 24,  280)
-        let availableHeight = max(viewportSize.height - 200, 320)
+        let availableHeight = max(viewportSize.height - Self.reservedTop - Self.reservedBottom, 320)
         let targetScale = min(max(min(availableWidth / boundsWidth, availableHeight / boundsHeight), minS), maxScale)
         
         withAnimation(.spring(response: 0.38, dampingFraction: 0.75)) {
@@ -876,7 +883,7 @@ struct RoutineCanvasView: View {
             translation = clampedTranslation(
                 CGSize(
                     width:  CGFloat(1500.0 - centerX) * targetScale,
-                    height: CGFloat(1500.0 - centerY) * targetScale
+                    height: CGFloat(1500.0 - centerY) * targetScale + Self.fitShiftY
                 ),
                 viewportSize: viewportSize,
                 scale: targetScale

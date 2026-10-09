@@ -15,17 +15,20 @@ struct NoteFormatBar: View {
 
     private struct InkColor: Identifiable {
         let name: String
-        let color: Color
+        /// nil = the default light ink.
+        let color: Color?
         var id: String { name }
     }
 
+    /// Bright enough to read on the dark notes card.
     private let inks: [InkColor] = [
-        InkColor(name: "Čierna", color: NoteStyle.ink),
-        InkColor(name: "Červená", color: Color(red: 0.78, green: 0.08, blue: 0.18)),
-        InkColor(name: "Modrá", color: Color(red: 0.12, green: 0.36, blue: 0.85)),
-        InkColor(name: "Zelená", color: Color(red: 0.07, green: 0.55, blue: 0.33)),
-        InkColor(name: "Oranžová", color: Color(red: 0.90, green: 0.47, blue: 0.05)),
-        InkColor(name: "Fialová", color: Color(red: 0.50, green: 0.22, blue: 0.75))
+        InkColor(name: "Biela", color: nil),
+        InkColor(name: "Zlatá", color: Color.gold400),
+        InkColor(name: "Červená", color: Color(red: 1.0, green: 0.45, blue: 0.50)),
+        InkColor(name: "Modrá", color: Color(red: 0.50, green: 0.70, blue: 1.0)),
+        InkColor(name: "Zelená", color: Color(red: 0.40, green: 0.88, blue: 0.60)),
+        InkColor(name: "Oranžová", color: Color(red: 1.0, green: 0.68, blue: 0.30)),
+        InkColor(name: "Fialová", color: Color(red: 0.78, green: 0.62, blue: 1.0))
     ]
 
     var body: some View {
@@ -54,7 +57,7 @@ struct NoteFormatBar: View {
     private var highlightMenu: some View {
         Menu {
             Button { apply { $0.underlineStyle = .single } } label: { Label("Podčiarknuť", systemImage: "underline") }
-            Button { apply { $0.backgroundColor = Color.yellow.opacity(0.55) } } label: { Label("Zvýrazniť žltou", systemImage: "highlighter") }
+            Button { apply { $0.backgroundColor = Color.yellow.opacity(0.35) } } label: { Label("Zvýrazniť žltou", systemImage: "highlighter") }
             Button { apply { $0.backgroundColor = Color.pink.opacity(0.35) } } label: { Label("Zvýrazniť ružovou", systemImage: "highlighter") }
             Button { apply { $0.backgroundColor = Color.green.opacity(0.35) } } label: { Label("Zvýrazniť zelenou", systemImage: "highlighter") }
             Divider()
@@ -97,7 +100,7 @@ struct NoteFormatBar: View {
                 Button { apply { $0.foregroundColor = ink.color } } label: {
                     Label(ink.name, systemImage: "circle.fill")
                 }
-                .tint(ink.color)
+                .tint(ink.color ?? NoteStyle.ink)
             }
         } label: { icon("paintpalette") }
     }

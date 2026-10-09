@@ -20,7 +20,7 @@ export default function LandingNavbar() {
     <nav
       className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
         scrolled
-          ? 'bg-[#050505]/90 backdrop-blur-xl border-b border-[#FFE088]/20 shadow-[0_10px_30px_rgba(0,0,0,0.8)] py-3.5'
+          ? 'bg-[#140206]/95 backdrop-blur-xl border-b border-[#FFE088]/20 shadow-[0_10px_30px_rgba(0,0,0,0.8)] py-3.5'
           : 'bg-transparent py-5'
       }`}
     >
@@ -48,14 +48,14 @@ export default function LandingNavbar() {
 
         {/* Desktop Navigation Links */}
         <div className="hidden md:flex items-center gap-8 text-xs font-semibold uppercase tracking-wider text-zinc-300">
-          <a href="#features" className="hover:text-[#FFE088] transition-colors">
-            Funkcie
-          </a>
           <a href="#canvas" className="hover:text-[#FFE088] transition-colors">
             2D Parket
           </a>
-          <a href="#core-loop" className="hover:text-[#FFE088] transition-colors">
-            Prečo Encore
+          <a href="#workflow" className="hover:text-[#FFE088] transition-colors">
+            Tréning v sále
+          </a>
+          <a href="#duel" className="hover:text-[#FFE088] transition-colors">
+            Video Duel
           </a>
           <a href="#pricing" className="hover:text-[#FFE088] transition-colors">
             Cenník

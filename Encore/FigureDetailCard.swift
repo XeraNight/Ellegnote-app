@@ -8,8 +8,8 @@ import OSLog
 
 
 // MARK: - Figure screen
-/// Full-screen page of one figure: the video on top (portrait or landscape frame, Duel next to it)
-/// and the notes on a white sheet below. While writing, the formatting bar replaces everything
+/// Full-screen page of one figure: the video on top (portrait or landscape frame, Porovnanie next to it)
+/// and the notes on a dark glass card below. While writing, the formatting bar replaces everything
 /// else at the bottom, and the top and bottom edges blur the content scrolling under them.
 struct FigureDetailCard: View {
     @Environment(\.dismiss) private var dismiss
@@ -40,6 +40,7 @@ struct FigureDetailCard: View {
     @State private var videoHeightOverride: CGFloat? = nil
     @State private var dragStartHeight: CGFloat? = nil
     @State private var showCamera = false
+    @State private var showMediaPicker = false
     @State private var showDuelComparison = false
     @State private var confirmDeleteVideo = false
 
@@ -68,6 +69,9 @@ struct FigureDetailCard: View {
                 ScrollView {
                     VStack(spacing: 14) {
                         videoSection(width: geo.size.width - 32, screenHeight: geo.size.height)
+                        HomeSectionHeader(title: "POZNÁMKY", systemImage: "note.text")
+                            .padding(.horizontal, 4)
+                            .padding(.top, 4)
                         notesSheet
                         coachNotesCard
                         GuestNotesOnFigure(nodeId: node.id)
@@ -134,6 +138,17 @@ struct FigureDetailCard: View {
                 if node.sharedVideoPath != nil { Task { await shareVideo() } }
             }
             .ignoresSafeArea()
+        }
+        .sheet(isPresented: $showMediaPicker) {
+            UniversalMediaPickerSheet(
+                slotTitle: "Video figúry",
+                currentPath: node.videoPath,
+                onSelectMedia: { path in
+                    node.videoPath = path
+                    routineDidChange()
+                },
+                onClearMedia: {}
+            )
         }
         .sheet(isPresented: $showDuelComparison) {
             DualVideoComparisonView(
@@ -210,9 +225,8 @@ struct FigureDetailCard: View {
             .buttonStyle(.pressable)
 
             Text(node.figureName)
-                .font(.system(size: 18, weight: .bold, design: .rounded))
+                .font(.system(.headline, design: .rounded).weight(.bold))
                 .foregroundStyle(.white)
-                .underline(true, color: Color.gold400.opacity(0.8))
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -227,7 +241,7 @@ struct FigureDetailCard: View {
                     .disabled(node.displayVideoPath == nil)
                     .opacity(node.displayVideoPath == nil ? 0.45 : 1)
 
-                    LiquidGlassCircleButton(icon: "rectangle.split.2x1", label: "Duel") { showDuelComparison = true }
+                    LiquidGlassCircleButton(icon: "rectangle.split.2x1", label: "Porovnanie") { showDuelComparison = true }
                 }
             }
         }
@@ -309,18 +323,28 @@ struct FigureDetailCard: View {
     private var emptyVideo: some View {
         VStack(spacing: 12) {
             Image(systemName: "video.badge.plus")
-                .font(.system(size: 30, weight: .regular))
+                .font(.title)
                 .foregroundStyle(Color.gold400)
             Text("Pridaj video figúry")
-                .font(.system(size: 15, weight: .semibold))
+                .font(.subheadline.weight(.semibold))
                 .foregroundStyle(.white)
-            Button { showCamera = true } label: {
-                Text("Natočiť video")
-                    .font(.system(size: 14, weight: .bold))
-                    .foregroundStyle(Color.obsidian900)
-                    .padding(.horizontal, 18)
-                    .padding(.vertical, 10)
-                    .background(Color.gold400, in: Capsule())
+            HStack(spacing: 10) {
+                Button { showCamera = true } label: {
+                    Label("Natočiť", systemImage: "record.circle")
+                        .font(.footnote.weight(.bold))
+                        .foregroundStyle(Color.obsidian900)
+                        .padding(.horizontal, 16)
+                        .frame(minHeight: 40)
+                        .background(Color.gold400, in: Capsule())
+                }
+                Button { showMediaPicker = true } label: {
+                    Label("Z Fotiek", systemImage: "photo.on.rectangle")
+                        .font(.footnote.weight(.bold))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 16)
+                        .frame(minHeight: 40)
+                        .background(Color.white.opacity(0.12), in: Capsule())
+                }
             }
             .buttonStyle(.pressable)
         }
@@ -433,7 +457,7 @@ struct FigureDetailCard: View {
                     Text("Tu si píš poznámky k figúre…")
                         .font(.system(size: NoteStyle.defaultSize))
                 }
-                .foregroundStyle(NoteStyle.ink.opacity(0.30))
+                .foregroundStyle(Color.white.opacity(0.5))
                 .padding(.horizontal, 5)
                 .padding(.vertical, 8)
                 .allowsHitTesting(false)
@@ -445,13 +469,13 @@ struct FigureDetailCard: View {
                 .scrollDisabled(true)
                 .font(.system(size: NoteStyle.defaultSize))
                 .foregroundStyle(NoteStyle.ink)
-                .tint(Color.encoreCrimson)
+                .tint(Color.gold400)
         }
-        .frame(maxWidth: .infinity, minHeight: 260, alignment: .topLeading)
+        .frame(maxWidth: .infinity, minHeight: 200, alignment: .topLeading)
         .padding(14)
-        .background(Color(white: 0.985), in: RoundedRectangle(cornerRadius: 26, style: .continuous))
+        .homeCard(cornerRadius: 22)
         .overlay { FieldEdgeSweep(trigger: sweepTrigger).padding(14) }
-        .contentShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
+        .contentShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
         .onTapGesture { isWriting = true }
     }
 

@@ -82,6 +82,7 @@ struct DualVideoComparisonView: View {
     /// How far the model video is ahead of mine once "Zarovnať" found the same moment in both.
     @State private var offsetB = 0.0
     @State private var layoutMode: DualLayoutMode = .stacked
+    @State private var userPickedLayout = false
     @State private var showsSlotB = false
     @State private var audioSource: DualAudioSource = .slotA
 
@@ -245,7 +246,10 @@ struct DualVideoComparisonView: View {
 
     @ViewBuilder
     private var moreMenu: some View {
-        Picker(selection: $layoutMode) {
+        Picker(selection: Binding(
+            get: { layoutMode },
+            set: { layoutMode = $0; userPickedLayout = true }
+        )) {
             ForEach(DualLayoutMode.allCases) { mode in
                 Label(mode.rawValue, systemImage: mode.iconName).tag(mode)
             }
@@ -897,14 +901,29 @@ struct DualVideoComparisonView: View {
             let frameA = await VideoStill.frameDuration(of: urlA)
             let frameB = await VideoStill.frameDuration(of: urlB)
             let lengthB = await VideoStill.duration(of: urlB)
+            let portraitA = await VideoStill.isPortrait(urlA)
+            let portraitB = await VideoStill.isPortrait(urlB)
             guard generation == setupGeneration else { return }
             isResolving = false
             frameDurationA = frameA
             frameDurationB = frameB
             durationB = lengthB
             buildPlayers(urlA: urlA, urlB: urlB)
+            chooseLayout(portraitA: portraitA ?? imageA.map(Self.isPortrait),
+                         portraitB: portraitB ?? imageB.map(Self.isPortrait))
         }
     }
+
+    /// Upright videos sit next to each other (stacked they would fill a third of each window),
+    /// wide ones under each other. A layout picked in the menu wins.
+    private func chooseLayout(portraitA: Bool?, portraitB: Bool?) {
+        guard !userPickedLayout else { return }
+        let shapes = [portraitA, portraitB].compactMap { $0 }
+        guard !shapes.isEmpty else { return }
+        layoutMode = shapes.allSatisfy { $0 } ? .sideBySide : .stacked
+    }
+
+    private static func isPortrait(_ image: UIImage) -> Bool { image.size.height > image.size.width }
 
     /// nil for an empty slot, a photo, or a video that is missing or cannot be played
     /// (the slot then says so instead of showing a crossed-out player).
@@ -1115,6 +1134,16 @@ nonisolated enum VideoStill {
         guard let url, let time = try? await AVURLAsset(url: url).load(.duration),
               time.seconds.isFinite, time.seconds > 0 else { return 1 }
         return time.seconds
+    }
+
+    /// True for a video filmed upright (taller than wide once rotated), nil when unknown.
+    @concurrent
+    static func isPortrait(_ url: URL?) async -> Bool? {
+        guard let url,
+              let track = try? await AVURLAsset(url: url).loadTracks(withMediaType: .video).first,
+              let geometry = try? await track.load(.naturalSize, .preferredTransform) else { return nil }
+        let upright = CGRect(origin: .zero, size: geometry.0).applying(geometry.1)
+        return abs(upright.height) > abs(upright.width)
     }
 
     /// One frame of the video in seconds (1/30 when unknown), so frame steps land on real frames.

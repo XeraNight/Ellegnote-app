@@ -1,24 +1,23 @@
 'use client'
 
 import React, { useEffect, useState, useRef } from 'react'
+import Image from 'next/image'
 
 export default function HeroStageLighting() {
   const [mounted, setMounted] = useState(false)
-  const [mousePos, setMousePos] = useState({ x: 50, y: 25 })
-  const targetPos = useRef({ x: 50, y: 25 })
+  const [mousePos, setMousePos] = useState({ x: 50, y: 30 })
+  const targetPos = useRef({ x: 50, y: 30 })
   const animFrame = useRef<number | null>(null)
 
   useEffect(() => {
-    setMounted(true)
+    const timer = setTimeout(() => setMounted(true), 10)
 
     const handleMouseMove = (e: MouseEvent) => {
-      // Calculate cursor position as percentage of window
       const x = (e.clientX / window.innerWidth) * 100
       const y = (e.clientY / window.innerHeight) * 100
       targetPos.current = { x, y }
     }
 
-    // Smooth lerp for buttery 60 FPS spotlight movement
     const animate = () => {
       setMousePos((prev) => ({
         x: prev.x + (targetPos.current.x - prev.x) * 0.05,
@@ -31,107 +30,58 @@ export default function HeroStageLighting() {
     animFrame.current = requestAnimationFrame(animate)
 
     return () => {
+      clearTimeout(timer)
       window.removeEventListener('mousemove', handleMouseMove)
       if (animFrame.current) cancelAnimationFrame(animFrame.current)
     }
   }, [])
 
   return (
-    <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
-      {/* ── 1. Base Carmine Velvet Ambient (Ballroom Theatre Velvet Backdrop) ── */}
+    <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden" aria-hidden="true">
+      {/* ── 1. Theatrical Red Velvet Stage Backdrop (encore_stage_bg.jpg) ── */}
+      <div className="absolute inset-0 opacity-45 mix-blend-screen transition-opacity duration-1000">
+        <Image
+          src="/encore_stage_bg.jpg"
+          alt=""
+          fill
+          priority
+          sizes="100vw"
+          className="object-cover object-top"
+        />
+      </div>
+
+      {/* ── 2. Rich Carmine Velvet Color Scrim (WCAG Contrast & Theater Warmth) ── */}
       <div
-        className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-[1500px] h-[750px] transition-opacity duration-1000"
+        className="absolute inset-0"
         style={{
           background:
-            'radial-gradient(ellipse 85% 65% at 50% -10%, rgba(102, 3, 18, 0.24) 0%, rgba(41, 5, 10, 0.12) 45%, transparent 75%)',
+            'radial-gradient(ellipse 95% 75% at 50% 15%, rgba(102, 3, 18, 0.45) 0%, rgba(35, 4, 10, 0.70) 50%, rgba(18, 2, 6, 0.95) 90%, #140206 100%)',
         }}
       />
 
-      {/* ── 2. Interactive Follow-Spotlight (Tracks cursor smoothly like Stripe/Apple stage) ── */}
+      {/* ── 3. Overhead Fixed Golden Stage Beam (Direct Spotlight on Hero Device) ── */}
       <div
-        className="absolute w-[900px] h-[600px] -translate-x-1/2 -translate-y-1/2 transition-opacity duration-500 will-change-transform"
+        className="absolute top-0 left-1/2 -translate-x-1/2 w-[1400px] h-[750px]"
+        style={{
+          background:
+            'radial-gradient(ellipse 65% 50% at 50% 0%, rgba(255, 224, 136, 0.14) 0%, rgba(212, 175, 55, 0.06) 45%, transparent 75%)',
+        }}
+      />
+
+      {/* ── 4. Interactive Follow-Spotlight (Smooth 60 FPS Cursor Tracker) ── */}
+      <div
+        className="absolute w-[900px] h-[650px] -translate-x-1/2 -translate-y-1/2 transition-opacity duration-700 will-change-transform"
         style={{
           left: mounted ? `${mousePos.x}%` : '50%',
-          top: mounted ? `${Math.min(mousePos.y, 65)}%` : '25%',
+          top: mounted ? `${Math.min(mousePos.y, 70)}%` : '30%',
           background:
-            'radial-gradient(circle 380px at center, rgba(255, 224, 136, 0.09) 0%, rgba(212, 175, 55, 0.03) 50%, transparent 80%)',
-          filter: 'blur(30px)',
+            'radial-gradient(circle 380px at center, rgba(255, 224, 136, 0.08) 0%, rgba(212, 175, 55, 0.03) 50%, transparent 80%)',
+          filter: 'blur(35px)',
         }}
       />
 
-      {/* ── 3. Fixed Center Stage Spotlight Beam ── */}
-      <div
-        className="absolute top-0 left-1/2 -translate-x-1/2 w-[1200px] h-[550px]"
-        style={{
-          background:
-            'radial-gradient(ellipse 70% 50% at 50% 0%, rgba(212, 175, 55, 0.08) 0%, transparent 70%)',
-        }}
-      />
-
-      {/* ── 4. Discord-Inspired Floating Golden Stage Stars (Twinkling Sparkles) ── */}
-      {mounted && (
-        <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          {/* Top-left star */}
-          <div
-            className="absolute animate-star-twinkle transition-transform duration-700 ease-out"
-            style={{
-              top: '18%',
-              left: '12%',
-              transform: `translate(${(mousePos.x - 50) * -0.2}px, ${(mousePos.y - 25) * -0.2}px)`,
-              animationDelay: '0s',
-            }}
-          >
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="#FFE088" className="drop-shadow-[0_0_8px_rgba(255,224,136,0.8)]">
-              <path d="M 12 0 L 14 9 L 24 12 L 14 15 L 12 24 L 10 15 L 0 12 L 10 9 Z" />
-            </svg>
-          </div>
-
-          {/* Top-right star */}
-          <div
-            className="absolute animate-star-twinkle transition-transform duration-700 ease-out"
-            style={{
-              top: '22%',
-              right: '14%',
-              transform: `translate(${(mousePos.x - 50) * 0.25}px, ${(mousePos.y - 25) * -0.15}px)`,
-              animationDelay: '1.4s',
-            }}
-          >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="#D4AF37" className="drop-shadow-[0_0_8px_rgba(212,175,55,0.8)]">
-              <path d="M 12 0 L 14 9 L 24 12 L 14 15 L 12 24 L 10 15 L 0 12 L 10 9 Z" />
-            </svg>
-          </div>
-
-          {/* Mid-left star (near phone) */}
-          <div
-            className="absolute animate-star-twinkle transition-transform duration-700 ease-out"
-            style={{
-              top: '46%',
-              left: '18%',
-              transform: `translate(${(mousePos.x - 50) * -0.15}px, ${(mousePos.y - 25) * 0.2}px)`,
-              animationDelay: '2.2s',
-            }}
-          >
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="#FFE088" className="drop-shadow-[0_0_6px_rgba(255,224,136,0.6)]">
-              <path d="M 12 0 L 14 9 L 24 12 L 14 15 L 12 24 L 10 15 L 0 12 L 10 9 Z" />
-            </svg>
-          </div>
-
-          {/* Mid-right star (near phone/mascot) */}
-          <div
-            className="absolute animate-star-twinkle transition-transform duration-700 ease-out"
-            style={{
-              top: '52%',
-              right: '16%',
-              transform: `translate(${(mousePos.x - 50) * 0.2}px, ${(mousePos.y - 25) * 0.25}px)`,
-              animationDelay: '0.8s',
-            }}
-          >
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="#FFF2CC" className="drop-shadow-[0_0_10px_rgba(255,242,204,0.9)]">
-              <path d="M 12 0 L 14 9 L 24 12 L 14 15 L 12 24 L 10 15 L 0 12 L 10 9 Z" />
-            </svg>
-          </div>
-        </div>
-      )}
+      {/* ── 5. Bottom Stage Floor Linear Falloff (Seamless transition into page body) ── */}
+      <div className="absolute inset-x-0 bottom-0 h-96 bg-gradient-to-b from-transparent via-[#140206]/70 to-[#140206]" />
     </div>
   )
 }

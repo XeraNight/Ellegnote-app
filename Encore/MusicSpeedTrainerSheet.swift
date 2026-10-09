@@ -3,293 +3,321 @@ import AVFoundation
 import Combine
 import OSLog
 
-// MARK: - MusicSpeedTrainerSheet
+// MARK: - Hudba
+/// Your own song slower or faster without changing its key (BRAND_GUIDELINES §1A).
+/// With a dance chosen it also says what tempo the song is at, assuming it was at the basic tempo.
 struct MusicSpeedTrainerSheet: View {
     @Environment(\.dismiss) private var dismiss
-    
-    @StateObject private var audioTrainer = MusicSpeedTrainerEngine()
+    @StateObject private var player = MusicSpeedTrainerEngine()
     @State private var showDocumentPicker = false
-    
-    // Quick Dance BPM Presets
-    let dancePresets = [
-        ("Waltz", 29),
-        ("Tango", 32),
-        ("Slowfox", 29),
-        ("Quickstep", 51),
-        ("Samba", 51),
-        ("Cha-Cha", 31),
-        ("Rumba", 26),
-        ("Jive", 43)
+    @State private var dance: DanceMetronomePreset?
+
+    private static let dances: [DanceMetronomePreset] = [
+        .waltz, .tango, .vienneseWaltz, .slowfox, .quickstep, .samba, .chacha, .rumba, .pasoDoble, .jive
     ]
-    
+    private static let speeds: [Float] = [0.8, 0.9, 1.0, 1.1]
+
     var body: some View {
         NavigationStack {
             ZStack {
-                ElleganceToolBackground()
-                
-                VStack(spacing: 24) {
-                    // 1. Audio Track Display Card
-                    VStack(spacing: 12) {
-                        HStack {
-                            Image(systemName: "music.note.list")
-                                .font(.system(size: 28))
-                                .foregroundColor(.themeAccent)
-                            
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(audioTrainer.currentTrackTitle)
-                                    .font(.system(size: 16, weight: .bold))
-                                    .foregroundColor(.themeDark)
-                                    .lineLimit(1)
-                                
-                                Text(audioTrainer.isPlaying ? "Prehráva sa (Time-Pitch Engine)" : "Pozastavené")
-                                    .font(.system(size: 12))
-                                    .foregroundColor(.themeTextSecondary)
-                            }
-                            
-                            Spacer()
-                            
-                            Button("Zmeniť skladbu") {
-                                showDocumentPicker = true
-                            }
-                            .font(.system(size: 12, weight: .bold))
-                            .foregroundColor(.themeAccent)
-                        }
+                EllegancePageBackground()
+
+                ScrollView(showsIndicators: false) {
+                    VStack(alignment: .leading, spacing: 22) {
+                        Text("Pusti si vlastnú skladbu pomalšie alebo rýchlejšie. Tónina sa nemení.")
+                            .font(.subheadline)
+                            .foregroundColor(.white.opacity(0.7))
+                            .fixedSize(horizontal: false, vertical: true)
+
+                        trackCard
+                        speedCard
+                        danceCard
                     }
-                    .padding(18)
-                    .luxurySmokedCard(cornerRadius: 16, accentColor: Color.gold400)
-                    .padding(.horizontal, 16)
+                    .padding(.horizontal, 20)
                     .padding(.top, 8)
-                    
-                    // 2. Dynamic BPM & Rate Gauge
-                    HStack(spacing: 16) {
-                        VStack(spacing: 4) {
-                            Text("RÝCHLOSŤ")
-                                .font(.system(size: 10, weight: .black))
-                                .foregroundColor(.themeTextSecondary)
-                            Text("\(Int(audioTrainer.playbackRate * 100)) %")
-                                .font(.system(size: 32, weight: .black, design: .rounded))
-                                .foregroundColor(.latinRed)
-                        }
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 16)
-                        .luxurySmokedCard(cornerRadius: 16, accentColor: Color.latinRed)
-                        
-                        VStack(spacing: 4) {
-                            Text("UPRAVENÉ TEMPO")
-                                .font(.system(size: 10, weight: .black))
-                                .foregroundColor(.themeTextSecondary)
-                            Text(String(format: "%.1f MPM", audioTrainer.baseMPM * Double(audioTrainer.playbackRate)))
-                                .font(.system(size: 28, weight: .black, design: .monospaced))
-                                .foregroundColor(.themeAccent)
-                        }
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 16)
-                        .luxurySmokedCard(cornerRadius: 16, accentColor: Color.gold400)
-                    }
-                    .padding(.horizontal, 16)
-                    
-                    // 3. Rate Slider Deck (70% - 130%)
-                    VStack(alignment: .leading, spacing: 10) {
-                        HStack {
-                            Text("POSUVNÍK RÝCHLOSTI (BEZ ZMENY TÓNINY)")
-                                .font(.system(size: 11, weight: .black))
-                                .foregroundColor(.themeTextSecondary)
-                            Spacer()
-                            Button("Reset (100%)") {
-                                audioTrainer.setRate(1.0)
-                            }
-                            .font(.system(size: 11, weight: .bold))
-                            .foregroundColor(.themeAccent)
-                        }
-                        
-                        Slider(
-                            value: Binding(
-                                get: { Double(audioTrainer.playbackRate) },
-                                set: { audioTrainer.setRate(Float($0)) }
-                            ),
-                            in: 0.70...1.30,
-                            step: 0.01
-                        )
-                        .tint(.latinRed)
-                        
-                        HStack {
-                            Text("70% (Spomalenie)")
-                                .font(.system(size: 10, weight: .bold))
-                                .foregroundColor(.themeTextSecondary)
-                            Spacer()
-                            Text("100% (Normál)")
-                                .font(.system(size: 10, weight: .bold))
-                                .foregroundColor(.themeDark)
-                            Spacer()
-                            Text("130% (Zrýchlenie)")
-                                .font(.system(size: 10, weight: .bold))
-                                .foregroundColor(.themeTextSecondary)
-                        }
-                    }
-                    .padding(18)
-                    .luxurySmokedCard(cornerRadius: 16, accentColor: Color.gold400)
-                    .padding(.horizontal, 16)
-                    
-                    // 4. Quick Dance MPM Presets
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("RÝCHLE TANEČNÉ MPM")
-                            .font(.system(size: 11, weight: .black))
-                            .foregroundColor(.themeTextSecondary)
-                        
-                        ScrollView(.horizontal, showsIndicators: false) {
-                            HStack(spacing: 8) {
-                                ForEach(dancePresets, id: \.0) { name, mpm in
-                                    Button {
-                                        audioTrainer.baseMPM = Double(mpm)
-                                    } label: {
-                                        Text("\(name) (\(mpm))")
-                                            .font(.system(size: 12, weight: .bold))
-                                            .padding(.horizontal, 12)
-                                            .padding(.vertical, 8)
-                                            .background(audioTrainer.baseMPM == Double(mpm) ? Color.amberGold : Color.white.opacity(0.08))
-                                            .foregroundColor(audioTrainer.baseMPM == Double(mpm) ? .black : Color.white.opacity(0.85))
-                                            .cornerRadius(12)
-                                            .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.gold400.opacity(0.30), lineWidth: 1))
-                                    }
-                                    .buttonStyle(.plain)
-                                }
-                            }
-                        }
-                    }
-                    .padding(.horizontal, 16)
-                    
-                    Spacer()
-                    
-                    // 5. Main Play / Pause Button
-                    Button(action: audioTrainer.togglePlayPause) {
-                        HStack(spacing: 12) {
-                            Image(systemName: audioTrainer.isPlaying ? "pause.fill" : "play.fill")
-                                .font(.system(size: 20, weight: .bold))
-                            Text(audioTrainer.isPlaying ? "Pozastaviť prehrávanie" : "Spustiť tréningovú hudbu")
-                                .font(.system(size: 16, weight: .bold))
-                        }
-                        .foregroundColor(.white)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 16)
-                    }
-                    .buttonStyle(.neubrutalist(accentColor: Color.themeAccent, cornerRadius: 18))
-                    .padding(.horizontal, 16)
-                    .padding(.bottom, 16)
+                    .padding(.bottom, 24)
                 }
             }
-            .navigationTitle("Music Speed Trainer")
+            .safeAreaInset(edge: .bottom) {
+                PrimarySheetButton(
+                    title: player.hasTrack ? (player.isPlaying ? "Pozastaviť" : "Prehrať") : "Vybrať skladbu",
+                    isLoading: false,
+                    isEnabled: true
+                ) {
+                    if player.hasTrack { player.togglePlayPause() } else { showDocumentPicker = true }
+                }
+                .padding(.horizontal, 20)
+                .padding(.bottom, 8)
+            }
+            .navigationTitle("Hudba")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
+                ToolbarItem(placement: .cancellationAction) {
                     Button("Hotovo") { dismiss() }
-                        .foregroundColor(.gold400)
+                        .foregroundColor(Color.gold400)
                 }
             }
             .sheet(isPresented: $showDocumentPicker) {
-                AudioDocumentPicker { url in
-                    audioTrainer.loadTrack(url: url)
+                AudioDocumentPicker { url in player.loadTrack(url: url) }
+            }
+            .alert("Skladbu sa nepodarilo otvoriť", isPresented: Binding(
+                get: { player.loadError != nil },
+                set: { if !$0 { player.loadError = nil } }
+            )) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text(player.loadError ?? "")
+            }
+        }
+        .sensoryFeedback(.selection, trigger: player.playbackRate)
+        .sensoryFeedback(.selection, trigger: dance)
+        .sensoryFeedback(.impact(weight: .medium), trigger: player.isPlaying)
+        .onDisappear { player.stop() }
+    }
+
+    // MARK: Track
+    private var trackCard: some View {
+        HStack(spacing: 14) {
+            Image(systemName: player.isPlaying ? "waveform" : "music.note")
+                .font(.title3.weight(.semibold))
+                .foregroundColor(Color.gold400)
+                .symbolEffect(.variableColor.iterative, isActive: player.isPlaying)
+                .frame(width: 44, height: 44)
+                .background(Color.gold500.opacity(0.14), in: Circle())
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text(player.trackTitle ?? "Žiadna skladba")
+                    .font(.subheadline.weight(.bold))
+                    .foregroundColor(.white)
+                    .lineLimit(1)
+                Text(player.hasTrack ? (player.isPlaying ? "Hrá" : "Pozastavené") : "Vyber skladbu zo Súborov")
+                    .font(.caption)
+                    .foregroundColor(.white.opacity(0.6))
+            }
+
+            Spacer(minLength: 8)
+
+            if player.hasTrack {
+                Button("Zmeniť") { showDocumentPicker = true }
+                    .font(.footnote.weight(.bold))
+                    .foregroundColor(Color.gold400)
+                    .buttonStyle(.pressable)
+                    .frame(minHeight: 44)
+            }
+        }
+        .padding(16)
+        .homeCard(cornerRadius: 20)
+    }
+
+    // MARK: Speed
+    private var speedCard: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HomeSectionHeader(title: "RÝCHLOSŤ", systemImage: "gauge.with.dots.needle.67percent") {
+                if abs(player.playbackRate - 1) > 0.001 {
+                    Button("Pôvodná") { player.setRate(1) }
+                        .font(.footnote.weight(.bold))
+                        .foregroundColor(Color.gold400)
+                        .buttonStyle(.pressable)
+                }
+            }
+
+            Text("\(percent(player.playbackRate)) %")
+                .font(.system(size: 44, weight: .black, design: .rounded))
+                .foregroundColor(.white)
+                .contentTransition(.numericText())
+                .frame(maxWidth: .infinity)
+                .animation(.spring(response: 0.3, dampingFraction: 0.8), value: player.playbackRate)
+
+            Slider(
+                value: Binding(get: { Double(player.playbackRate) }, set: { player.setRate(Float($0)) }),
+                in: 0.7...1.3,
+                step: 0.01
+            ) {
+                Text("Rýchlosť")
+            } minimumValueLabel: {
+                Text("70 %").font(.caption2).foregroundColor(.white.opacity(0.6))
+            } maximumValueLabel: {
+                Text("130 %").font(.caption2).foregroundColor(.white.opacity(0.6))
+            }
+            .tint(Color.gold400)
+
+            HStack(spacing: 8) {
+                ForEach(Self.speeds, id: \.self) { speed in
+                    let isSelected = abs(player.playbackRate - speed) < 0.005
+                    Button { player.setRate(speed) } label: {
+                        Text("\(percent(speed)) %")
+                            .font(.footnote.weight(isSelected ? .bold : .semibold))
+                            .foregroundColor(isSelected ? Color.obsidian900 : .white.opacity(0.85))
+                            .frame(maxWidth: .infinity, minHeight: 36)
+                            .background(isSelected ? Color.gold400 : Color.white.opacity(0.08), in: Capsule())
+                    }
+                    .buttonStyle(.pressable)
+                    .accessibilityAddTraits(isSelected ? .isSelected : [])
                 }
             }
         }
-        .onDisappear {
-            audioTrainer.stop()
-        }
+        .padding(16)
+        .homeCard(cornerRadius: 20)
     }
+
+    // MARK: Dance tempo
+    private var danceCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HomeSectionHeader(title: "TEMPO TANCA", systemImage: "metronome")
+
+            FlowLayout(spacing: 8) {
+                ForEach(Self.dances) { preset in
+                    let isSelected = dance == preset
+                    Button { dance = isSelected ? nil : preset } label: {
+                        Text(preset.chipName)
+                            .font(.footnote.weight(.semibold))
+                            .foregroundColor(isSelected ? Color.obsidian900 : .white.opacity(0.9))
+                            .padding(.horizontal, 14)
+                            .frame(minHeight: 34)
+                            .background(isSelected ? Color.gold400 : Color.white.opacity(0.08), in: Capsule())
+                    }
+                    .buttonStyle(.pressable)
+                    .accessibilityAddTraits(isSelected ? .isSelected : [])
+                }
+            }
+
+            Group {
+                if let dance {
+                    let tempo = Int((dance.mpm * Double(player.playbackRate)).rounded())
+                    Text("Ak skladba hrá základným tempom \(Int(dance.mpm)) taktov za minútu, teraz hrá **\(tempo)**.")
+                        .contentTransition(.numericText())
+                } else {
+                    Text("Vyber tanec a uvidíš, koľko taktov za minútu skladba hrá pri tejto rýchlosti.")
+                }
+            }
+            .font(.footnote)
+            .foregroundColor(.white.opacity(0.75))
+            .fixedSize(horizontal: false, vertical: true)
+            .animation(.spring(response: 0.3, dampingFraction: 0.8), value: player.playbackRate)
+        }
+        .padding(16)
+        .homeCard(cornerRadius: 20)
+    }
+
+    private func percent(_ rate: Float) -> Int { Int((rate * 100).rounded()) }
 }
 
-// MARK: - Music Speed Trainer Engine (AVAudioEngine + AVAudioUnitTimePitch)
+// MARK: - Engine (AVAudioEngine + AVAudioUnitTimePitch)
 final class MusicSpeedTrainerEngine: ObservableObject, @unchecked Sendable {
     private let audioEngine = AVAudioEngine()
     private let playerNode = AVAudioPlayerNode()
     private let timePitch = AVAudioUnitTimePitch()
-    
-    @Published var isPlaying: Bool = false
-    @Published var playbackRate: Float = 1.0
-    @Published var currentTrackTitle: String = "Tréningový tanečný takt"
-    @Published var baseMPM: Double = 29.0
-    
+
+    @Published private(set) var isPlaying = false
+    @Published private(set) var playbackRate: Float = 1.0
+    @Published private(set) var trackTitle: String?
+    @Published var loadError: String?
+
     private var audioFile: AVAudioFile?
-    
+    /// The song must be scheduled again after it played to the end or was stopped.
+    private var needsSchedule = true
+    /// Only the newest scheduling may report the end of the song.
+    private var scheduleID = 0
+
+    var hasTrack: Bool { audioFile != nil }
+
     init() {
-        setupEngine()
-    }
-    
-    private func setupEngine() {
         audioEngine.attach(playerNode)
         audioEngine.attach(timePitch)
-        
-        // Connect playerNode -> timePitch -> mainMixerNode
         audioEngine.connect(playerNode, to: timePitch, format: nil)
         audioEngine.connect(timePitch, to: audioEngine.mainMixerNode, format: nil)
-        
-        timePitch.pitch = 0.0 // Zero pitch shift guaranteed
-        timePitch.rate = 1.0
-        
-        try? audioEngine.start()
+        timePitch.pitch = 0
+        timePitch.rate = 1
     }
-    
+
     func setRate(_ rate: Float) {
         playbackRate = max(0.5, min(rate, 2.0))
         timePitch.rate = playbackRate
     }
-    
+
     func loadTrack(url: URL) {
         do {
             let file = try AVAudioFile(forReading: url)
-            self.audioFile = file
-            self.currentTrackTitle = url.deletingPathExtension().lastPathComponent
-            
-            playerNode.stop()
-            playerNode.scheduleFile(file, at: nil) { [weak self] in
-                DispatchQueue.main.async {
-                    self?.isPlaying = false
-                }
-            }
+            stopPlayback()
+            audioFile = file
+            trackTitle = url.deletingPathExtension().lastPathComponent
+            needsSchedule = true
         } catch {
             Logger.audio.error("Loading audio file failed: \(error.localizedDescription, privacy: .public)")
+            loadError = "Tento súbor sa nedá prehrať. Skús skladbu vo formáte MP3, M4A alebo WAV."
         }
     }
-    
+
     func togglePlayPause() {
         if isPlaying {
             playerNode.pause()
             isPlaying = false
-        } else {
+            return
+        }
+        guard let audioFile else { return }
+        Task { @MainActor in
+            try? await AudioSessionCoordinator.shared.activate(.player)
             if !audioEngine.isRunning {
-                try? audioEngine.start()
+                do { try audioEngine.start() } catch {
+                    Logger.audio.error("Starting the audio engine failed: \(error.localizedDescription, privacy: .public)")
+                    return
+                }
             }
+            if needsSchedule { schedule(audioFile) }
             playerNode.play()
             isPlaying = true
         }
     }
-    
+
     func stop() {
-        playerNode.stop()
+        stopPlayback()
         audioEngine.stop()
+        Task { await AudioSessionCoordinator.shared.deactivate(.player) }
+    }
+
+    private func stopPlayback() {
+        scheduleID += 1
+        playerNode.stop()
         isPlaying = false
+        needsSchedule = true
+    }
+
+    private func schedule(_ file: AVAudioFile) {
+        scheduleID += 1
+        let id = scheduleID
+        needsSchedule = false
+        playerNode.scheduleFile(file, at: nil, completionCallbackType: .dataPlayedBack) { [weak self] _ in
+            Task { @MainActor in
+                guard let self, self.scheduleID == id else { return }
+                // Played to the end: the next tap starts the song from the beginning.
+                self.playerNode.stop()
+                self.isPlaying = false
+                self.needsSchedule = true
+            }
+        }
     }
 }
 
 // MARK: - Audio Document Picker
 struct AudioDocumentPicker: UIViewControllerRepresentable {
     let onPick: (URL) -> Void
-    
+
     func makeUIViewController(context: Context) -> UIDocumentPickerViewController {
         let picker = UIDocumentPickerViewController(forOpeningContentTypes: [.audio], asCopy: true)
         picker.delegate = context.coordinator
         return picker
     }
-    
+
     func updateUIViewController(_ uiViewController: UIDocumentPickerViewController, context: Context) {}
-    
+
     func makeCoordinator() -> Coordinator {
         Coordinator(onPick: onPick)
     }
-    
+
     class Coordinator: NSObject, UIDocumentPickerDelegate {
         let onPick: (URL) -> Void
         init(onPick: @escaping (URL) -> Void) { self.onPick = onPick }
-        
+
         func documentPicker(_ controller: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL]) {
             if let first = urls.first {
                 onPick(first)
@@ -299,7 +327,7 @@ struct AudioDocumentPicker: UIViewControllerRepresentable {
 }
 
 // MARK: - Xcode Canvas Preview
-#Preview("MusicSpeedTrainerSheet") {
+#Preview("Hudba") {
     MusicSpeedTrainerSheet()
         .preferredColorScheme(.dark)
 }

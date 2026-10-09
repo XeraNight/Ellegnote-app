@@ -12,10 +12,10 @@ export default function PricingSection() {
           </span>
         </div>
         <h2 className="text-3xl sm:text-5xl font-serif font-black tracking-tight text-white">
-          Investícia do Vášho tanečného rastu
+          Investícia do tvojho tanečného rastu
         </h2>
-        <p className="text-sm sm:text-base text-zinc-400">
-          Zvoľte si úroveň, ktorá najlepšie zodpovedá Vašim tréningovým cieľom. Všetky nákupy sú bezpečne spravované cez Apple In-App Purchase.
+        <p className="text-sm sm:text-base text-zinc-300">
+          Zvoľ si úroveň, ktorá najlepšie zodpovedá tvojim tréningovým cieľom. Všetky nákupy sú bezpečne spravované cez Apple In-App Purchase.
         </p>
       </div>
 
@@ -23,7 +23,7 @@ export default function PricingSection() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-stretch">
         
         {/* Tier 1: Free */}
-        <div className="rounded-3xl p-8 surface-obsidian flex flex-col justify-between">
+        <div className="rounded-3xl p-8 bg-[#1E0409]/80 border border-white/10 backdrop-blur-2xl flex flex-col justify-between shadow-2xl">
           <div className="space-y-4">
             <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-zinc-400">
               Pre každého tanečníka
@@ -64,7 +64,7 @@ export default function PricingSection() {
         </div>
 
         {/* Tier 2: Plus (Featured) */}
-        <div className="rounded-3xl p-8 surface-obsidian border-2 border-[#D4AF37] shadow-[0_0_35px_rgba(212,175,55,0.22)] relative flex flex-col justify-between shadow-[0_0_40px_rgba(212,175,55,0.25)]">
+        <div className="rounded-3xl p-8 bg-[#2A050D]/90 border-2 border-[#D4AF37] shadow-[0_0_35px_rgba(212,175,55,0.22)] relative flex flex-col justify-between backdrop-blur-2xl">
           <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full bg-gradient-to-r from-[#FFE088] to-[#D4AF37] text-black font-extrabold text-[10px] uppercase tracking-widest shadow-md">
             Najobľúbenejšie pre páry
           </div>
@@ -112,7 +112,7 @@ export default function PricingSection() {
         </div>
 
         {/* Tier 3: Studio (User's specific positioning) */}
-        <div className="rounded-3xl p-8 surface-obsidian flex flex-col justify-between relative overflow-hidden">
+        <div className="rounded-3xl p-8 bg-[#1E0409]/80 border border-white/10 backdrop-blur-2xl flex flex-col justify-between relative overflow-hidden shadow-2xl">
           <div className="space-y-4">
             <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-[#FFE088]">
               Tréneri & Ambiciózni Tanečníci
@@ -124,7 +124,7 @@ export default function PricingSection() {
             </div>
             
             {/* Highlighted value proposition */}
-            <div className="p-3 rounded-xl bg-[#141418] border border-[#FFE088]/25">
+            <div className="p-3 rounded-xl bg-black/40 border border-[#FFE088]/25">
               <p className="text-xs font-semibold text-[#FFE088] leading-relaxed">
                 „Pre trénerov a tanečníkov, ktorí chcú napredovať čo najrýchlejšie a najefektívnejšie.“
               </p>

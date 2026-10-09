@@ -128,11 +128,12 @@ struct ContentView: View {
                             await AuthManager.shared.checkCurrentSession()
                             await SupabaseSyncManager.shared.pullRoutines(into: modelContext)
                         }
-                        // While typing, the header scrolls up so the field sits at the top.
+                        // The page stays where it is; it only moves by the few points needed
+                        // when part of the field is scrolled out of view.
                         .onChange(of: isTyping) { _, typing in
                             guard typing else { return }
-                            withAnimation(.spring(response: 0.42, dampingFraction: 0.86)) {
-                                proxy.scrollTo("capture", anchor: .top)
+                            withAnimation(.smooth(duration: 0.35)) {
+                                proxy.scrollTo("capture")
                             }
                         }
                     }
