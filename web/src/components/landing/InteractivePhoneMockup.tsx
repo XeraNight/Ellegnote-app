@@ -1,7 +1,6 @@
 'use client'
 
 import React, { useState, useEffect, useRef } from 'react'
-import EncoreMascot from './EncoreMascot'
 
 type MockupTab = 'canvas' | 'video' | 'metronome' | 'planner'
 
@@ -258,8 +257,8 @@ export default function InteractivePhoneMockup() {
         </button>
       </div>
 
-      {/* ── Interactive Playground: Phone Frame + Discord-Style Mascot Allegro ── */}
-      <div className="relative w-full max-w-4xl flex flex-col lg:flex-row items-center justify-center gap-8 lg:gap-14">
+      {/* ── Interactive Playground: Phone Frame ── */}
+      <div className="relative w-full flex items-center justify-center">
 
       {/* ── Realistic iPhone 16 Pro Titanium Chassis ─────────────────── */}
       <div
@@ -907,35 +906,6 @@ export default function InteractivePhoneMockup() {
 
           {/* Native Home Indicator Line */}
           <div className="absolute bottom-1.5 left-1/2 -translate-x-1/2 w-28 h-1 bg-zinc-600 rounded-full" />
-        </div>
-      </div>
-
-      {/* ── Discord-Style Mascot Allegro Side Panel Companion ── */}
-      <div className="flex flex-col items-center lg:items-start text-center lg:text-left gap-3 max-w-xs shrink-0 animate-fadeIn">
-        <EncoreMascot
-          isPlayingMetronome={isPlayingMetronome}
-          currentBeat={currentBeat}
-          onPlayClick={() => {
-            playUiClick()
-            getAudioContext()
-            setIsPlayingMetronome((prev) => !prev)
-          }}
-        />
-        
-        <div className="bg-[#121216] border border-[#FFE088]/20 p-3.5 rounded-2xl shadow-xl backdrop-blur-md">
-          <div className="flex items-center gap-2 mb-1 justify-center lg:justify-start">
-            <span className="w-2 h-2 rounded-full bg-[#FFE088] animate-pulse" />
-            <span className="text-[10px] font-mono text-[#FFE088] font-bold uppercase tracking-wider">
-              Tanečný Asistent Allegro
-            </span>
-          </div>
-          <p className="text-xs text-zinc-300 leading-snug">
-            Kliknutím na Allegra získate ďalší trénerský pokyn, alebo spustite metronóm v telefóne a sledujte, ako drží rytmus.
-          </p>
-          <div className="mt-2.5 pt-2 border-t border-white/10 flex items-center justify-between text-[10px] font-mono text-zinc-400">
-            <span>Doba: <strong className="text-[#FFE088]">{currentBeat} / 3</strong></span>
-            <span>Tempo: <strong className="text-white">{tempoMPM} MPM</strong></span>
-          </div>
         </div>
       </div>
 
